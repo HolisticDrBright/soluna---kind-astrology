@@ -11,9 +11,9 @@ export interface AppState {
 
 const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const [state, setState] = useState<AppState>({
-    hasOnboarded: false,
-    user: null,
-    onboardingStep: "welcome",
+    hasOnboarded: true,
+    user: MOCK_USER,
+    onboardingStep: "reveal",
   });
 
   const setOnboardingStep = useCallback((step: OnboardingStep) => {

@@ -28,15 +28,14 @@ export default function TabLayout() {
   const { hasOnboarded } = useAppState();
   const rootNavState = useRootNavigationState();
 
-  // Defer redirect until after the navigation container has fully mounted.
-  // requestAnimationFrame runs after paint — past the commit phase where
-  // the "navigate before mounting" assertion fires.
+  // Redirect to onboarding if the user hasn't completed it.
+  // The key check ensures the navigator is fully mounted.
   useEffect(() => {
     if (rootNavState?.key && !hasOnboarded) {
-      const raf = requestAnimationFrame(() => {
+      const id = setTimeout(() => {
         router.replace("/onboarding");
-      });
-      return () => cancelAnimationFrame(raf);
+      }, 100);
+      return () => clearTimeout(id);
     }
   }, [rootNavState?.key, hasOnboarded]);
 
