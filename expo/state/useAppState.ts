@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import createContextHook from "@nkzw/create-context-hook";
-import type { UserData, OnboardingStep, ChartData, Placement } from "@/constants/mockData";
+import type { UserData, OnboardingStep, Placement } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/mockData";
 
 export interface AppState {
@@ -35,7 +35,6 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     setState({ hasOnboarded: false, user: null, onboardingStep: "welcome" });
   }, []);
 
-  // Convenience: get a placement by planet
   const getPlacement = useCallback(
     (planet: string): Placement | null => {
       if (!state.user?.chart) return null;

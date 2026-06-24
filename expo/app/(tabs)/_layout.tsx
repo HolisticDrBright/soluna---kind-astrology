@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity } from "react-native";
 import {
   Sun,
-  Moon,
+  Compass,
   MessageCircle,
   Heart,
   User,
@@ -69,10 +69,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="chart"
+        name="blueprint"
         options={{
-          title: "Chart",
-          tabBarIcon: ({ color }) => <TabIcon icon={Moon} color={color} />,
+          title: "Blueprint",
+          tabBarIcon: ({ color }) => <TabIcon icon={Compass} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -94,7 +94,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "You",
           tabBarIcon: ({ color }) => <TabIcon icon={User} color={color} />,
         }}
       />

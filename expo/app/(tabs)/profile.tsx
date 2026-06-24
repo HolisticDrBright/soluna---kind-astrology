@@ -1,477 +1,179 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC_SYMBOLS, Fonts } from "@/constants/mockData";
-import {
-  Sun,
-  Moon,
-  Star,
-  Bell,
-  Clock,
-  Lock,
-  ChevronRight,
-  Sparkles,
-  Crown,
-  LogOut,
-  Shield,
-  CircleHelp,
-} from "lucide-react-native";
+import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts, type BlueprintSummary } from "@/constants/mockData";
+import { getBlueprintSummary } from "@/constants/mockData";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Bird, Cpu, Heart } from "lucide-react-native";
 
-// ─── Setting Row ──────────────────────────────────────────────────
-function SettingRow({
-  icon,
-  label,
-  value,
-  onPress,
-  isLast,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value?: string;
-  onPress?: () => void;
-  isLast?: boolean;
-}) {
+function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
   return (
-    <TouchableOpacity
-      style={[rowStyles.row, !isLast && rowStyles.border]}
-      onPress={onPress}
-      activeOpacity={0.6}
-    >
-      <View style={rowStyles.icon}>{icon}</View>
-      <Text style={rowStyles.label}>{label}</Text>
-      <View style={rowStyles.right}>
-        {value && <Text style={rowStyles.value}>{value}</Text>}
-        {onPress && <ChevronRight size={16} color={SolunaColors.creamSubtle} />}
-      </View>
+    <TouchableOpacity style={[rS.row, !isLast && rS.border]} onPress={onPress} activeOpacity={0.6}>
+      <View style={rS.icon}>{icon}</View>
+      <Text style={rS.label}>{label}</Text>
+      <View style={rS.right}>{value && <Text style={rS.value}>{value}</Text>}{onPress && <ChevronRight size={16} color={SolunaColors.creamSubtle} />}</View>
     </TouchableOpacity>
   );
 }
-
-function SettingToggle({
-  icon,
-  label,
-  value,
-  onChange,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function SettingToggle({ icon, label, value, onChange }: { icon: React.ReactNode; label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <View style={[rowStyles.row, rowStyles.border]}>
-      <View style={rowStyles.icon}>{icon}</View>
-      <Text style={rowStyles.label}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{
-          false: "rgba(255,255,255,0.1)",
-          true: "rgba(232,184,109,0.3)",
-        }}
-        thumbColor={value ? SolunaColors.warmGold : SolunaColors.creamSubtle}
-      />
+    <View style={[rS.row, rS.border]}>
+      <View style={rS.icon}>{icon}</View>
+      <Text style={rS.label}>{label}</Text>
+      <Switch value={value} onValueChange={onChange} trackColor={{ false: "rgba(255,255,255,0.1)", true: "rgba(232,184,109,0.3)" }} thumbColor={value ? SolunaColors.warmGold : SolunaColors.creamSubtle} />
     </View>
   );
 }
-
-const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    gap: 14,
-    paddingHorizontal: 4,
-  },
-  border: {
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
-  },
-  icon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  label: {
-    flex: 1,
-    fontSize: 15,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-  },
-  right: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  value: {
-    fontSize: 13,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-  },
+const rS = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 14, gap: 14, paddingHorizontal: 4 },
+  border: { borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.04)" },
+  icon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center", justifyContent: "center" },
+  label: { flex: 1, fontSize: 15, color: SolunaColors.cream, fontFamily: Fonts.body },
+  right: { flexDirection: "row", alignItems: "center", gap: 6 },
+  value: { fontSize: 13, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
 });
 
-// ─── Premium Banner ───────────────────────────────────────────────
+function SystemChip({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={cS.wrap}>
+      <Text style={[cS.value, { color }]}>{value}</Text>
+      <Text style={cS.label}>{label}</Text>
+    </View>
+  );
+}
+const cS = StyleSheet.create({
+  wrap: { alignItems: "center", paddingHorizontal: 8, paddingVertical: 8, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", minWidth: 60 },
+  value: { fontSize: 14, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 2 },
+  label: { fontSize: 9, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: "600", fontFamily: Fonts.body },
+});
+
 function PremiumBanner() {
   return (
-    <TouchableOpacity
-      style={premStyles.wrap}
-      onPress={() => router.push("/paywall")}
-      activeOpacity={0.8}
-    >
-      <LinearGradient
-        colors={["rgba(232,184,109,0.12)", "rgba(242,168,141,0.06)"]}
-        style={premStyles.inner}
-      >
-        <View style={premStyles.topRow}>
+    <TouchableOpacity style={pS.wrap} onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+      <LinearGradient colors={["rgba(232,184,109,0.12)", "rgba(242,168,141,0.06)"]} style={pS.inner}>
+        <View style={pS.topRow}>
           <Crown size={20} color={SolunaColors.warmGold} />
-          <View style={premStyles.premBadge}>
-            <Text style={premStyles.premBadgeText}>SOLUNA PREMIUM</Text>
-          </View>
+          <View style={pS.premBadge}><Text style={pS.premBadgeText}>SOLUNA PREMIUM</Text></View>
         </View>
-        <Text style={premStyles.title}>
-          Unlock the full experience
-        </Text>
-        <Text style={premStyles.body}>
-          Unlimited chart readings, complete compatibility insights, all
-          transits, and exclusive daily content.
-        </Text>
-        <View style={premStyles.cta}>
-          <Text style={premStyles.ctaText}>Go Premium</Text>
-          <ChevronRight size={16} color={SolunaColors.deepIndigo} />
-        </View>
+        <Text style={pS.title}>Unlock your full Blueprint</Text>
+        <Text style={pS.body}>All four lenses fully unlocked, unlimited Ask Soluna, cross-system reports, full compatibility, and more.</Text>
+        <View style={pS.cta}><Text style={pS.ctaText}>Go Premium</Text><ChevronRight size={16} color={SolunaColors.deepIndigo} /></View>
       </LinearGradient>
     </TouchableOpacity>
   );
 }
-
-const premStyles = StyleSheet.create({
-  wrap: {
-    borderRadius: SolunaRadius.lg,
-    overflow: "hidden",
-    marginBottom: 24,
-  },
-  inner: {
-    padding: 20,
-    borderRadius: SolunaRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(232,184,109,0.15)",
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  premBadge: {
-    backgroundColor: "rgba(232,184,109,0.15)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  premBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: SolunaColors.warmGold,
-    letterSpacing: 1.5,
-    fontFamily: Fonts.body,
-  },
-  title: {
-    fontSize: 18,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.cream,
-    marginBottom: 8,
-  },
-  body: {
-    fontSize: 13,
-    color: SolunaColors.creamMuted,
-    lineHeight: 20,
-    marginBottom: 16,
-    fontFamily: Fonts.body,
-  },
-  cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: SolunaColors.warmGold,
-    paddingVertical: 12,
-    borderRadius: SolunaRadius.md,
-  },
-  ctaText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: SolunaColors.deepIndigo,
-    fontFamily: Fonts.body,
-  },
+const pS = StyleSheet.create({
+  wrap: { borderRadius: SolunaRadius.lg, overflow: "hidden", marginBottom: 24 },
+  inner: { padding: 20, borderRadius: SolunaRadius.lg, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)" },
+  topRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+  premBadge: { backgroundColor: "rgba(232,184,109,0.15)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  premBadgeText: { fontSize: 9, fontWeight: "800", color: SolunaColors.warmGold, letterSpacing: 1.5, fontFamily: Fonts.body },
+  title: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 8 },
+  body: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 20, marginBottom: 16, fontFamily: Fonts.body },
+  cta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: SolunaColors.warmGold, paddingVertical: 12, borderRadius: SolunaRadius.md },
+  ctaText: { fontSize: 15, fontWeight: "700", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
 });
 
-// ─── Profile Screen ──────────────────────────────────────────────
 export default function ProfileScreen() {
   const { user, resetOnboarding } = useAppState();
   const [dailyReading, setDailyReading] = useState(true);
   const [moonAlerts, setMoonAlerts] = useState(true);
   const [transitAlerts, setTransitAlerts] = useState(false);
+  const [personalDayAlert, setPersonalDayAlert] = useState(true);
 
   if (!user) return null;
+  const bp = getBlueprintSummary(user);
 
   return (
-    <LinearGradient
-      colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]}
-      style={screenStyles.gradient}
-    >
-      <ScrollView
-        style={screenStyles.scroll}
-        contentContainerStyle={screenStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Header */}
-        <View style={screenStyles.profileHeader}>
-          <View style={screenStyles.avatarLarge}>
-            <Text style={screenStyles.avatarLargeText}>
-              {user.name.charAt(0)}
-            </Text>
+    <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.gradient}>
+      <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={st.profileHeader}>
+          <View style={st.avatarLarge}><Text style={st.avatarLargeText}>{user.preferredName.charAt(0)}</Text></View>
+          <Text style={st.userName}>{user.preferredName}</Text>
+          {user.fullName !== user.preferredName && <Text style={st.fullName}>{user.fullName}</Text>}
+
+          {/* Blueprint summary chips */}
+          <View style={st.summaryRow}>
+            <SystemChip label="Sun" value={`${ZODIAC_SYMBOLS[bp.sunSign]} ${bp.sunSign}`} color={SolunaColors.warmGold} />
+            <SystemChip label="Moon" value={`${ZODIAC_SYMBOLS[bp.moonSign]} ${bp.moonSign}`} color={SolunaColors.gentleLavender} />
+            <SystemChip label="Rising" value={`${ZODIAC_SYMBOLS[bp.rising]} ${bp.rising}`} color={SolunaColors.softPeach} />
           </View>
-          <Text style={screenStyles.userName}>{user.name}</Text>
-          <View style={screenStyles.bigThreeChip}>
-            <Sun size={12} color={SolunaColors.warmGold} />
-            <Text style={screenStyles.bigThreeChipText}>
-              {ZODIAC_SYMBOLS[user.chart.sun.sign]} Sun ·{" "}
-              {ZODIAC_SYMBOLS[user.chart.moon.sign]} Moon ·{" "}
-              {ZODIAC_SYMBOLS[user.chart.rising]} Rising
-            </Text>
+          <View style={st.summaryRow}>
+            <SystemChip label="Life Path" value={String(bp.lifePath)} color={SolunaColors.gentleLavender} />
+            <SystemChip label="Chinese" value={`${CHINESE_ANIMAL_EMOJI[bp.animal]} ${bp.animal}`} color={SolunaColors.softPeach} />
+            <SystemChip label="Type" value={bp.hdType} color={SolunaColors.warmGold} />
           </View>
         </View>
 
-        {/* Premium Banner */}
         <PremiumBanner />
 
-        {/* Birth Details */}
-        <Text style={screenStyles.sectionTitle}>Your Birth Details</Text>
-        <View style={screenStyles.card}>
-          <SettingRow
-            icon={<Star size={18} color={SolunaColors.warmGold} />}
-            label="Birth date"
-            value={new Date(user.birthDate).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          />
-          <SettingRow
-            icon={<Clock size={18} color={SolunaColors.gentleLavender} />}
-            label="Birth time"
-            value={
-              user.birthTimeKnown
-                ? user.birthTime
-                : "Unknown (noon estimate)"
-            }
-          />
-          <SettingRow
-            icon={<Star size={18} color={SolunaColors.softPeach} />}
-            label="Birth place"
-            value={user.birthPlace}
-            isLast
-          />
+        <Text style={st.sectionTitle}>Your Birth Details</Text>
+        <View style={st.card}>
+          <SettingRow icon={<Star size={18} color={SolunaColors.warmGold} />} label="Full name" value={user.fullName} />
+          <SettingRow icon={<Heart size={18} color={SolunaColors.softPeach} />} label="Preferred name" value={user.preferredName} />
+          <SettingRow icon={<Star size={18} color={SolunaColors.warmGold} />} label="Birth date" value={new Date(user.birthDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} />
+          <SettingRow icon={<Clock size={18} color={SolunaColors.gentleLavender} />} label="Birth time" value={user.birthTimeKnown ? user.birthTime : "Unknown (noon estimate)"} />
+          <SettingRow icon={<Star size={18} color={SolunaColors.softPeach} />} label="Birth place" value={user.birthPlace} isLast />
         </View>
 
-        {/* Notification Settings */}
-        <Text style={screenStyles.sectionTitle}>Notifications</Text>
-        <View style={screenStyles.card}>
-          <SettingToggle
-            icon={<Bell size={18} color={SolunaColors.warmGold} />}
-            label="Daily reading"
-            value={dailyReading}
-            onChange={setDailyReading}
-          />
-          <SettingRow
-            icon={<Clock size={18} color={SolunaColors.creamMuted} />}
-            label="Reading time"
-            value="8:00 AM"
-          />
-          <SettingToggle
-            icon={<Moon size={18} color={SolunaColors.gentleLavender} />}
-            label="Moon phase alerts"
-            value={moonAlerts}
-            onChange={setMoonAlerts}
-          />
-          <SettingToggle
-            icon={<Sparkles size={18} color={SolunaColors.softPeach} />}
-            label="Big transit heads-up"
-            value={transitAlerts}
-            onChange={setTransitAlerts}
-            // isLast
-          />
+        <Text style={st.sectionTitle}>Notifications</Text>
+        <View style={st.card}>
+          <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={setDailyReading} />
+          <SettingRow icon={<Clock size={18} color={SolunaColors.creamMuted} />} label="Reading time" value="8:00 AM" />
+          <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={setPersonalDayAlert} />
+          <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={setMoonAlerts} />
+          <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={setTransitAlerts} />
         </View>
 
-        {/* Widget Preview */}
-        <Text style={screenStyles.sectionTitle}>Home Screen Widget</Text>
-        <View style={screenStyles.widgetPreview}>
-          <Text style={screenStyles.widgetPreviewText}>
-            🌙 Widgets that actually work — no blank screens, no bugs. See your
-            daily reading and moon phase at a glance.
-          </Text>
-          <Text style={screenStyles.widgetPreviewComing}>Coming soon</Text>
+        <Text style={st.sectionTitle}>Home Screen Widget</Text>
+        <View style={st.widgetPreview}>
+          <Text style={st.widgetPreviewText}>Widgets that actually work and update — see your daily reading, moon phase, and Personal Day number at a glance. No blank screens, no bugs.</Text>
+          <Text style={st.widgetPreviewComing}>Coming soon</Text>
         </View>
 
-        {/* About & Privacy */}
-        <Text style={screenStyles.sectionTitle}>About</Text>
-        <View style={screenStyles.card}>
-          <SettingRow
-            icon={<Lock size={18} color={SolunaColors.gentleLavender} />}
-            label="Privacy"
-            value="Your data stays private"
-            onPress={() => {}}
-          />
-          <SettingRow
-            icon={<Shield size={18} color={SolunaColors.softPeach} />}
-            label="Data policy"
-            value="We never sell your data"
-            onPress={() => {}}
-          />
-          <SettingRow
-            icon={<CircleHelp size={18} color={SolunaColors.creamMuted} />}
-            label="About Soluna"
-            onPress={() => {}}
-            isLast
-          />
+        <Text style={st.sectionTitle}>About</Text>
+        <View style={st.card}>
+          <SettingRow icon={<Lock size={18} color={SolunaColors.gentleLavender} />} label="Privacy" value="Your data stays private" onPress={() => {}} />
+          <SettingRow icon={<Shield size={18} color={SolunaColors.softPeach} />} label="Data policy" value="We never sell or train on your data" onPress={() => {}} />
+          <SettingRow icon={<CircleHelp size={18} color={SolunaColors.creamMuted} />} label="About Soluna" onPress={() => {}} isLast />
         </View>
 
-        {/* Reset */}
-        <TouchableOpacity
-          style={screenStyles.resetBtn}
-          onPress={resetOnboarding}
-        >
+        <View style={st.privacyCard}>
+          <Shield size={18} color={SolunaColors.warmGold} />
+          <Text style={st.privacyText}>Your birth data stays private. We never sell it, never share it, and never train AI on your chats. This is a sacred promise.</Text>
+        </View>
+
+        <TouchableOpacity style={st.resetBtn} onPress={resetOnboarding}>
           <LogOut size={16} color={SolunaColors.creamSubtle} />
-          <Text style={screenStyles.resetText}>Reset onboarding</Text>
+          <Text style={st.resetText}>Reset onboarding</Text>
         </TouchableOpacity>
 
-        <Text style={screenStyles.version}>Soluna v1.0 · Made with care</Text>
-
-        <View style={screenStyles.bottomSpacer} />
+        <Text style={st.version}>Soluna v1.0 · Made with care</Text>
+        <View style={{ height: 100 }} />
       </ScrollView>
     </LinearGradient>
   );
 }
 
-const screenStyles = StyleSheet.create({
-  gradient: { flex: 1 },
-  scroll: { flex: 1 },
+const st = StyleSheet.create({
+  gradient: { flex: 1 }, scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
-  profileHeader: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  avatarLarge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(232,184,109,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-    borderWidth: 2,
-    borderColor: "rgba(232,184,109,0.2)",
-  },
-  avatarLargeText: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: SolunaColors.warmGold,
-    fontFamily: Fonts.heading,
-  },
-  userName: {
-    fontSize: 24,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.cream,
-    marginBottom: 8,
-  },
-  bigThreeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  bigThreeChipText: {
-    fontSize: 11,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    color: SolunaColors.creamSubtle,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "700",
-    fontFamily: Fonts.body,
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  card: {
-    backgroundColor: SolunaColors.cardBg,
-    borderRadius: SolunaRadius.md,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: SolunaColors.cardBorder,
-    marginBottom: 20,
-  },
-  widgetPreview: {
-    backgroundColor: SolunaColors.cardBg,
-    borderRadius: SolunaRadius.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: SolunaColors.cardBorder,
-    borderStyle: "dashed",
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  widgetPreviewText: {
-    fontSize: 13,
-    color: SolunaColors.creamMuted,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 8,
-    fontFamily: Fonts.body,
-  },
-  widgetPreviewComing: {
-    fontSize: 11,
-    color: SolunaColors.warmGold,
-    fontWeight: "600",
-    fontFamily: Fonts.body,
-  },
-  resetBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 8,
-  },
-  resetText: {
-    fontSize: 13,
-    color: SolunaColors.creamSubtle,
-    fontFamily: Fonts.body,
-  },
-  version: {
-    fontSize: 11,
-    color: SolunaColors.creamSubtle,
-    textAlign: "center",
-    fontFamily: Fonts.body,
-    marginTop: 4,
-  },
-  bottomSpacer: { height: 100 },
+  profileHeader: { alignItems: "center", marginBottom: 24 },
+  avatarLarge: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(232,184,109,0.12)", alignItems: "center", justifyContent: "center", marginBottom: 14, borderWidth: 2, borderColor: "rgba(232,184,109,0.2)" },
+  avatarLargeText: { fontSize: 30, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.heading },
+  userName: { fontSize: 24, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 4 },
+  fullName: { fontSize: 14, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 12 },
+  summaryRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  sectionTitle: { fontSize: 12, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 10, marginTop: 8 },
+  card: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, paddingHorizontal: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 20 },
+  widgetPreview: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, borderStyle: "dashed", marginBottom: 20, alignItems: "center" },
+  widgetPreviewText: { fontSize: 13, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 20, marginBottom: 8, fontFamily: Fonts.body },
+  widgetPreviewComing: { fontSize: 11, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  privacyCard: { flexDirection: "row", gap: 12, backgroundColor: "rgba(232,184,109,0.05)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginBottom: 20, alignItems: "flex-start" },
+  privacyText: { flex: 1, fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
+  resetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8 },
+  resetText: { fontSize: 13, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
+  version: { fontSize: 11, color: SolunaColors.creamSubtle, textAlign: "center", fontFamily: Fonts.body, marginTop: 4 },
 });
