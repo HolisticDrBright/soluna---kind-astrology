@@ -1059,6 +1059,19 @@ export const MOCK_CHAT_HISTORY: ChatMessage[] = [
 
 export const SYNTHESIS_THEMES: SynthesisTheme[] = [
   {
+    id: "self",
+    title: "Your Blueprint: How It All Connects",
+    subtitle: "Four systems, one you — what each lens reveals and where they converge",
+    systemsAgree: 4,
+    blocks: [
+      { system: "astrology", label: "Cancer Sun, Pisces Moon, Libra Rising", signal: "You lead with emotional intelligence and a deep desire to nurture — yourself and others. Your Cancer Sun gives you a protective, caring core. Your Pisces Moon makes you intuitive and emotionally attuned. Libra Rising means you move through the world with grace, diplomacy, and an instinct for harmony. Together, these three create someone who feels deeply and connects easily, but who also needs to protect their own emotional energy." },
+      { system: "numerology", label: "Life Path 3, Expression 7, Soul Urge 9", signal: "Life Path 3 makes you a natural communicator and creator — you're here to express. Expression 7 adds a layer of depth: you don't just share, you reflect and analyze first. Soul Urge 9 drives you toward service and contribution — you genuinely want to make things better for others. This combination is rare: a creative thinker with a humanitarian heart." },
+      { system: "chinese", label: "Wood Pig", signal: "The Wood Pig combines generosity with quiet inner strength. You have a natural warmth that draws people in, but you're not naive — you're discerning about who deserves your trust. The Wood element adds flexibility and growth orientation. You build things slowly and sustainably, the way trees grow — not flashy, but deeply rooted and lasting." },
+      { system: "humanDesign", label: "Generator, Emotional Authority, Defined Throat & G", signal: "As a Generator, your power is in responding to what lights you up — not initiating from pressure. Your Emotional Authority means clarity comes through feeling, over time — never rush big decisions. Your defined Throat center gives your words authentic power when you speak from alignment. Your defined G center means you have a consistent sense of self and direction — you know who you are, even when life gets confusing." },
+    ],
+    combinedTakeaway: "Four independent systems, spanning ancient Babylon to modern Human Design, all describe the same person: someone warm, creative, emotionally intelligent, and deeply driven to contribute. Your astrology shows emotional depth and relational grace. Your numerology confirms you're a communicator with a humanitarian soul. Your Chinese astrology reveals generous strength and steady growth. Your Human Design says you're here to respond to what energizes you — not to force anything. The convergence is striking: you're designed to create, connect, and care — but only when you honor your own emotional timing. Your feelings aren't a distraction from clarity — they ARE your clarity. Trust them.",
+  },
+  {
     id: "today",
     title: "Today: Rest & Reflection",
     subtitle: "Where your systems agree about today's energy",

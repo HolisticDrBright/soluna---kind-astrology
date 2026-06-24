@@ -29,8 +29,17 @@ const systemNames: Record<string, string> = {
 
 export default function SynthesisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const theme = SYNTHESIS_THEMES.find((t) => t.id === id);
-  if (!theme) return null;
+  const themeId: string = String(id ?? "self");
+  const theme = SYNTHESIS_THEMES.find((t) => t.id === themeId) ?? SYNTHESIS_THEMES[0];
+  if (!theme) return (
+    <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
+      <View style={s.fallbackWrap}>
+        <Sparkles size={40} color={SolunaColors.warmGold} />
+        <Text style={s.fallbackTitle}>Weaving your synthesis…</Text>
+        <Text style={s.fallbackSub}>Soluna is connecting the threads across your systems. Check back soon.</Text>
+      </View>
+    </LinearGradient>
+  );
 
   const glyphs = ["♋", "#", "🐖", "⚡"];
 
@@ -141,4 +150,7 @@ const s = StyleSheet.create({
   askBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
   // Footer
   footerNote: { fontSize: 12, color: SolunaColors.creamSubtle, textAlign: "center", lineHeight: 19, fontFamily: Fonts.body, fontStyle: "italic", paddingHorizontal: 20 },
+  fallbackWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 40 },
+  fallbackTitle: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginTop: 20, marginBottom: 8 },
+  fallbackSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 21, fontFamily: Fonts.body },
 });
