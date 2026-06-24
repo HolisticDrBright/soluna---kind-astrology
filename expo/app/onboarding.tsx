@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { useAuth } from "@/state/useAuth";
-import { api, type AccuracyReport } from "@/lib/apiClient";
+import { api, type AccuracyReport, type PlaceSuggestion, type ResolvedPlace } from "@/lib/apiClient";
 import { backendBlueprintToUserData } from "@/lib/mappers";
 import { CITY_COORDS } from "@/constants/cityCoords";
 import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, type UserData, NUMBER_MEANINGS } from "@/constants/mockData";
@@ -44,6 +44,10 @@ export default function OnboardingScreen() {
   const [birthPlace, setBirthPlace] = useState("Portland, Oregon, USA");
   const [placeSearch, setPlaceSearch] = useState("");
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
+  // Live geo (Google) autocomplete + resolved coordinates/timezone.
+  const [geoSuggestions, setGeoSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [showCalculating, setShowCalculating] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
   const fadeAnim = useRef(new RNAnimated.Value(0)).current;
@@ -70,14 +74,19 @@ export default function OnboardingScreen() {
       let userData: UserData | null = null;
       if (live) {
         try {
-          const coords = CITY_COORDS[birthPlace];
+          // Live: use Google-resolved coordinates/timezone (null if the user
+          // didn't pick a resolved place -> backend computes an honest
+          // approximate chart). Mock: fall back to the static city table.
+          const coords = resolvedPlace
+            ? { lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+            : CITY_COORDS[birthPlace];
           const onboardRes = await api.onboarding({
             fullBirthName: fullName,
             preferredName: preferredName || fullName.split(" ")[0],
             birthDate: isoDate,
             birthTime: birthTimeKnown ? birthTime : null,
             timeKnown: birthTimeKnown,
-            birthPlaceLabel: birthPlace,
+            birthPlaceLabel: resolvedPlace?.label ?? birthPlace,
             lat: coords?.lat,
             lng: coords?.lng,
             timezone: coords?.timezone,
@@ -110,9 +119,39 @@ export default function OnboardingScreen() {
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
-    setFilteredCities(text.length > 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+    if (live) {
+      // Real Google Places autocomplete (server-proxied).
+      if (text.trim().length > 1) {
+        api.geoAutocomplete(text)
+          .then((r) => setGeoSuggestions(r.suggestions ?? []))
+          .catch(() => setGeoSuggestions([]));
+      } else {
+        setGeoSuggestions([]);
+      }
+    } else {
+      setFilteredCities(text.length > 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+    }
   };
+  // Mock mode: pick a static city (coords come from CITY_COORDS).
   const selectCity = (city: string) => { setBirthPlace(city); setPlaceSearch(""); setFilteredCities([]); };
+  // Live mode: resolve the chosen place to lat/lng + a date-aware timezone, so
+  // the chart is computed from real coordinates — never a free-text guess.
+  const selectPlace = async (s: PlaceSuggestion) => {
+    setBirthPlace(s.label);
+    setPlaceSearch("");
+    setGeoSuggestions([]);
+    setResolvedPlace(null);
+    setResolvingPlace(true);
+    try {
+      const iso = birthDate.toISOString().split("T")[0];
+      const { place } = await api.geoResolve(s.id, iso);
+      setResolvedPlace(place);
+    } catch {
+      setResolvedPlace(null); // unresolved -> backend marks location approximate
+    } finally {
+      setResolvingPlace(false);
+    }
+  };
 
   const goNext = () => {
     const sequence: OnboardingStep[] = ["welcome", "fullName", "preferredName", "birthdate", "birthtime", "birthplace", "calculating", "reveal"];
@@ -333,7 +372,14 @@ export default function OnboardingScreen() {
               <Text style={os.stepSub}>Your birth city helps calculate your exact chart positions and time zone.</Text>
               <View style={os.inputWrap}>
                 <TextInput style={os.input} value={placeSearch || birthPlace} onChangeText={handleCitySearch} onFocus={() => handleCitySearch(birthPlace)} placeholder="Search for your city…" placeholderTextColor={SolunaColors.creamSubtle} />
-                {filteredCities.length > 0 && (
+                {live && geoSuggestions.length > 0 && (
+                  <View style={os.cityDropdown}>
+                    {geoSuggestions.slice(0, 6).map((s) => (
+                      <TouchableOpacity key={s.id} style={os.cityOption} onPress={() => selectPlace(s)}><Text style={os.cityOptionText}>{s.label}</Text></TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {!live && filteredCities.length > 0 && (
                   <View style={os.cityDropdown}>
                     {filteredCities.slice(0, 6).map((city) => (
                       <TouchableOpacity key={city} style={os.cityOption} onPress={() => selectCity(city)}><Text style={os.cityOptionText}>{city}</Text></TouchableOpacity>
@@ -341,6 +387,11 @@ export default function OnboardingScreen() {
                   </View>
                 )}
               </View>
+              {live && resolvingPlace && <Text style={os.unknownNote}>Resolving your birth place…</Text>}
+              {live && resolvedPlace && <Text style={os.unknownNote}>✓ {resolvedPlace.label} · {resolvedPlace.timezone}</Text>}
+              {live && !resolvedPlace && !resolvingPlace && (placeSearch.length > 0 || birthPlace.length > 0) && (
+                <Text style={os.unknownNote}>Pick your city from the list so we can place your chart accurately — otherwise it stays approximate.</Text>
+              )}
               <View style={{ height: 24 }} />
               <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
                 <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}><Text style={os.buttonText}>Weave My Blueprint</Text></LinearGradient>

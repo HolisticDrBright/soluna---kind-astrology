@@ -61,6 +61,9 @@ inspector_port = 8083
 [functions.onboarding]
 verify_jwt = true
 
+[functions.geo]
+verify_jwt = true
+
 [functions.blueprint]
 verify_jwt = true
 

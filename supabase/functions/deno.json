@@ -21,6 +21,6 @@
   },
   "tasks": {
     "test": "deno test --allow-net --allow-env --allow-read _shared/",
-    "check": "deno check _shared/ onboarding/ blueprint/ today/ insight/ synthesis/ ask/ connections/ partner/ tarot/ journal/ rituals/ saved/ me/ memory-themes/ weekly-report/ entitlements/ billing-webhook/ cron-daily-readings/ cron-bond-readings/ cron-drain-queue/ cron-refresh-transits/"
+    "check": "deno check _shared/ onboarding/ blueprint/ today/ insight/ synthesis/ ask/ connections/ partner/ geo/ tarot/ journal/ rituals/ saved/ me/ memory-themes/ weekly-report/ entitlements/ billing-webhook/ cron-daily-readings/ cron-bond-readings/ cron-drain-queue/ cron-refresh-transits/"
   }
 }

@@ -111,6 +111,12 @@ export const api = {
   weeklyReport: (weekStart?: string) =>
     invoke<{ report: BackendWeeklyReport; cached: boolean }>(`weekly-report${qs({ weekStart })}`),
 
+  // ── Geo (birth-place autocomplete + resolution via Google, server-side) ──
+  geoAutocomplete: (q: string) =>
+    invoke<{ configured: boolean; suggestions: PlaceSuggestion[] }>(`geo/autocomplete${qs({ q })}`),
+  geoResolve: (placeId: string, date: string) =>
+    invoke<{ place: ResolvedPlace }>(`geo/resolve${qs({ placeId, date })}`),
+
   entitlements: () => invoke<BackendEntitlements>("entitlements"),
 };
 
@@ -258,6 +264,18 @@ export interface BackendWeeklyReport {
   accuracyLevel: AccuracyReport["accuracyLevel"];
   confidenceNotes: string[];
   notify?: NotifyPayload;
+}
+
+export interface PlaceSuggestion {
+  id: string;
+  label: string;
+}
+export interface ResolvedPlace {
+  label: string;
+  lat: number;
+  lng: number;
+  timezone: string;
+  utcOffsetSeconds: number;
 }
 
 export interface BondRitual {

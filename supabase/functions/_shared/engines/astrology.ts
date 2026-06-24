@@ -19,6 +19,8 @@ import type {
   ZodiacSign,
 } from "./types.ts";
 import { unavailable } from "./types.ts";
+import { getAstrologyProvider } from "../providers/astrology/index.ts";
+import type { NormalizedNatal } from "../providers/astrology/index.ts";
 
 // deno-lint-ignore no-explicit-any
 const { Origin, Horoscope } = pkg as any;
@@ -145,69 +147,42 @@ function isPlanet(label: string): boolean {
   return PLANETS.includes(label);
 }
 
-// ─── hosted adapter (optional precision upgrade) ───────────────────
-// Expects the provider to return a normalized JSON body. Adapt the parsing to
-// your chosen API (Astrologer / Prokerala / AstroAPI). Throws on any problem so
-// computeAstrology() can fall back gracefully.
-async function hostedNatal(input: BirthInput): Promise<AstrologyResult> {
-  const base = Deno.env.get("ASTROLOGY_API_BASE_URL");
-  const key = Deno.env.get("ASTROLOGY_API_KEY");
-  if (!base) throw new Error("hosted astrology API not configured");
-
-  const res = await fetch(`${base.replace(/\/$/, "")}/natal`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(key ? { authorization: `Bearer ${key}` } : {}),
-    },
-    body: JSON.stringify({
-      date: input.date,
-      time: input.time,
-      latitude: input.lat,
-      longitude: input.lng,
-      timezone: input.timezone,
-      house_system: input.houseSystem ?? "placidus",
-    }),
-  });
-  if (!res.ok) throw new Error(`hosted astrology API ${res.status}`);
-  const data = await res.json();
-
-  // Minimal validation; require at least planets[].
-  if (!Array.isArray(data?.planets)) throw new Error("hosted astrology API: unexpected shape");
+// ─── provider adapter (precision upgrade via _shared/providers/astrology) ──
+// Maps a provider's NORMALIZED natal payload onto AstrologyResult, applying the
+// same honest gating as the fallback: angles + houses require BOTH birth time
+// AND place; we never pass through whatever a provider guessed for them.
+function mapNormalized(n: NormalizedNatal, input: BirthInput): AstrologyResult {
   const timeKnown = !!input.time;
   const hasLocation = input.lat != null && input.lng != null;
-  // Even with a hosted API, angles + houses are only real with both time AND
-  // place. We gate them rather than passing through whatever the API guessed.
   const canHouses = timeKnown && hasLocation;
-  // deno-lint-ignore no-explicit-any
-  const planets: PlanetPosition[] = data.planets.map((p: any) => {
-    const lon = Number(p.longitude ?? 0);
-    return {
-      planet: cap(p.name ?? p.planet ?? ""),
-      sign: (p.sign as ZodiacSign) ?? signFromLongitude(lon),
-      longitude: round2(lon),
-      degree: round2(((lon % 30) + 30) % 30),
-      house: canHouses ? (p.house ?? null) : null,
-      retrograde: !!p.retrograde,
-    };
-  });
+
+  const planets: PlanetPosition[] = n.planets.map((p) => ({
+    planet: p.planet,
+    sign: p.sign,
+    longitude: round2(p.longitude),
+    degree: round2(p.degree),
+    house: canHouses ? (p.house ?? null) : null,
+    retrograde: !!p.retrograde,
+  }));
+
   const reason = !timeKnown && !hasLocation
     ? "needs your birth time and place to be accurate."
     : !timeKnown
     ? "needs your exact birth time to be accurate."
     : "needs your birth place (latitude & longitude) to be accurate.";
+
   return {
     planets,
-    ascendant: canHouses && data.ascendant
-      ? { sign: data.ascendant.sign, degree: round2(Number(data.ascendant.degree ?? 0)) }
+    ascendant: canHouses && n.ascendant
+      ? { sign: n.ascendant.sign, degree: round2(n.ascendant.degree) }
       : unavailable("Your Rising sign", reason),
-    midheaven: canHouses && data.midheaven
-      ? { sign: data.midheaven.sign, degree: round2(Number(data.midheaven.degree ?? 0)) }
+    midheaven: canHouses && n.midheaven
+      ? { sign: n.midheaven.sign, degree: round2(n.midheaven.degree) }
       : unavailable("Your Midheaven", reason),
-    houses: canHouses && Array.isArray(data.houses)
-      ? data.houses
+    houses: canHouses && Array.isArray(n.houses) && n.houses.length === 12
+      ? n.houses
       : unavailable("Your house placements", reason),
-    aspects: Array.isArray(data.aspects) ? data.aspects : [],
+    aspects: n.aspects ?? [],
     houseSystem: input.houseSystem ?? "placidus",
     timeKnown,
     locationKnown: hasLocation,
@@ -216,8 +191,22 @@ async function hostedNatal(input: BirthInput): Promise<AstrologyResult> {
       source: "hosted_api",
       precision: canHouses ? "high" : "medium",
       userFacingNote: canHouses
-        ? undefined
+        ? `Computed from a precise ephemeris (${n.provider}).`
         : "Computed from a precise ephemeris, but Rising, Midheaven, and houses stay hidden until birth time and place are added.",
+    },
+  };
+}
+
+/** Tag a library-computed result as a degraded fallback after a provider error. */
+function withDegradedNote(result: AstrologyResult, providerId: string): AstrologyResult {
+  return {
+    ...result,
+    meta: {
+      ...result.meta,
+      userFacingNote:
+        `We couldn't reach the precise ephemeris service (${providerId}) just now, so this ` +
+        `chart is computed with Soluna's built-in library — accurate for signs, approximate ` +
+        `for the finest details. ` + (result.meta.userFacingNote ?? ""),
     },
   };
 }
@@ -264,13 +253,23 @@ export function celestialLongitudes(input: BirthInput): Record<string, number> {
   return out;
 }
 
-/** Primary -> fallback adapter chain. */
+/**
+ * Provider -> in-process fallback chain.
+ *  - A configured provider (Prokerala / AstrologyAPI / custom) is tried first,
+ *    but ONLY when we have real coordinates — a precise chart from a fake 0,0 is
+ *    worse than an honest library chart.
+ *  - On any provider failure we fall back to the in-process library and SAY SO
+ *    (degraded note), never silently presenting it as the precise source.
+ */
 export async function computeAstrology(input: BirthInput): Promise<AstrologyResult> {
-  if (Deno.env.get("ASTROLOGY_API_BASE_URL")) {
+  const provider = getAstrologyProvider();
+  const hasLocation = input.lat != null && input.lng != null;
+  if (provider && hasLocation) {
     try {
-      return await hostedNatal(input);
+      return mapNormalized(await provider.natal(input), input);
     } catch (_e) {
-      // fall through to the in-process engine
+      // Honest degradation: real library data, flagged as approximate.
+      return withDegradedNote(fallbackNatal(input), provider.id);
     }
   }
   return fallbackNatal(input);
@@ -332,7 +331,4 @@ export function aspectsToNatal(
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
-}
-function cap(s: string): string {
-  return s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : s;
 }

@@ -44,8 +44,13 @@ type Provider = "anthropic" | "openai";
 
 function cfg() {
   const provider = (Deno.env.get("LLM_PROVIDER") ?? "anthropic") as Provider;
-  const apiKey = Deno.env.get("LLM_API_KEY") ?? "";
-  const model = Deno.env.get("LLM_MODEL") ?? "claude-sonnet-4-6";
+  // Prefer the provider-specific key (ANTHROPIC_API_KEY / OPENAI_API_KEY); fall
+  // back to the generic LLM_API_KEY for backward compatibility.
+  const apiKey = (provider === "anthropic"
+    ? Deno.env.get("ANTHROPIC_API_KEY")
+    : Deno.env.get("OPENAI_API_KEY")) ?? Deno.env.get("LLM_API_KEY") ?? "";
+  const model = Deno.env.get("LLM_MODEL") ??
+    (provider === "openai" ? "gpt-4o" : "claude-sonnet-4-6");
   const baseUrl = Deno.env.get("LLM_BASE_URL") ??
     (provider === "anthropic" ? "https://api.anthropic.com" : "https://api.openai.com");
   return { provider, apiKey, model, baseUrl };
