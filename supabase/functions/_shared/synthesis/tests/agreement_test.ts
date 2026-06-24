@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "../../test_util.ts";
-import { detectAgreement } from "../agreement.ts";
+import { buildAgreementEvidence, detectAgreement } from "../agreement.ts";
 import type { DayContext } from "../context.ts";
 import type { ChineseElement, ZodiacSign } from "../../engines/types.ts";
 
@@ -71,6 +71,36 @@ Deno.test("scoring counts DISTINCT systems (astrology counted once per theme)", 
   const rest = r.themes.find((t) => t.id === "rest")!;
   assertEquals(rest.score, 1); // only astrology, despite two pieces of evidence
   assertEquals(rest.evidence.length, 2);
+});
+
+Deno.test("evidence carries structured detail + confidence (no prose parsing)", () => {
+  const r = detectAgreement(ctx({
+    personalDay: 7, moonSign: "Cancer", moonPhase: "Waning Gibbous",
+    element: "Water", hdAuthority: "Emotional",
+  }));
+  for (const e of r.topTheme.evidence) {
+    assert(typeof e.detail === "string" && e.detail.length > 0);
+    assert(e.confidence > 0 && e.confidence <= 1);
+  }
+});
+
+Deno.test("buildAgreementEvidence yields a structured systems-agree payload", () => {
+  const r = detectAgreement(ctx({
+    personalDay: 7, moonSign: "Cancer", moonPhase: "Waning Gibbous",
+    element: "Water", hdAuthority: "Emotional",
+  }));
+  const ev = buildAgreementEvidence(r);
+  assertEquals(ev.theme, "rest");
+  assert(ev.score >= 1);
+  assert(ev.systems.length === r.topTheme.evidence.length);
+  for (const s of ev.systems) {
+    assert(!!s.system && !!s.label && !!s.signal && !!s.detail);
+    assert(s.confidence > 0 && s.confidence <= 1);
+  }
+  assert(ev.combinedTakeaway.length > 0);
+  // LLM takeaway overrides the deterministic one when provided.
+  const withLlm = buildAgreementEvidence(r, "A warm phrased takeaway.");
+  assertEquals(withLlm.combinedTakeaway, "A warm phrased takeaway.");
 });
 
 Deno.test("only themes with support are returned, sorted by score", () => {

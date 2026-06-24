@@ -170,7 +170,16 @@ zod-validated, RLS-scoped. Call via `supabase.functions.invoke("<name>/...")`.
 - **No-training LLM only** — set `LLM_BASE_URL` to a zero-retention gateway if
   needed. Raw chat is never logged to third parties; only metadata goes to `logs`.
 - **Honest billing** — entitlements are checked server-side; cancellation stays
-  one tap via the store.
+  one tap via the store. The RevenueCat webhook **rejects** invalid auth (401),
+  not just warns.
+- **Server-side premium gates** — `/ask` caps free users at 5 messages/day
+  (Premium unlimited); multi-card tarot spreads and deep reports gate on
+  `getEntitlement`. The client never decides entitlement.
+- **Structured, not prose** — daily "systems agree" returns
+  `{theme, score, systems[{label,signal,detail,confidence}], combinedTakeaway}`
+  and compatibility returns `{score, label, whereYouFlow[], whereYouGrow[],
+  howToSupport[], evidenceBySystem[], confidence}`, so the UI renders evidence
+  drawers without parsing text.
 
 ## Connecting the frontend
 

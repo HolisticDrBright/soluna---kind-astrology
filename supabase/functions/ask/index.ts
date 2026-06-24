@@ -11,7 +11,11 @@ import { serviceClient } from "../_shared/supabase.ts";
 import { logEvent } from "../_shared/log.ts";
 import { llm, LLMUnavailableError } from "../_shared/llm.ts";
 import { CRISIS_RESPONSE, detectCrisis } from "../_shared/voice.ts";
+import { getEntitlement } from "../_shared/entitlements.ts";
 import { buildChatSystem, extractMemoryFacts } from "../_shared/synthesis/synthesis.ts";
+
+// Free users get a generous daily allowance; Premium is unlimited.
+const FREE_DAILY_ASK = 5;
 
 const SYSTEM_KEYWORDS: Array<[string, RegExp]> = [
   ["astrology", /\b(astrolog|moon|sun sign|rising|transit|venus|mars|mercury|saturn|jupiter|house)\b/i],
@@ -73,6 +77,32 @@ Deno.serve(serve(async (req) => {
       content: CRISIS_RESPONSE,
     });
     return streamOnce(CRISIS_RESPONSE, convId);
+  }
+
+  // Entitlement gate: cap free users' daily messages; Premium is unlimited.
+  const entitlement = await getEntitlement(user.id);
+  if (entitlement.entitlement !== "premium") {
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    const { data: convRows } = await svc.from("ask_conversations").select("id").eq("user_id", user.id);
+    const convIds = (convRows ?? []).map((c) => c.id);
+    let todayCount = 0;
+    if (convIds.length) {
+      const { count } = await svc.from("ask_messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", convIds).eq("role", "user").gte("created_at", since.toISOString());
+      todayCount = count ?? 0;
+    }
+    // The current user message is already persisted, so it's counted.
+    if (todayCount > FREE_DAILY_ASK) {
+      await logEvent("guardrail_trip", { kind: "ask_rate_limit", todayCount }, user.id);
+      const gate =
+        "We've had a lovely run today 💛 You've reached today's free messages with me. " +
+        "Soluna Premium unlocks unlimited Ask — or I'll be right here again tomorrow. " +
+        "You can upgrade anytime from your profile, and cancel in one tap.";
+      await svc.from("ask_messages").insert({ conversation_id: convId, role: "assistant", content: gate });
+      return streamOnce(gate, convId);
+    }
   }
 
   const bp = await loadBlueprint(user.id);

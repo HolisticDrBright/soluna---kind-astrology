@@ -197,8 +197,10 @@ export interface BackendConnection {
 }
 export interface BackendCompatibility {
   lens: string; score: number; overall: number; label: string; blendedSummary: string;
-  whereYouFlow: string; whereYouGrow: string; howToLove: string[]; tip: string;
+  whereYouFlow: string[]; whereYouGrow: string[]; howToSupport: string[]; tip: string;
   astrologyScore: number; numerologyScore: number; chineseScore: number;
+  confidence: number;
+  evidenceBySystem: { system: string; score: number; signal: string }[];
 }
 export interface InviteResponse { inviteCode: string; link: string; lens: string; rewardTeaser: string }
 export interface InvitePreview { valid: boolean; inviterName?: string; lens?: string; status?: string }

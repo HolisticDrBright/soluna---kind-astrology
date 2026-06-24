@@ -211,9 +211,18 @@ export function backendReadingToDailyReading(r: BackendReading): DailyReading {
     personalDayMeaning: `A Personal Day ${r.personalDay} — a gentle theme for today.`,
     chineseNote: `Today carries ${r.chineseDaily?.element ?? ""} ${r.chineseDaily?.animal ?? ""} energy.`,
     systemsAgree: {
-      systems: evidence.map((e) => e.label),
+      systems: (agreement.systems ?? evidence).map((e: any) => e.label),
       summary: agreement.summary ?? agreement.title ?? "Your systems are in quiet agreement today.",
-      detail: agreement.detail ?? "",
+      detail: agreement.combinedTakeaway ?? agreement.detail ?? "",
+      theme: agreement.theme,
+      combinedTakeaway: agreement.combinedTakeaway ?? agreement.detail,
+      evidence: (agreement.systems ?? []).map((s: any) => ({
+        system: s.system,
+        label: s.label,
+        signal: s.signal,
+        detail: s.detail,
+        confidence: s.confidence ?? 0.7,
+      })),
     },
     cardOfTheDay: r.tarotCard ?? {
       name: "The Star", arcana: "major", imageEmoji: "⭐",

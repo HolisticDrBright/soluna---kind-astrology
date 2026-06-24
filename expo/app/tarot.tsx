@@ -4,10 +4,10 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAuth } from "@/state/useAuth";
-import { useDrawTarot, useEntitlements, useTodayReading } from "@/lib/hooks";
+import { useDrawTarot, useEntitlements, useTodayReading, useToggleSaved } from "@/lib/hooks";
 import { ApiError } from "@/lib/apiClient";
 import { MOCK_THREE_CARD_READING, TAROT_SPREADS, Fonts } from "@/constants/mockData";
-import { ChevronLeft, Shuffle } from "lucide-react-native";
+import { Bookmark, ChevronLeft, Shuffle } from "lucide-react-native";
 
 export default function TarotScreen() {
   const { authActive, isAuthenticated } = useAuth();
@@ -15,11 +15,13 @@ export default function TarotScreen() {
   const { data: ent } = useEntitlements();
   const { data: today } = useTodayReading();
   const drawTarot = useDrawTarot();
+  const toggleSaved = useToggleSaved();
   const isPremium = !!ent?.isPremium;
   const [showReading, setShowReading] = useState(false);
   const [question, setQuestion] = useState("");
   const [drawResult, setDrawResult] = useState<any>(null);
   const [drawing, setDrawing] = useState(false);
+  const [tarotSaved, setTarotSaved] = useState(false);
 
   const cod = today?.cardOfTheDay;
   const result = drawResult
@@ -122,7 +124,18 @@ export default function TarotScreen() {
               <Text style={ts.overallTitle}>Your Reading</Text>
               <Text style={ts.overallText}>{result.overall}</Text>
             </View>
-            <TouchableOpacity style={ts.newBtn} onPress={() => { setShowReading(false); setDrawResult(null); }} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[ts.newBtn, { marginBottom: 10 }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                setTarotSaved(true);
+                toggleSaved.mutate({ kind: "tarot", refId: drawResult?.id ?? `tarot-${result.cards[0]?.name ?? "reading"}`, payload: { cards: result.cards, interpretation: result.overall } });
+              }}
+            >
+              <Bookmark size={16} color={tarotSaved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={tarotSaved ? SolunaColors.warmGold : "none"} />
+              <Text style={ts.newBtnText}>{tarotSaved ? "Saved to your collection" : "Save this reading"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ts.newBtn} onPress={() => { setShowReading(false); setDrawResult(null); setTarotSaved(false); }} activeOpacity={0.8}>
               <Shuffle size={16} color={SolunaColors.warmGold} />
               <Text style={ts.newBtnText}>Draw new reading</Text>
             </TouchableOpacity>

@@ -65,6 +65,8 @@ export const journalInput = z.object({
   prompt: z.string().max(1000).optional(),
   body: z.string().min(1).max(20000),
   mood: z.number().int().min(1).max(5).optional(),
+  tags: z.array(z.string().max(40)).max(12).optional(),
+  sourceRef: z.string().max(200).optional(),
 });
 export type JournalInput = z.infer<typeof journalInput>;
 

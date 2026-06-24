@@ -19,9 +19,9 @@ interface CompatView {
   numerologyScore: number;
   chineseScore: number;
   blendedSummary: string;
-  whereYouFlow: string;
-  whereYouGrow: string;
-  howToLove: string[];
+  whereYouFlow: string[];
+  whereYouGrow: string[];
+  howToSupport: string[];
   lensTip: string;
 }
 
@@ -53,9 +53,9 @@ export default function CompatibilityDetailScreen() {
         numerologyScore: liveCompat.numerologyScore,
         chineseScore: liveCompat.chineseScore,
         blendedSummary: liveCompat.blendedSummary,
-        whereYouFlow: liveCompat.whereYouFlow,
-        whereYouGrow: liveCompat.whereYouGrow,
-        howToLove: liveCompat.howToLove ?? [],
+        whereYouFlow: liveCompat.whereYouFlow ?? [],
+        whereYouGrow: liveCompat.whereYouGrow ?? [],
+        howToSupport: liveCompat.howToSupport ?? [],
         lensTip: liveCompat.tip,
       };
     }
@@ -67,8 +67,8 @@ export default function CompatibilityDetailScreen() {
         name: person.name, initial: person.avatarInitial, sunSign: person.sunSign,
         score: person.compatibilityScore, label: person.compatibilityLabel,
         astrologyScore: person.compatibilityScore, numerologyScore: person.numerologyScore, chineseScore: person.chineseScore,
-        blendedSummary: person.blendedSummary, whereYouFlow: person.whereYouFlow, whereYouGrow: person.whereYouGrow,
-        howToLove: person.howToLove, lensTip: lensTips[lens],
+        blendedSummary: person.blendedSummary, whereYouFlow: [person.whereYouFlow], whereYouGrow: [person.whereYouGrow],
+        howToSupport: person.howToLove, lensTip: lensTips[lens],
       };
     }
   }
@@ -139,19 +139,19 @@ export default function CompatibilityDetailScreen() {
         {/* Where You Flow */}
         <View style={st.section}>
           <View style={st.sectionHeader}><Sparkles size={16} color={SolunaColors.warmGold} /><Text style={st.sectionTitle}>Where You Flow</Text></View>
-          <Text style={st.sectionText}>{person.whereYouFlow}</Text>
+          {person.whereYouFlow.map((t, i) => <Text key={i} style={st.sectionText}>{t}</Text>)}
         </View>
 
         {/* Where You Grow */}
         <View style={st.section}>
           <View style={st.sectionHeader}><Star size={16} color={SolunaColors.gentleLavender} /><Text style={st.sectionTitle}>Where You Grow</Text></View>
-          <Text style={st.sectionText}>{person.whereYouGrow}</Text>
+          {person.whereYouGrow.map((t, i) => <Text key={i} style={st.sectionText}>{t}</Text>)}
         </View>
 
         {/* How to Love Well */}
         <View style={st.section}>
           <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} /><Text style={st.sectionTitle}>How to Support Each Other</Text></View>
-          {person.howToLove.map((tip, i) => (
+          {person.howToSupport.map((tip, i) => (
             <View key={i} style={st.tipRow}><Text style={st.tipBullet}>{i + 1}.</Text><Text style={st.tipText}>{tip}</Text></View>
           ))}
         </View>

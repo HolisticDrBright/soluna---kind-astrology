@@ -8,13 +8,14 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { useTodayReading } from "@/lib/hooks";
+import { useTodayReading, useToggleSaved } from "@/lib/hooks";
 import {
   ZODIAC_SYMBOLS,
   CHINESE_ANIMAL_EMOJI,
@@ -31,6 +32,7 @@ import {
   Bird,
   Heart,
   BookOpen,
+  Bookmark,
 } from "lucide-react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -128,6 +130,9 @@ const cardS = StyleSheet.create({ card: { backgroundColor: SolunaColors.cardBg, 
 export default function TodayScreen() {
   const { user } = useAppState();
   const { data: reading, isLoading, refetch, isRefetching } = useTodayReading();
+  const [showWhy, setShowWhy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const toggleSaved = useToggleSaved();
   const fadeIn = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
@@ -181,15 +186,39 @@ export default function TodayScreen() {
           </Card>
 
           {/* Systems Agree Card (signature feature) */}
-          <TouchableOpacity
-            style={st.sysAgreeCard}
-            onPress={() => router.push({ pathname: "/synthesis-detail", params: { id: "today" } })}
-            activeOpacity={0.8}
-          >
+          <View style={st.sysAgreeCard}>
             <SystemsAgreeBadge count={reading.systemsAgree.systems.length} />
             <Text style={st.sysAgreeSummary}>{reading.systemsAgree.summary}</Text>
-            <Text style={st.sysAgreeTap}>Tap to see why</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowWhy((v) => !v)} activeOpacity={0.7}>
+              <Text style={st.sysAgreeTap}>{showWhy ? "Hide the why ↑" : "See why ↓"}</Text>
+            </TouchableOpacity>
+
+            {/* "See why" evidence drawer — rendered from structured data */}
+            {showWhy && (
+              <View style={st.whyDrawer}>
+                {(reading.systemsAgree.evidence ?? []).map((e, i) => (
+                  <View key={i} style={st.whyRow}>
+                    <View style={st.whyHeader}>
+                      <Text style={st.whySystem}>{e.system}</Text>
+                      <View style={st.confBar}>
+                        <View style={[st.confFill, { width: `${Math.round(e.confidence * 100)}%` }]} />
+                      </View>
+                    </View>
+                    <Text style={st.whyLabel}>{e.label}</Text>
+                    <Text style={st.whyDetail}>{e.detail}</Text>
+                  </View>
+                ))}
+                {!!(reading.systemsAgree.combinedTakeaway ?? reading.systemsAgree.detail) && (
+                  <Text style={st.whyTakeaway}>
+                    {reading.systemsAgree.combinedTakeaway ?? reading.systemsAgree.detail}
+                  </Text>
+                )}
+                <TouchableOpacity onPress={() => router.push({ pathname: "/synthesis-detail", params: { id: "today" } })}>
+                  <Text style={st.sysAgreeTap}>Explore where it all connects →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
           {/* Cosmic Weather Strip */}
           <Text style={st.sectionTitle}>Cosmic Weather</Text>
@@ -276,10 +305,22 @@ export default function TodayScreen() {
             <Card style={{ flex: 1, minHeight: 160 }}>
               <Text style={st.cardLabel}>TODAY'S AFFIRMATION</Text>
               <Text style={st.affirmationText}>"{reading.affirmation}"</Text>
-              <TouchableOpacity style={st.shareBtn}>
-                <Share2 size={16} color={SolunaColors.creamMuted} />
-                <Text style={st.shareBtnText}>Share</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TouchableOpacity style={st.shareBtn} onPress={() => Share.share({ message: `${reading.affirmation} — via Soluna` })}>
+                  <Share2 size={16} color={SolunaColors.creamMuted} />
+                  <Text style={st.shareBtnText}>Share</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={st.shareBtn}
+                  onPress={() => {
+                    setSaved(true);
+                    toggleSaved.mutate({ kind: "reading", refId: reading.date, payload: { affirmation: reading.affirmation, hero: reading.reading } });
+                  }}
+                >
+                  <Bookmark size={16} color={saved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={saved ? SolunaColors.warmGold : "none"} />
+                  <Text style={st.shareBtnText}>{saved ? "Saved" : "Save"}</Text>
+                </TouchableOpacity>
+              </View>
             </Card>
           </View>
 
@@ -355,7 +396,16 @@ const st = StyleSheet.create({
   // Systems Agree
   sysAgreeCard: { backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.lg, padding: 20, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)", marginBottom: 16 },
   sysAgreeSummary: { fontSize: 15, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, lineHeight: 22, marginBottom: 8 },
-  sysAgreeTap: { fontSize: 12, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  sysAgreeTap: { fontSize: 12, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body, marginTop: 4 },
+  whyDrawer: { marginTop: 14, gap: 14, borderTopWidth: 1, borderTopColor: "rgba(232,184,109,0.12)", paddingTop: 14 },
+  whyRow: { gap: 4 },
+  whyHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  whySystem: { fontSize: 10, color: SolunaColors.warmGold, textTransform: "uppercase", letterSpacing: 1, fontWeight: "800", fontFamily: Fonts.body, width: 86 },
+  confBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  confFill: { height: 4, borderRadius: 2, backgroundColor: SolunaColors.warmGold },
+  whyLabel: { fontSize: 13, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
+  whyDetail: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18, fontFamily: Fonts.body },
+  whyTakeaway: { fontSize: 13, color: SolunaColors.cream, lineHeight: 20, fontFamily: Fonts.body, fontStyle: "italic", marginTop: 2 },
   // Section
   sectionTitle: { fontSize: 12, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 10 },
   cardLabel: { fontSize: 11, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 4 },

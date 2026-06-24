@@ -2,7 +2,7 @@
 // `today` function and the scheduled `cron-daily-readings` job (one source of truth).
 import { serviceClient } from "./supabase.ts";
 import type { DayContext } from "./synthesis/context.ts";
-import type { AgreementResult } from "./synthesis/agreement.ts";
+import { type AgreementResult, buildAgreementEvidence } from "./synthesis/agreement.ts";
 import type { DailyReading } from "./synthesis/synthesis.ts";
 
 export function buildReadingRow(
@@ -18,12 +18,14 @@ export function buildReadingRow(
     user_id: userId,
     reading_date: ctx.date,
     hero_text: reading.heroText,
+    // Structured "systems agree": theme/score/systems[{label,signal,detail,
+    // confidence}]/combinedTakeaway — the Today drawer renders this directly,
+    // no prose parsing. summary/perSystem keep the LLM phrasing.
     agreement: {
-      ...reading.agreement,
-      theme: agreement.topTheme.id,
-      title: agreement.topTheme.title,
-      score: agreement.topTheme.score,
-      evidence: agreement.topTheme.evidence,
+      ...buildAgreementEvidence(agreement, reading.agreement?.detail),
+      summary: reading.agreement?.summary ??
+        `${agreement.topTheme.score} systems point to ${agreement.topTheme.title.toLowerCase()} today.`,
+      perSystem: reading.agreement?.perSystem ?? [],
     },
     affirmation: reading.affirmation,
     do_embrace_ease: reading.doEmbraceEase,

@@ -411,7 +411,15 @@ export interface DailyReading {
   personalDay: number;
   personalDayMeaning: string;
   chineseNote: string;
-  systemsAgree: { systems: string[]; summary: string; detail: string };
+  systemsAgree: {
+    systems: string[];
+    summary: string;
+    detail: string;
+    // Structured evidence for the "See why" drawer (no prose parsing).
+    theme?: string;
+    combinedTakeaway?: string;
+    evidence?: { system: string; label: string; signal: string; detail: string; confidence: number }[];
+  };
   cardOfTheDay: TarotCard;
 }
 

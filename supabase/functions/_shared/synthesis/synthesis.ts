@@ -190,15 +190,43 @@ export function compatibilityScore(
   return { overall, astrologyScore, numerologyScore, chineseScore };
 }
 
+// Structured output: arrays the UI renders directly, plus deterministic
+// per-system evidence + a confidence derived from how much the systems agree.
 const compatibilitySchema = z.object({
   label: z.string(),
   blendedSummary: z.string(),
-  whereYouFlow: z.string(),
-  whereYouGrow: z.string(),
-  howToLove: z.array(z.string()),
+  whereYouFlow: z.array(z.string()).min(1),
+  whereYouGrow: z.array(z.string()).min(1),
+  howToSupport: z.array(z.string()).min(1),
   tip: z.string(),
 });
-export type CompatibilityBody = z.infer<typeof compatibilitySchema> & CompatScores & { lens: string };
+
+export interface CompatEvidence {
+  system: "astrology" | "numerology" | "chinese";
+  score: number;
+  signal: string;
+}
+
+export type CompatibilityBody =
+  & z.infer<typeof compatibilitySchema>
+  & CompatScores
+  & { lens: string; score: number; confidence: number; evidenceBySystem: CompatEvidence[] };
+
+function compatEvidence(scores: CompatScores): CompatEvidence[] {
+  const phrase = (s: number) => (s >= 80 ? "strong harmony" : s >= 65 ? "easy complement" : "growth tension");
+  return [
+    { system: "astrology", score: scores.astrologyScore, signal: `Your sun signs show ${phrase(scores.astrologyScore)}.` },
+    { system: "numerology", score: scores.numerologyScore, signal: `Your Life Path numbers show ${phrase(scores.numerologyScore)}.` },
+    { system: "chinese", score: scores.chineseScore, signal: `Your Chinese signs show ${phrase(scores.chineseScore)}.` },
+  ];
+}
+
+/** Confidence: high when the three systems agree, lower when they diverge. */
+function compatConfidence(scores: CompatScores): number {
+  const vals = [scores.astrologyScore, scores.numerologyScore, scores.chineseScore];
+  const spread = Math.max(...vals) - Math.min(...vals);
+  return Math.round(Math.min(0.95, Math.max(0.5, 0.95 - spread / 100)) * 100) / 100;
+}
 
 export async function generateCompatibility(
   self: { name: string; sunSign: ZodiacSign; lifePath: number; animal: ChineseAnimal },
@@ -206,39 +234,45 @@ export async function generateCompatibility(
   lens: string,
 ): Promise<{ body: CompatibilityBody; usedFallback: boolean }> {
   const scores = compatibilityScore(self, other);
+  const structured = { ...scores, lens, score: scores.overall, confidence: compatConfidence(scores), evidenceBySystem: compatEvidence(scores) };
   const prompt =
     `Describe the ${lens} compatibility between ${self.name} (${self.sunSign} sun, Life Path ` +
     `${self.lifePath}, ${self.animal}) and ${other.name} (${other.sunSign} sun, Life Path ` +
     `${other.lifePath}, ${other.animal}). Blended scores — astrology ${scores.astrologyScore}, ` +
     `numerology ${scores.numerologyScore}, Chinese ${scores.chineseScore}, overall ` +
     `${scores.overall}. Frame constructively (no doom; differences are growth, not flaws). ` +
-    `Return JSON {label (2-4 word vibe), blendedSummary, whereYouFlow, whereYouGrow, ` +
-    `howToLove (3 short actionable items), tip (one ${lens}-specific suggestion)}.`;
+    `Return JSON {label (2-4 word vibe), blendedSummary, whereYouFlow (2-3 short items), ` +
+    `whereYouGrow (2-3 short items), howToSupport (3 short actionable items), ` +
+    `tip (one ${lens}-specific suggestion)}.`;
   try {
     const parsed = await llm.completeJSON(
       [{ role: "user", content: prompt }],
       compatibilitySchema,
       { temperature: 0.7, maxTokens: 700 },
     );
-    return { body: { ...parsed, ...scores, lens }, usedFallback: false };
+    return { body: { ...parsed, ...structured }, usedFallback: false };
   } catch (_e) {
     return {
       body: {
         label: scores.overall >= 80 ? "Naturally easy" : scores.overall >= 65 ? "Warm & workable" : "Growth pairing",
         blendedSummary:
           `Across astrology, numerology, and Chinese astrology, your ${lens} connection with ` +
-          `${other.name} blends to about ${scores.overall}%. Every pairing has its own rhythm — ` +
-          `yours included.`,
-        whereYouFlow: "You share real common ground that makes being together feel easy.",
-        whereYouGrow: "Your differences are invitations to stretch gently toward each other.",
-        howToLove: [
+          `${other.name} blends to about ${scores.overall}%. Every pairing has its own rhythm — yours included.`,
+        whereYouFlow: [
+          "You share real common ground that makes being together feel easy.",
+          "There's a natural warmth when you're in sync.",
+        ],
+        whereYouGrow: [
+          "Your differences are invitations to stretch gently toward each other.",
+          "Pace and style may differ — name it kindly when it shows up.",
+        ],
+        howToSupport: [
           "Lead with curiosity about how they see the world",
           "Name what you appreciate out loud",
           "Give each other room to be fully yourselves",
         ],
         tip: "Keep the connection warm with small, consistent gestures.",
-        ...scores,
-        lens,
+        ...structured,
       },
       usedFallback: true,
     };

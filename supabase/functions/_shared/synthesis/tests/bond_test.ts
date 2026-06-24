@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "../../test_util.ts";
-import { compatibilityScore, generateBondReading, shareFacets } from "../synthesis.ts";
+import { compatibilityScore, generateBondReading, generateCompatibility, shareFacets } from "../synthesis.ts";
 import type { ChineseAnimal, ZodiacSign } from "../../engines/types.ts";
 
 const summary = {
@@ -32,6 +32,24 @@ Deno.test("compatibilityScore is deterministic + symmetric", () => {
   const s2 = compatibilityScore(b, a);
   assertEquals(s1.overall, s2.overall);
   assert(s1.overall >= 0 && s1.overall <= 100);
+});
+
+Deno.test("compatibility output is structured (arrays + evidence + confidence)", async () => {
+  const { body } = await generateCompatibility(
+    { name: "Maya", sunSign: "Cancer", lifePath: 7, animal: "Pig" },
+    { name: "Sam", sunSign: "Scorpio", lifePath: 3, animal: "Horse" },
+    "romance",
+  );
+  assert(Array.isArray(body.whereYouFlow) && body.whereYouFlow.length > 0);
+  assert(Array.isArray(body.whereYouGrow) && body.whereYouGrow.length > 0);
+  assert(Array.isArray(body.howToSupport) && body.howToSupport.length > 0);
+  assertEquals(body.evidenceBySystem.length, 3);
+  for (const e of body.evidenceBySystem) {
+    assert(["astrology", "numerology", "chinese"].includes(e.system));
+    assert(typeof e.score === "number" && !!e.signal);
+  }
+  assert(body.confidence > 0 && body.confidence <= 1);
+  assertEquals(body.score, body.overall);
 });
 
 Deno.test("bond reading fallback is complete (offline)", async () => {

@@ -11,6 +11,12 @@ export interface EntitlementState {
   expiresAt: string | null;
 }
 
+/** Pure check: a subscription grants premium only if active AND not expired. */
+export function isEntitlementActive(status: string, expiresAt: string | null, now: number = Date.now()): boolean {
+  const notExpired = !expiresAt || new Date(expiresAt).getTime() > now;
+  return status === "active" && notExpired;
+}
+
 export async function getEntitlement(userId: string): Promise<EntitlementState> {
   const { data } = await serviceClient()
     .from("subscriptions")
@@ -20,8 +26,7 @@ export async function getEntitlement(userId: string): Promise<EntitlementState> 
 
   if (!data) return { entitlement: "free", status: "inactive", expiresAt: null };
 
-  const notExpired = !data.expires_at || new Date(data.expires_at) > new Date();
-  const active = data.status === "active" && notExpired;
+  const active = isEntitlementActive(data.status, data.expires_at);
   return {
     entitlement: active ? (data.entitlement as Entitlement) : "free",
     status: data.status,

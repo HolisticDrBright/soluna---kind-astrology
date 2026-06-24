@@ -111,7 +111,9 @@ export function useAddJournal() {
   const qc = useQueryClient();
   const live = useLive();
   return useMutation({
-    mutationFn: async (input: { title?: string; body: string; mood?: number; entryDate?: string }) => {
+    mutationFn: async (
+      input: { title?: string; body: string; mood?: number; entryDate?: string; tags?: string[]; sourceRef?: string },
+    ) => {
       if (!live) return null;
       return await api.addJournal(input);
     },
