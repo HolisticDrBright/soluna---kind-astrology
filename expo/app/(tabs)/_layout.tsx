@@ -1,4 +1,4 @@
-import { Tabs, router } from "expo-router";
+import { Tabs, router, useRootNavigationState } from "expo-router";
 import React, { useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity } from "react-native";
 import {
@@ -27,12 +27,13 @@ function TabIcon({
 
 export default function TabLayout() {
   const { hasOnboarded } = useAppState();
+  const rootNavState = useRootNavigationState();
 
   useEffect(() => {
-    if (!hasOnboarded) {
+    if (rootNavState?.key && !hasOnboarded) {
       router.replace("/onboarding");
     }
-  }, [hasOnboarded]);
+  }, [rootNavState?.key, hasOnboarded]);
 
   return (
     <Tabs
