@@ -1,43 +1,24 @@
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
-import {
-  Crown, Sparkles, X, ShieldCheck, Star, Hash, Bird, Cpu, Infinity, Heart,
-} from "lucide-react-native";
+import { Crown, Sparkles, X, ShieldCheck, Star, Infinity, Heart } from "lucide-react-native";
 
 function Benefit({ text }: { text: string }) {
   return (
     <View style={bS.row}><Check size={18} color={SolunaColors.warmGold} /><Text style={bS.text}>{text}</Text></View>
   );
 }
-const bS = StyleSheet.create({
-  row: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 },
-  text: { flex: 1, fontSize: 14, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body },
-});
+const bS = StyleSheet.create({ row: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 }, text: { flex: 1, fontSize: 14, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body } });
 
-function PricingCard({
-  title, price, period, savings, selected, onSelect,
-}: { title: string; price: string; period: string; savings?: string; selected: boolean; onSelect: () => void }) {
+function PricingCard({ title, price, period, savings, selected, onSelect }: { title: string; price: string; period: string; savings?: string; selected: boolean; onSelect: () => void }) {
   return (
     <TouchableOpacity style={[pS.card, selected && pS.cardSelected]} onPress={onSelect} activeOpacity={0.8}>
-      <View style={pS.radio}>
-        <View style={[pS.radioOuter, selected && pS.radioOuterSelected]}>
-          {selected && <View style={pS.radioInner} />}
-        </View>
-      </View>
-      <View style={pS.info}>
-        <Text style={pS.title}>{title}</Text>
-        {savings && <View style={pS.savingsBadge}><Text style={pS.savingsText}>{savings}</Text></View>}
-      </View>
-      <View style={pS.priceWrap}>
-        <Text style={pS.price}>{price}</Text>
-        <Text style={pS.period}>{period}</Text>
-      </View>
+      <View style={pS.radio}><View style={[pS.radioOuter, selected && pS.radioOuterSelected]}>{selected && <View style={pS.radioInner} />}</View></View>
+      <View style={pS.info}><Text style={pS.title}>{title}</Text>{savings && <View style={pS.savingsBadge}><Text style={pS.savingsText}>{savings}</Text></View>}</View>
+      <View style={pS.priceWrap}><Text style={pS.price}>{price}</Text><Text style={pS.period}>{period}</Text></View>
     </TouchableOpacity>
   );
 }
@@ -57,19 +38,12 @@ const pS = StyleSheet.create({
   period: { fontSize: 11, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
 });
 
-// ─── Tier Description Card ───────────────────────────────────
 function TierCard({ title, items, icon: Icon }: { title: string; items: string[]; icon: React.ComponentType<{ size: number; color: string }> }) {
   return (
     <View style={tcS.card}>
-      <View style={tcS.header}>
-        <Icon size={18} color={SolunaColors.warmGold} />
-        <Text style={tcS.title}>{title}</Text>
-      </View>
+      <View style={tcS.header}><Icon size={18} color={SolunaColors.warmGold} /><Text style={tcS.title}>{title}</Text></View>
       {items.map((item, i) => (
-        <View key={i} style={tcS.item}>
-          <Sparkles size={10} color={SolunaColors.creamSubtle} />
-          <Text style={tcS.itemText}>{item}</Text>
-        </View>
+        <View key={i} style={tcS.item}><Sparkles size={10} color={SolunaColors.creamSubtle} /><Text style={tcS.itemText}>{item}</Text></View>
       ))}
     </View>
   );
@@ -83,11 +57,7 @@ const tcS = StyleSheet.create({
 });
 
 function Check({ size, color }: { size: number; color: string }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "rgba(123,200,156,0.15)", alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color, fontSize: size * 0.7, fontWeight: "700" }}>✓</Text>
-    </View>
-  );
+  return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "rgba(123,200,156,0.15)", alignItems: "center", justifyContent: "center" }}><Text style={{ color, fontSize: size * 0.7, fontWeight: "700" }}>✓</Text></View>;
 }
 
 export default function PaywallScreen() {
@@ -100,55 +70,35 @@ export default function PaywallScreen() {
         <ScrollView contentContainerStyle={st.sheetContent} showsVerticalScrollIndicator={false} bounces={false}>
           {/* Top bar */}
           <View style={st.topBar}>
-            <View style={st.premBadge}>
-              <Crown size={12} color={SolunaColors.warmGold} />
-              <Text style={st.premBadgeText}>SOLUNA PREMIUM</Text>
-            </View>
-            <TouchableOpacity style={st.closeBtn} onPress={() => router.back()}>
-              <X size={20} color={SolunaColors.creamMuted} />
-            </TouchableOpacity>
+            <View style={st.premBadge}><Crown size={12} color={SolunaColors.warmGold} /><Text style={st.premBadgeText}>SOLUNA PREMIUM</Text></View>
+            <TouchableOpacity style={st.closeBtn} onPress={() => router.back()}><X size={20} color={SolunaColors.creamMuted} /></TouchableOpacity>
           </View>
 
           {/* Headline */}
           <View style={st.headlineWrap}>
             <Sparkles size={28} color={SolunaColors.warmGold} />
             <Text style={st.headline}>Your full Blueprint,{"\n"}fully unlocked</Text>
-            <Text style={st.headlineSub}>
-              All four lenses. Unlimited guidance. Cross-system synthesis that shows you where everything connects.
-            </Text>
+            <Text style={st.headlineSub}>All four lenses. Unlimited guidance. Cross-system synthesis that shows you where everything connects.</Text>
           </View>
 
-          {/* What's included — by tier */}
-          <Text style={st.sectionLabel}>What's included in Premium</Text>
-
-          <TierCard
-            icon={Star}
-            title="Full Lens Access"
-            items={[
-              "Complete astrological chart with all placements, houses, and aspects",
-              "Full numerology profile — Life Path, Expression, Soul Urge, and timing cycles",
-              "BaZi Four Pillars deep insights and daily Chinese energy notes",
-              "Human Design bodygraph, defined centers, gates, and channels",
-            ]}
-          />
-          <TierCard
-            icon={Infinity}
-            title="Unlimited Guidance"
-            items={[
-              "Unlimited Ask Soluna conversations with full cross-system synthesis",
-              "Deep synthesis reports — 'Where your systems agree' on any theme",
-              "Full compatibility for everyone in your circle across Romance, Friendship, Work & Family",
-            ]}
-          />
-          <TierCard
-            icon={Heart}
-            title="Bonds & Sharing"
-            items={[
-              "Create unlimited partner Bonds with daily shared readings",
-              "Private Bond Space with your linked partner",
-              "All tarot spreads (Celtic Cross, Past-Present-Future, and more)",
-            ]}
-          />
+          {/* What's included */}
+          <Text style={st.sectionLabel}>What you unlock</Text>
+          <TierCard icon={Star} title="Full Lens Access" items={[
+            "Complete astrological chart with all placements, houses, and aspects",
+            "Full numerology profile — Life Path, Expression, Soul Urge, and timing cycles",
+            "BaZi Four Pillars deep insights and daily Chinese energy notes",
+            "Human Design bodygraph, defined centers, gates, and channels",
+          ]} />
+          <TierCard icon={Infinity} title="Unlimited Guidance" items={[
+            "Unlimited Ask Soluna conversations with full cross-system synthesis",
+            "Deep synthesis reports — 'Where your systems agree' on any theme",
+            "Full compatibility for everyone in your circle across Romance, Friendship, Work & Family",
+          ]} />
+          <TierCard icon={Heart} title="Bonds & Sharing" items={[
+            "Create unlimited partner Bonds with daily shared readings",
+            "Private Bond Space with your linked partner",
+            "All tarot spreads (Celtic Cross, Past-Present-Future, and more)",
+          ]} />
 
           {/* Pricing */}
           <Text style={st.sectionLabel}>Choose your plan</Text>
@@ -161,25 +111,17 @@ export default function PaywallScreen() {
               <Text style={st.ctaText}>Start Your Free Trial</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={st.ctaSub}>
-            7-day free trial, then {selectedPlan === "yearly" ? "$4.99/month" : "$6.99/month"}. Cancel anytime in one tap — right here in the app.
-          </Text>
+
+          {/* Trust copy */}
+          <View style={st.trustBox}>
+            <ShieldCheck size={14} color={SolunaColors.warmGold} />
+            <Text style={st.trustText}>
+              7-day free trial, then {selectedPlan === "yearly" ? "$4.99/month" : "$6.99/month"}. Cancel anytime in one tap — right here in the app. No dark patterns, no retention flows, no surprise charges. If Soluna isn't right for you, we want you to leave easily. Your birth data stays yours — we never sell it, never share it, and never train on your chats.
+            </Text>
+          </View>
 
           {/* Coming soon */}
-          <View style={st.comingSoon}>
-            <Sparkles size={12} color={SolunaColors.gentleLavender} />
-            <Text style={st.comingSoonText}>
-              Year-ahead transit report — coming later this year
-            </Text>
-          </View>
-
-          {/* Footer */}
-          <View style={st.footer}>
-            <ShieldCheck size={14} color={SolunaColors.creamSubtle} />
-            <Text style={st.footerText}>
-              Cancel anytime in one tap, right inside the app — no tricks, no retention flows, no surprise charges. Your birth data stays yours. We never sell it, never share it, and never train on your chats. If Soluna isn't right for you, we want you to leave easily — and come back whenever you're ready.
-            </Text>
-          </View>
+          <View style={st.comingSoon}><Sparkles size={12} color={SolunaColors.gentleLavender} /><Text style={st.comingSoonText}>Year-ahead transit report — coming later this year</Text></View>
         </ScrollView>
       </LinearGradient>
     </View>
@@ -199,12 +141,11 @@ const st = StyleSheet.create({
   headline: { fontSize: 26, fontFamily: Fonts.heading, color: SolunaColors.cream, textAlign: "center", marginTop: 10, marginBottom: 8, lineHeight: 34 },
   headlineSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22, maxWidth: 320, fontFamily: Fonts.body },
   sectionLabel: { fontSize: 11, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 10, marginTop: 4 },
-  ctaBtn: { borderRadius: SolunaRadius.lg, overflow: "hidden", marginBottom: 8 },
+  ctaBtn: { borderRadius: SolunaRadius.lg, overflow: "hidden", marginBottom: 12 },
   ctaGradient: { paddingVertical: 16, alignItems: "center" },
   ctaText: { fontSize: 17, fontWeight: "700", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
-  ctaSub: { fontSize: 12, color: SolunaColors.creamSubtle, textAlign: "center", marginBottom: 12, fontFamily: Fonts.body, lineHeight: 18 },
-  comingSoon: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 16 },
+  trustBox: { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: "rgba(232,184,109,0.05)", borderRadius: SolunaRadius.md, padding: 12, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginBottom: 10 },
+  trustText: { flex: 1, fontSize: 11, color: SolunaColors.creamSubtle, lineHeight: 17, fontFamily: Fonts.body },
+  comingSoon: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 },
   comingSoonText: { fontSize: 12, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, fontStyle: "italic" },
-  footer: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-  footerText: { flex: 1, fontSize: 11, color: SolunaColors.creamSubtle, lineHeight: 17, fontFamily: Fonts.body },
 });

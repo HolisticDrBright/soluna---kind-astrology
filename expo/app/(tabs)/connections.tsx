@@ -1,20 +1,23 @@
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts } from "@/constants/mockData";
+import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
 import EmptyState from "@/components/EmptyState";
-import {
-  Heart, Plus, ChevronRight, Sparkles, Hash, Bird, Share2, Users,
-} from "lucide-react-native";
+import ConfidencePill from "@/components/ConfidencePill";
+import { Heart, Plus, ChevronRight, Sparkles, Share2, Users, Shield, Star, Briefcase, HeartHandshake, Baby } from "lucide-react-native";
 
+// ─── Lens config ───────────────────────────────────────────
+const LENSES: { key: RelationshipLens; label: string; icon: typeof Heart; color: string }[] = [
+  { key: "Romance", label: "Romance", icon: Heart, color: SolunaColors.softPeach },
+  { key: "Friendship", label: "Friends", icon: Star, color: SolunaColors.warmGold },
+  { key: "Work", label: "Work", icon: Briefcase, color: SolunaColors.gentleLavender },
+  { key: "Family", label: "Family", icon: Baby, color: "#7BC89C" },
+];
 
-
-// ─── Compatibility Mini Ring ──────────────────────────────────
+// ─── Mini Score Ring ───────────────────────────────────────
 function MiniScoreRing({ score }: { score: number }) {
   const color = score >= 80 ? SolunaColors.warmGold : score >= 60 ? SolunaColors.gentleLavender : SolunaColors.softPeach;
   return (
@@ -24,34 +27,20 @@ function MiniScoreRing({ score }: { score: number }) {
     </View>
   );
 }
-const mrS = StyleSheet.create({
-  ring: { alignItems: "center", gap: 2 },
-  score: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.body },
-  label: { fontSize: 9, color: SolunaColors.creamMuted, fontWeight: "600" },
-});
+const mrS = StyleSheet.create({ ring: { alignItems: "center", gap: 2 }, score: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.body }, label: { fontSize: 9, color: SolunaColors.creamMuted, fontWeight: "600" } });
 
-// ─── Add Someone Form ─────────────────────────────────────────
+// ─── Add Person Form ───────────────────────────────────────
 function AddPersonForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   return (
     <View style={fS.wrap}>
       <Text style={fS.title}>Add Someone to Your Circle</Text>
-      <TextInput
-        style={fS.input} value={name} onChangeText={setName}
-        placeholder="Their full name" placeholderTextColor={SolunaColors.creamSubtle}
-      />
-      <TextInput
-        style={fS.input} value={date} onChangeText={setDate}
-        placeholder="Birth date (e.g. July 5, 1993)" placeholderTextColor={SolunaColors.creamSubtle}
-      />
-      <Text style={fS.hint}>
-        Just a name and birth date to get started. More details unlock deeper compatibility — but we keep it simple.
-      </Text>
+      <TextInput style={fS.input} value={name} onChangeText={setName} placeholder="Their full name" placeholderTextColor={SolunaColors.creamSubtle} />
+      <TextInput style={fS.input} value={date} onChangeText={setDate} placeholder="Birth date (e.g. July 5, 1993)" placeholderTextColor={SolunaColors.creamSubtle} />
+      <Text style={fS.hint}>Just a name and birth date to get started. More details unlock deeper compatibility.</Text>
       <View style={fS.buttons}>
-        <TouchableOpacity style={fS.cancelBtn} onPress={onClose}>
-          <Text style={fS.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={fS.cancelBtn} onPress={onClose}><Text style={fS.cancelText}>Cancel</Text></TouchableOpacity>
         <TouchableOpacity style={[fS.addBtn, !name && fS.addBtnDisabled]} onPress={onClose} disabled={!name}>
           <Text style={[fS.addText, !name && { color: SolunaColors.creamSubtle }]}>Add to Circle</Text>
         </TouchableOpacity>
@@ -72,111 +61,146 @@ const fS = StyleSheet.create({
   addText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });
 
-// ─── Person Card ──────────────────────────────────────────────
-function PersonCard({ person }: { person: (typeof CONNECTIONS)[number] }) {
-  return (
-    <TouchableOpacity
-      style={pcS.card}
-      onPress={() => router.push({ pathname: "/compatibility-detail", params: { id: person.id } })}
-      activeOpacity={0.7}
-    >
-      <View style={pcS.left}>
-        <View style={pcS.avatar}>
-          <Text style={pcS.avatarText}>{person.avatarInitial}</Text>
-        </View>
-        <View style={pcS.info}>
-          <Text style={pcS.name}>{person.name}</Text>
-          <Text style={pcS.meta}>
-            {ZODIAC_SYMBOLS[person.sunSign]} {person.sunSign} · {person.relationship}
-          </Text>
-        </View>
-      </View>
-      <View style={pcS.right}>
-        <MiniScoreRing score={person.compatibilityScore} />
-        <ChevronRight size={16} color={SolunaColors.creamSubtle} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-const pcS = StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 8 },
-  left: { flexDirection: "row", alignItems: "center", gap: 14, flex: 1 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(232,184,109,0.1)", alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 20, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.heading },
-  info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 2 },
-  meta: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
-  right: { flexDirection: "row", alignItems: "center", gap: 10 },
-});
-
 function ConnectionsContent() {
   const { user } = useAppState();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [activeLens, setActiveLens] = useState<RelationshipLens>("Romance");
+  const [tapState, setTapState] = useState<Record<string, boolean>>({});
   if (!user) return null;
+
+  const toggleTap = (id: string) => setTapState((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const getLensTip = (person: (typeof CONNECTIONS)[number], lens: RelationshipLens): string => {
+    switch (lens) {
+      case "Romance": return person.romanceTip;
+      case "Friendship": return person.friendshipTip;
+      case "Work": return person.workTip;
+      case "Family": return person.familyTip;
+    }
+  };
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.gradient}>
       <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={st.title}>Connections</Text>
-        <Text style={st.sub}>
-          See how you connect through astrology, numerology, and Chinese signs — framed with warmth, not judgment.
-        </Text>
+        <Text style={st.sub}>See how you connect through astrology, numerology, and Chinese signs — framed with warmth, not judgment.</Text>
 
-        {/* ── Hero CTA: Invite someone to create a Bond ── */}
+        {/* ── Hero: Linked Bonds ── */}
         <TouchableOpacity style={st.inviteHero} activeOpacity={0.8}>
-          <LinearGradient
-            colors={["rgba(232,184,109,0.1)", "rgba(242,168,141,0.04)"]}
-            style={st.inviteHeroInner}
-          >
-            <View style={st.inviteHeroIcon}>
-              <Share2 size={24} color={SolunaColors.warmGold} />
-            </View>
+          <LinearGradient colors={["rgba(232,184,109,0.1)", "rgba(242,168,141,0.04)"]} style={st.inviteHeroInner}>
+            <View style={st.inviteHeroIcon}><Share2 size={24} color={SolunaColors.warmGold} /></View>
             <Text style={st.inviteHeroTitle}>Invite someone to create a Bond</Text>
-            <Text style={st.inviteHeroDesc}>
-              Linked partners get daily shared readings, a private Bond Space, and cross-system compatibility insight — for free.
-            </Text>
-            <View style={st.inviteHeroCta}>
-              <Sparkles size={14} color={SolunaColors.warmGold} />
-              <Text style={st.inviteHeroCtaText}>Send an invite</Text>
-            </View>
+            <Text style={st.inviteHeroDesc}>Linked partners get daily shared readings, a private Bond Space, and cross-system compatibility insight — free for both of you. You choose what you share. Unlink anytime.</Text>
+            <View style={st.inviteHeroCta}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={st.inviteHeroCtaText}>Send an invite</Text></View>
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* ── Your Bonds Section ── */}
-        <View style={st.sectionHeader}>
-          <Heart size={16} color={SolunaColors.softPeach} fill={SolunaColors.softPeach} />
-          <Text style={st.sectionTitle}>Your Bonds</Text>
-        </View>
-        <EmptyState
-          icon={Heart}
-          title="No Bonds yet"
-          description="Bonds are linked partners who get daily shared readings with you. Invite someone special to start your first Bond — it's free for both of you."
-          actionLabel="Invite someone"
-          onAction={() => {}}
-        />
+        {/* ── Your Bonds ── */}
+        <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} fill={SolunaColors.softPeach} /><Text style={st.sectionTitle}>Linked Bonds</Text></View>
+        <EmptyState icon={Heart} title="No Bonds yet" description="Bonds are linked partners who get daily shared readings with you. Invite someone special — it's free for both of you." actionLabel="Invite someone" onAction={() => {}} />
 
-        {/* ── Your Circle Section ── */}
+        {/* ── Lens Switcher ── */}
         <View style={st.sectionHeader}>
-          <Users size={16} color={SolunaColors.gentleLavender} />
+          <HeartHandshake size={16} color={SolunaColors.gentleLavender} />
           <Text style={st.sectionTitle}>Your Circle</Text>
         </View>
+        <View style={st.lensWrap}>
+          {LENSES.map((lens) => {
+            const isActive = activeLens === lens.key;
+            return (
+              <TouchableOpacity key={lens.key} style={[st.lensTab, isActive && st.lensTabActive]} onPress={() => setActiveLens(lens.key)}>
+                <lens.icon size={13} color={isActive ? lens.color : SolunaColors.creamSubtle} />
+                <Text style={[st.lensText, isActive && { color: lens.color, fontWeight: "700" }]}>{lens.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
+        {/* ── Add button ── */}
         {!showAddForm ? (
           <TouchableOpacity style={st.addButton} onPress={() => setShowAddForm(true)} activeOpacity={0.8}>
-            <Plus size={20} color={SolunaColors.warmGold} />
-            <Text style={st.addButtonText}>Add someone</Text>
+            <Plus size={20} color={SolunaColors.warmGold} /><Text style={st.addButtonText}>Add someone</Text>
           </TouchableOpacity>
         ) : (
           <AddPersonForm onClose={() => setShowAddForm(false)} />
         )}
 
-        {CONNECTIONS.map((person) => (
-          <PersonCard key={person.id} person={person} />
-        ))}
+        {/* ── Person Cards ── */}
+        {CONNECTIONS.map((person) => {
+          const isOpen = tapState[person.id] ?? false;
+          const lensActive = LENSES.find((l) => l.key === activeLens)!;
+          return (
+            <TouchableOpacity key={person.id} style={pcS.card} onPress={() => toggleTap(person.id)} activeOpacity={0.7}>
+              <View style={pcS.top}>
+                <View style={pcS.left}>
+                  <View style={pcS.avatar}><Text style={pcS.avatarText}>{person.avatarInitial}</Text></View>
+                  <View style={pcS.info}>
+                    <Text style={pcS.name}>{person.name}</Text>
+                    <Text style={pcS.meta}>{ZODIAC_SYMBOLS[person.sunSign]} {person.sunSign} · {person.relationship}</Text>
+                  </View>
+                </View>
+                <View style={pcS.right}>
+                  <MiniScoreRing score={person.compatibilityScore} />
+                  <ChevronRight size={16} color={SolunaColors.creamSubtle} style={{ transform: [{ rotate: isOpen ? "90deg" : "0deg" }] }} />
+                </View>
+              </View>
 
-        <View style={st.privacyNote}>
+              {isOpen && (
+                <View style={pcS.expanded}>
+                  {/* Lens-specific tip */}
+                  <View style={pcS.lensCard}>
+                    <View style={pcS.lensChip}>
+                      <lensActive.icon size={12} color={lensActive.color} />
+                      <Text style={[pcS.lensChipText, { color: lensActive.color }]}>{lensActive.label}</Text>
+                    </View>
+                    <Text style={pcS.lensTip}>{getLensTip(person, activeLens)}</Text>
+                  </View>
+
+                  {/* Where you flow */}
+                  <View style={pcS.section}>
+                    <Text style={pcS.sectionLabel}>Where you flow</Text>
+                    <Text style={pcS.sectionText}>{person.whereYouFlow}</Text>
+                  </View>
+
+                  {/* Where you grow */}
+                  <View style={pcS.section}>
+                    <Text style={pcS.sectionLabel}>Where you grow</Text>
+                    <Text style={pcS.sectionText}>{person.whereYouGrow}</Text>
+                  </View>
+
+                  {/* How to support */}
+                  <View style={pcS.section}>
+                    <Text style={pcS.sectionLabel}>How to support each other</Text>
+                    {person.howToLove.map((tip, i) => (
+                      <View key={i} style={pcS.tipRow}><Sparkles size={10} color={SolunaColors.warmGold} /><Text style={pcS.tipText}>{tip}</Text></View>
+                    ))}
+                  </View>
+
+                  {/* Cross-system scores */}
+                  <View style={pcS.scoresRow}>
+                    <View style={pcS.scoreCell}><Text style={pcS.scoreVal}>{person.compatibilityScore}%</Text><Text style={pcS.scoreSrc}>Astrology</Text></View>
+                    <View style={pcS.scoreCell}><Text style={pcS.scoreVal}>{person.numerologyScore}%</Text><Text style={pcS.scoreSrc}>Numerology</Text></View>
+                    <View style={pcS.scoreCell}><Text style={pcS.scoreVal}>{person.chineseScore}%</Text><Text style={pcS.scoreSrc}>Chinese</Text></View>
+                  </View>
+
+                  {/* Confidence */}
+                  <View style={pcS.confWrap}><ConfidencePill level="approximate" /></View>
+
+                  {/* Deep link */}
+                  <TouchableOpacity style={pcS.fullBtn} onPress={() => router.push({ pathname: "/compatibility-detail", params: { id: person.id } })}>
+                    <Text style={pcS.fullBtnText}>Full Compatibility Report</Text><ChevronRight size={14} color={SolunaColors.warmGold} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* ── Privacy ── */}
+        <View style={st.privacyCard}>
+          <Shield size={18} color={SolunaColors.warmGold} />
           <Text style={st.privacyText}>
-            We never share real names or birth details between people unless both consent. Compatibility is always framed positively — even challenging aspects are growth edges.
+            You choose what you share. Unlink anytime — no guilt, no retention tactics. We never share real names or birth details without mutual consent. Compatibility is always framed positively — even challenging aspects are growth edges.
           </Text>
         </View>
         <View style={{ height: 100 }} />
@@ -185,9 +209,7 @@ function ConnectionsContent() {
   );
 }
 
-export default function ConnectionsScreen() {
-  return <ConnectionsContent />;
-}
+export default function ConnectionsScreen() { return <ConnectionsContent />; }
 
 const st = StyleSheet.create({
   gradient: { flex: 1 }, scroll: { flex: 1 },
@@ -199,21 +221,52 @@ const st = StyleSheet.create({
   inviteHeroInner: { padding: 20, borderRadius: SolunaRadius.lg, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)", alignItems: "center" },
   inviteHeroIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(232,184,109,0.12)", alignItems: "center", justifyContent: "center", marginBottom: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.2)" },
   inviteHeroTitle: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 8, textAlign: "center" },
-  inviteHeroDesc: { fontSize: 13, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 20, marginBottom: 14, maxWidth: 280 },
+  inviteHeroDesc: { fontSize: 13, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 20, marginBottom: 14, maxWidth: 280, fontFamily: Fonts.body },
   inviteHeroCta: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(232,184,109,0.15)", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "rgba(232,184,109,0.25)" },
   inviteHeroCtaText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "700", fontFamily: Fonts.body },
   // Sections
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
-  // Circle
-  addButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-    backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.lg,
-    paddingVertical: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)",
-    borderStyle: "dashed", marginBottom: 16,
-  },
+  // Lens Switcher
+  lensWrap: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 4, marginBottom: 14 },
+  lensTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: SolunaRadius.sm, borderWidth: 1, borderColor: "transparent" },
+  lensTabActive: { backgroundColor: "rgba(232,184,109,0.08)", borderColor: "rgba(232,184,109,0.15)" },
+  lensText: { fontSize: 11, fontWeight: "600", color: SolunaColors.creamMuted, fontFamily: Fonts.body },
+  // Add
+  addButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.lg, paddingVertical: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)", borderStyle: "dashed", marginBottom: 16 },
   addButtonText: { fontSize: 15, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
   // Privacy
-  privacyNote: { alignItems: "center", marginTop: 20, paddingHorizontal: 10 },
-  privacyText: { fontSize: 12, color: SolunaColors.creamSubtle, textAlign: "center", lineHeight: 18, fontFamily: Fonts.body },
+  privacyCard: { flexDirection: "row", gap: 12, backgroundColor: "rgba(232,184,109,0.05)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginTop: 20, marginBottom: 10, alignItems: "flex-start" },
+  privacyText: { flex: 1, fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
+});
+
+// ─── Person Card ───────────────────────────────────────────
+const pcS = StyleSheet.create({
+  card: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 10 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  left: { flexDirection: "row", alignItems: "center", gap: 14, flex: 1 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(232,184,109,0.1)", alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 20, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.heading },
+  info: { flex: 1 },
+  name: { fontSize: 16, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 2 },
+  meta: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
+  right: { flexDirection: "row", alignItems: "center", gap: 10 },
+  // Expanded
+  expanded: { marginTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", paddingTop: 14 },
+  lensCard: { backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 12, marginBottom: 10 },
+  lensChip: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
+  lensChipText: { fontSize: 11, fontWeight: "700", fontFamily: Fonts.body },
+  lensTip: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
+  section: { marginBottom: 10 },
+  sectionLabel: { fontSize: 10, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", marginBottom: 4 },
+  sectionText: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
+  tipRow: { flexDirection: "row", gap: 6, alignItems: "flex-start", marginBottom: 5 },
+  tipText: { flex: 1, fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 17, fontFamily: Fonts.body },
+  scoresRow: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 8, backgroundColor: "rgba(255,255,255,0.02)", borderRadius: 10, marginBottom: 10 },
+  scoreCell: { alignItems: "center" },
+  scoreVal: { fontSize: 16, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.heading },
+  scoreSrc: { fontSize: 9, color: SolunaColors.creamSubtle, marginTop: 2, textTransform: "uppercase" },
+  confWrap: { marginBottom: 8 },
+  fullBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(232,184,109,0.08)", paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)" },
+  fullBtnText: { fontSize: 13, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });

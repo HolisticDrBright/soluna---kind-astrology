@@ -816,6 +816,7 @@ export const CONNECTIONS: ConnectionPerson[] = [
 
 export interface ChatMessage {
   id: string; sender: "user" | "soluna"; text: string; timestamp: string;
+  isError?: boolean;
 }
 
 export const MOCK_CHAT_HISTORY: ChatMessage[] = [

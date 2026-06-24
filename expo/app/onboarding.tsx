@@ -5,36 +5,40 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
-import { ChevronLeft, ChevronRight, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu } from "lucide-react-native";
+import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const TOTAL_STEPS = 8;
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <View style={siS.row}>
       {Array.from({ length: total }).map((_, i) => (
-        <View key={i} style={[siS.dot, i <= current ? siS.dotActive : siS.dotInactive]} />
+        <View key={i} style={[siS.dot, i === current ? siS.dotCurrent : i < current ? siS.dotDone : siS.dotInactive]} />
       ))}
     </View>
   );
 }
 const siS = StyleSheet.create({
-  row: { flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center" },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  dotActive: { backgroundColor: SolunaColors.warmGold, width: 24 },
-  dotInactive: { backgroundColor: "rgba(255,255,255,0.15)" },
+  row: { flexDirection: "row", gap: 6, justifyContent: "center", alignItems: "center" },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  dotCurrent: { backgroundColor: SolunaColors.warmGold, width: 22, height: 6 },
+  dotDone: { backgroundColor: "rgba(232,184,109,0.4)", width: 8, height: 8, borderRadius: 4 },
+  dotInactive: { backgroundColor: "rgba(255,255,255,0.12)" },
 });
 
 export default function OnboardingScreen() {
   const { onboardingStep, setOnboardingStep, completeOnboarding } = useAppState();
-  const [fullName, setFullName] = useState("Maya Elizabeth Chen");
-  const [preferredName, setPreferredName] = useState("Maya");
-  const [birthDate, setBirthDate] = useState(new Date(1995, 5, 22));
-  const [birthDateText, setBirthDateText] = useState("June 22, 1995");
+
+  // All fields start empty — no prefilled demo data
+  const [fullName, setFullName] = useState("");
+  const [preferredName, setPreferredName] = useState("");
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [birthDateText, setBirthDateText] = useState("");
   const [dateError, setDateError] = useState("");
-  const [birthTime, setBirthTime] = useState("14:35");
+  const [birthTime, setBirthTime] = useState("");
   const [birthTimeKnown, setBirthTimeKnown] = useState(true);
-  const [birthPlace, setBirthPlace] = useState("Portland, Oregon, USA");
+  const [birthPlace, setBirthPlace] = useState("");
   const [placeSearch, setPlaceSearch] = useState("");
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
   const [showCalculating, setShowCalculating] = useState(false);
@@ -44,40 +48,51 @@ export default function OnboardingScreen() {
   const calculatingAnim = useRef(new RNAnimated.Value(0)).current;
   const revealFade = useRef(new RNAnimated.Value(0)).current;
 
-  const stepIndex: Record<OnboardingStep, number> = { welcome: 0, fullName: 1, preferredName: 2, birthdate: 3, birthtime: 4, birthplace: 5, calculating: 6, reveal: 7 };
+  const stepIndex: Record<OnboardingStep, number> = {
+    welcome: 0, fullName: 1, preferredName: 2, birthdate: 3,
+    birthtime: 4, birthplace: 5, calculating: 6, reveal: 7,
+  };
   const currentStepIndex = stepIndex[onboardingStep];
 
   const animateIn = useCallback(() => {
     fadeAnim.setValue(0); slideAnim.setValue(30);
-    RNAnimated.parallel([RNAnimated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: false }), RNAnimated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: false })]).start();
+    RNAnimated.parallel([
+      RNAnimated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+      RNAnimated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: false }),
+    ]).start();
   }, [fadeAnim, slideAnim]);
 
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
   useEffect(() => {
     if (onboardingStep === "calculating") {
+      setShowCalculating(true);
+      setRevealReady(false);
       RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: false }).start(() => {
         setTimeout(() => {
-          setShowCalculating(false); setRevealReady(true);
+          setShowCalculating(false);
+          setRevealReady(true);
           RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
-        }, 500);
+        }, 300);
       });
     }
   }, [onboardingStep, calculatingAnim, revealFade]);
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
-    setFilteredCities(text.length > 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+    setFilteredCities(text.length >= 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
   };
-  const selectCity = (city: string) => { setBirthPlace(city); setPlaceSearch(""); setFilteredCities([]); };
+  const selectCity = (city: string) => {
+    setBirthPlace(city);
+    setPlaceSearch("");
+    setFilteredCities([]);
+  };
 
   const goNext = () => {
     const sequence: OnboardingStep[] = ["welcome", "fullName", "preferredName", "birthdate", "birthtime", "birthplace", "calculating", "reveal"];
     const idx = sequence.indexOf(onboardingStep);
     if (idx < sequence.length - 1) {
-      const next = sequence[idx + 1];
-      if (next === "calculating") { setShowCalculating(true); setRevealReady(false); }
-      setOnboardingStep(next);
+      setOnboardingStep(sequence[idx + 1]);
     }
   };
   const goBack = () => {
@@ -88,12 +103,12 @@ export default function OnboardingScreen() {
 
   const handleFinish = () => {
     completeOnboarding({
-      fullName,
-      preferredName: preferredName || fullName.split(" ")[0],
-      birthDate: birthDate.toISOString().split("T")[0],
-      birthTime,
+      fullName: fullName || "You",
+      preferredName: preferredName || fullName?.split(" ")[0] || "You",
+      birthDate: birthDate?.toISOString().split("T")[0] ?? "1990-01-01",
+      birthTime: birthTime || "12:00",
       birthTimeKnown,
-      birthPlace,
+      birthPlace: birthPlace || "Unknown",
       chart: MOCK_USER.chart,
       numerology: MOCK_USER.numerology,
       chinese: MOCK_USER.chinese,
@@ -108,26 +123,22 @@ export default function OnboardingScreen() {
     setBirthDateText(text);
     setDateError("");
     const trimmed = text.trim();
-    if (trimmed.length === 0) return;
-    // Try multiple formats
+    if (trimmed.length === 0) { setBirthDate(null); return; }
+
     let parsed: Date | null = null;
-    // MM/DD/YYYY or M/D/YYYY
     const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (slashMatch) {
       const [_, m, d, y] = slashMatch;
       parsed = new Date(+y, +m - 1, +d);
     }
-    // YYYY-MM-DD
     const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (!parsed && isoMatch) {
       const [_, y, m, d] = isoMatch;
       parsed = new Date(+y, +m - 1, +d);
     }
-    // Natural: "June 22, 1995" or "22 June 1995"
-    if (!parsed) {
-      parsed = new Date(trimmed);
-    }
-    if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2025) {
+    if (!parsed) parsed = new Date(trimmed);
+
+    if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < new Date().getFullYear()) {
       setBirthDate(parsed);
       setBirthDateText(parsed.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
       setDateError("");
@@ -136,84 +147,118 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleDateBlur = () => {
-    // Reformat to canonical display
-    if (!dateError) {
-      setBirthDateText(birthDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
-    }
-  };
+  const isBirthTimeValid = birthTimeKnown ? /^\d{1,2}:\d{2}$/.test(birthTime) && birthTime.length >= 4 : true;
+  const isPlaceValid = birthPlace.length > 0;
 
-  // Calculating screen
+  // ─── Calculating screen ───────────────────────────────
   if (showCalculating) {
-    const { height: winH } = Dimensions.get("window");
     const glyphs = ["☉", "☽", "☆", "3", "🐖", "⚡"];
-    const positions = glyphs.map((_, i) => ({
-      top: winH * 0.2 + (i * winH * 0.08), left: SCREEN_WIDTH * (0.2 + (i % 3) * 0.25),
-    }));
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
         <View style={os.content}>
           <RNAnimated.View style={[os.calcContainer, { opacity: calculatingAnim, transform: [{ scale: calculatingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}>
-            {positions.map((pos, i) => (
-              <RNAnimated.View key={i} style={[os.glyphStar, { top: pos.top, left: pos.left, opacity: calculatingAnim.interpolate({ inputRange: [i * 0.1, i * 0.1 + 0.2], outputRange: [0, 1], extrapolate: "clamp" }) }]}>
-                <Text style={os.glyphStarText}>{glyphs[i]}</Text>
-              </RNAnimated.View>
-            ))}
-            <View style={os.chartCircle}><Sparkles size={48} color={SolunaColors.warmGold} /></View>
+            <View style={os.glyphsRow}>
+              {glyphs.map((g, i) => (
+                <Text key={i} style={os.glyphText}>{g}</Text>
+              ))}
+            </View>
+            <View style={os.chartCircle}><Sparkles size={40} color={SolunaColors.warmGold} /></View>
             <Text style={os.calcTitle}>Weaving your blueprint…</Text>
-            <Text style={os.calcSub}>{preferredName ? `${preferredName}'s cosmic design is coming together` : "Your cosmic design is coming together"}</Text>
+            <Text style={os.calcSub}>
+              {preferredName ? `${preferredName}'s cosmic design` : "Your cosmic design"} is coming together — astrology, numerology, Chinese, Human Design
+            </Text>
           </RNAnimated.View>
         </View>
       </LinearGradient>
     );
   }
 
-  // Reveal screen
+  // ─── Reveal screen ───────────────────────────────────
   if (revealReady) {
     const chart = MOCK_USER.chart;
     const num = MOCK_USER.numerology;
     const ch = MOCK_USER.chinese;
     const hd = MOCK_USER.humanDesign;
     const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+
+    const name = preferredName || fullName?.split(" ")[0] || "You";
+    const birthTimeNote = birthTimeKnown ? birthTime : "Not provided (noon estimate used)";
+
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
         <RNAnimated.View style={[os.content, { opacity: revealFade }]}>
           <View style={os.revealHeader}>
             <Sparkles size={32} color={SolunaColors.warmGold} />
             <Text style={os.revealTitle}>Here's your Cosmic Blueprint</Text>
-            <Text style={os.revealSub}>Four systems, one you. Here's what each lens sees — notice how they echo each other.</Text>
+            <Text style={os.revealSub}>Four systems, one {name}. Here's what each lens sees — notice how they echo each other.</Text>
           </View>
-          <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+
+          {/* Accuracy note */}
+          <View style={os.accuracyCard}>
+            <Clock size={14} color={SolunaColors.warmGold} />
+            <View style={os.accuracyTextWrap}>
+              <Text style={os.accuracyLine1}>
+                {birthTimeKnown ? "Exact birth time used — all placements are precise." : "Birth time not provided — Rising sign, houses, and Human Design are approximate. You can add it anytime."}
+              </Text>
+              <Text style={os.accuracyLine2}>
+                {birthPlace ? `Based on ${birthPlace}` : "Birth location not set — timezone estimated."}
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={os.revealCardsContent} showsVerticalScrollIndicator={false}>
             {/* Astrology */}
             <View style={os.revealCard}>
               <View style={os.revealCardHeader}>
-                <Star size={20} color={SolunaColors.warmGold} />
+                <Star size={18} color={SolunaColors.warmGold} />
                 <Text style={os.revealCardTitle}>Astrology</Text>
               </View>
               <View style={os.bigThreeRow}>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Sun</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Sun-Cancer"]}</Text></View>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Moon</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Moon-Pisces"]}</Text></View>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Rising</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Rising-Libra"]}</Text></View>
+                <View style={os.bigThreeItem}>
+                  <Text style={os.btLabel}>Sun</Text>
+                  <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text>
+                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Sun-Cancer"]}</Text>
+                </View>
+                <View style={os.bigThreeItem}>
+                  <Text style={os.btLabel}>Moon</Text>
+                  <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text>
+                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Moon-Pisces"]}</Text>
+                </View>
+                <View style={os.bigThreeItem}>
+                  <Text style={os.btLabel}>Rising</Text>
+                  <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text>
+                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Rising-Libra"]}</Text>
+                </View>
               </View>
             </View>
+
             {/* Numerology */}
             <View style={os.revealCard}>
-              <View style={os.revealCardHeader}><Hash size={20} color={SolunaColors.gentleLavender} /><Text style={os.revealCardTitle}>Numerology</Text></View>
-              <View style={os.numRow}><Text style={os.numBig}>{num.lifePath}</Text><View style={{ flex: 1 }}><Text style={os.numLabel}>Life Path {num.lifePath}: {lifePathInfo?.title || ""}</Text><Text style={os.numDesc}>{num.lifePathMeaning}</Text></View></View>
+              <View style={os.revealCardHeader}><Hash size={18} color={SolunaColors.gentleLavender} /><Text style={os.revealCardTitle}>Numerology</Text></View>
+              <View style={os.numRow}>
+                <Text style={os.numBig}>{num.lifePath}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={os.numLabel}>Life Path {num.lifePath}: {lifePathInfo?.title || ""}</Text>
+                  <Text style={os.numDesc}>{num.lifePathMeaning.slice(0, 180)}…</Text>
+                </View>
+              </View>
             </View>
+
             {/* Chinese */}
             <View style={os.revealCard}>
-              <View style={os.revealCardHeader}><Bird size={20} color={SolunaColors.softPeach} /><Text style={os.revealCardTitle}>Chinese Astrology</Text></View>
+              <View style={os.revealCardHeader}><Bird size={18} color={SolunaColors.softPeach} /><Text style={os.revealCardTitle}>Chinese Astrology</Text></View>
               <Text style={os.chineseMain}>{CHINESE_ANIMAL_EMOJI[ch.animal]} {ch.elementAnimalLabel}</Text>
               <Text style={os.chineseDesc}>{ch.description.slice(0, 150)}…</Text>
             </View>
+
             {/* Human Design */}
             <View style={os.revealCard}>
-              <View style={os.revealCardHeader}><Cpu size={20} color={SolunaColors.warmGold} /><Text style={os.revealCardTitle}>Human Design</Text></View>
+              <View style={os.revealCardHeader}><Cpu size={18} color={SolunaColors.warmGold} /><Text style={os.revealCardTitle}>Human Design</Text></View>
               <Text style={os.hdMain}>{hd.type}</Text>
               <Text style={os.hdDesc}>{hd.typeDescription.slice(0, 150)}…</Text>
             </View>
           </ScrollView>
+
           <TouchableOpacity style={os.beginButton} onPress={handleFinish} activeOpacity={0.8}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
               <Text style={os.beginButtonText}>Begin</Text>
@@ -224,16 +269,19 @@ export default function OnboardingScreen() {
     );
   }
 
-  // Step content
+  // ─── Step Content ────────────────────────────────────
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
       <ScrollView contentContainerStyle={os.scrollContent} keyboardShouldPersistTaps="handled">
         <RNAnimated.View style={[os.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           {onboardingStep !== "welcome" && (
-            <TouchableOpacity style={os.backButton} onPress={goBack}><ChevronLeft size={24} color={SolunaColors.cream} /></TouchableOpacity>
+            <TouchableOpacity style={os.backButton} onPress={goBack}>
+              <ChevronLeft size={22} color={SolunaColors.cream} />
+            </TouchableOpacity>
           )}
-          <StepIndicator current={currentStepIndex} total={6} />
+          <StepIndicator current={currentStepIndex} total={TOTAL_STEPS} />
 
+          {/* Welcome */}
           {onboardingStep === "welcome" && (
             <View style={os.stepContent}>
               <View style={os.logoWrap}>
@@ -241,20 +289,24 @@ export default function OnboardingScreen() {
                 <Text style={os.logoText}>Soluna</Text>
               </View>
               <Text style={os.welcomePromise}>Astrology that's actually kind — and actually adds up.</Text>
-              <Text style={os.welcomeDesc}>Four wisdom traditions, one deeply personal picture of you. Warm, honest, and never doom-toned.</Text>
+              <Text style={os.welcomeDesc}>Four wisdom traditions, one deeply personal picture of you. Warm, honest, and never doom-toned. Ready to see yourself through a kinder lens?</Text>
               <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
                 <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={os.buttonText}>Get Started</Text><ChevronRight size={20} color={SolunaColors.deepIndigo} />
+                  <Text style={os.buttonText}>Get Started</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
 
+          {/* Full Name */}
           {onboardingStep === "fullName" && (
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>What's your full birth name?</Text>
-              <Text style={os.stepSub}>Your full birth name shapes your numerology — it's how we calculate your Life Path, Expression, and Soul Urge numbers.</Text>
-              <View style={os.inputWrap}><TextInput style={os.input} value={fullName} onChangeText={setFullName} placeholder="Your full birth name" placeholderTextColor={SolunaColors.creamSubtle} autoFocus /></View>
+              <Text style={os.stepSub}>Your birth name shapes your numerology — it's how we calculate your Life Path, Expression, and Soul Urge. No guesswork, just the real you.</Text>
+              <View style={os.inputWrap}>
+                <TextInput style={os.input} value={fullName} onChangeText={setFullName} placeholder="Your full birth name" placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
+              </View>
+              <View style={{ height: 24 }} />
               <TouchableOpacity style={[os.primaryButton, !fullName && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!fullName}>
                 <LinearGradient colors={fullName ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
                   <Text style={[os.buttonText, !fullName && { color: SolunaColors.creamSubtle }]}>Continue</Text>
@@ -263,75 +315,144 @@ export default function OnboardingScreen() {
             </View>
           )}
 
+          {/* Preferred Name */}
           {onboardingStep === "preferredName" && (
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>What should we call you?</Text>
-              <Text style={os.stepSub}>A nickname or preferred name. This is what Soluna will call you — warm and personal.</Text>
-              <View style={os.inputWrap}><TextInput style={os.input} value={preferredName} onChangeText={setPreferredName} placeholder="Your preferred name" placeholderTextColor={SolunaColors.creamSubtle} autoFocus /></View>
-              <TouchableOpacity style={[os.primaryButton, !preferredName && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!preferredName}>
-                <LinearGradient colors={preferredName ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={[os.buttonText, !preferredName && { color: SolunaColors.creamSubtle }]}>Continue</Text>
+              <Text style={os.stepSub}>A nickname or preferred name — this is what Soluna will call you. It's optional, but we think warm is better than formal.</Text>
+              <View style={os.inputWrap}>
+                <TextInput style={os.input} value={preferredName} onChangeText={setPreferredName} placeholder={fullName ? fullName.split(" ")[0] : "Your preferred name"} placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
+              </View>
+              <View style={{ height: 24 }} />
+              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
+                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={os.buttonText}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
+              {preferredName ? null : (
+                <Text style={os.skipNote}>No worries — we'll use your first name if you skip</Text>
+              )}
             </View>
           )}
 
+          {/* Birth Date */}
           {onboardingStep === "birthdate" && (
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>When were you born?</Text>
-              <Text style={os.stepSub}>Your birth date anchors your Sun sign, Life Path, Chinese animal, and more — across all four systems.</Text>
+              <Text style={os.stepSub}>Your birth date anchors your Sun sign, Life Path, Chinese animal, and more — across all four systems. This is the one thing we really need.</Text>
               <View style={os.inputWrap}>
                 <TextInput
                   style={[os.input, dateError ? { borderColor: SolunaColors.softPeach } : undefined]}
                   value={birthDateText}
                   onChangeText={parseAndSetDate}
-                  onBlur={handleDateBlur}
                   placeholder="e.g. June 22, 1995"
                   placeholderTextColor={SolunaColors.creamSubtle}
-                  autoFocus
-                  autoCorrect={false}
+                  autoFocus autoCorrect={false}
                 />
-                {dateError ? <Text style={os.dateError}>{dateError}</Text> : (
+                {dateError ? <Text style={os.dateError}>{dateError}</Text> : birthDate && (
                   <Text style={os.datePreview}>{formatDateLong(birthDate)}</Text>
                 )}
               </View>
-              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
-                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}><Text style={os.buttonText}>Continue</Text></LinearGradient>
+              <View style={{ height: 24 }} />
+              <TouchableOpacity style={[os.primaryButton, !birthDate && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!birthDate}>
+                <LinearGradient colors={birthDate ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !birthDate && { color: SolunaColors.creamSubtle }]}>Continue</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
 
+          {/* Birth Time */}
           {onboardingStep === "birthtime" && (
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>Do you know your birth time?</Text>
-              <Text style={os.stepSub}>It's what makes your chart truly yours — it determines your Rising sign, house placements, and Human Design accuracy. But if you don't know, we'll be honest about what that affects.</Text>
-              {birthTimeKnown && (<View style={os.inputWrap}><TextInput style={os.timeInput} value={birthTime} onChangeText={setBirthTime} placeholder="HH:MM (e.g. 14:35)" placeholderTextColor={SolunaColors.creamSubtle} keyboardType="numbers-and-punctuation" /></View>)}
-              <TouchableOpacity style={os.dontKnowButton} onPress={() => setBirthTimeKnown(!birthTimeKnown)}><Text style={os.dontKnowText}>{birthTimeKnown ? "I don't know my birth time" : "Actually, I do know it"}</Text></TouchableOpacity>
-              {!birthTimeKnown && <Text style={os.unknownNote}>No worries — some features need an exact time, and we'll gently note that instead of guessing. Your Rising sign and House placements will be approximate.</Text>}
+              <Text style={os.stepSub}>
+                {birthTimeKnown
+                  ? "Your birth time makes your chart truly yours — it determines your Rising sign, house placements, and Human Design accuracy. It's usually on your birth certificate."
+                  : "That's completely okay. Many people don't have it. We'll be gentle and transparent about what this affects, and you can add it anytime later."}
+              </Text>
+
+              {birthTimeKnown && (
+                <View style={os.inputWrap}>
+                  <TextInput
+                    style={os.timeInput}
+                    value={birthTime}
+                    onChangeText={setBirthTime}
+                    placeholder="HH:MM (e.g. 14:35)"
+                    placeholderTextColor={SolunaColors.creamSubtle}
+                    keyboardType="numbers-and-punctuation"
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity style={os.dontKnowButton} onPress={() => setBirthTimeKnown(!birthTimeKnown)}>
+                <Text style={os.dontKnowText}>
+                  {birthTimeKnown ? "I don't know my birth time" : "Actually, I do know it"}
+                </Text>
+              </TouchableOpacity>
+
+              {!birthTimeKnown && (
+                <View style={os.unknownCard}>
+                  <Star size={16} color={SolunaColors.warmGold} />
+                  <View style={os.unknownTextWrap}>
+                    <Text style={os.unknownTitle}>Here's what that affects — no judgment, just honesty</Text>
+                    <Text style={os.unknownNote}>
+                      Without your birth time, we'll use noon as an estimate. Your Rising sign, house placements, and Human Design will be approximate. Your Sun sign, Moon sign, Life Path, and Chinese animal are all still exact. You can always add your birth time later in Settings.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               <View style={{ height: 24 }} />
               <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
-                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}><Text style={os.buttonText}>Continue</Text></LinearGradient>
+                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={os.buttonText}>Continue</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
 
+          {/* Birth Place */}
           {onboardingStep === "birthplace" && (
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>Where were you born?</Text>
-              <Text style={os.stepSub}>Your birth city helps calculate your exact chart positions and time zone.</Text>
+              <Text style={os.stepSub}>Your birth city helps calculate your exact chart positions and time zone. Pick a real city from the list for the most precise results.</Text>
               <View style={os.inputWrap}>
-                <TextInput style={os.input} value={placeSearch || birthPlace} onChangeText={handleCitySearch} onFocus={() => handleCitySearch(birthPlace)} placeholder="Search for your city…" placeholderTextColor={SolunaColors.creamSubtle} />
-                {filteredCities.length > 0 && (
+                <TextInput
+                  style={os.input}
+                  value={placeSearch || birthPlace}
+                  onChangeText={handleCitySearch}
+                  onFocus={() => { if (birthPlace && !placeSearch) handleCitySearch(birthPlace); }}
+                  placeholder="Search for your city…"
+                  placeholderTextColor={SolunaColors.creamSubtle}
+                />
+                {filteredCities.length > 0 && !isPlaceValid && (
                   <View style={os.cityDropdown}>
-                    {filteredCities.slice(0, 6).map((city) => (
-                      <TouchableOpacity key={city} style={os.cityOption} onPress={() => selectCity(city)}><Text style={os.cityOptionText}>{city}</Text></TouchableOpacity>
+                    <Text style={os.cityDropdownHint}>Select from the list — this ensures accurate timezone data</Text>
+                    {filteredCities.slice(0, 8).map((city) => (
+                      <TouchableOpacity key={city} style={os.cityOption} onPress={() => selectCity(city)}>
+                        <MapPin size={12} color={SolunaColors.creamSubtle} />
+                        <Text style={os.cityOptionText}>{city}</Text>
+                      </TouchableOpacity>
                     ))}
+                  </View>
+                )}
+                {isPlaceValid && (
+                  <View style={os.placeConfirmed}>
+                    <Text style={os.placeConfirmedIcon}>✓</Text>
+                    <Text style={os.placeConfirmedText}>{birthPlace}</Text>
+                    <TouchableOpacity onPress={() => { setBirthPlace(""); setPlaceSearch(""); }}>
+                      <Text style={os.placeChangeText}>Change</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
-                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}><Text style={os.buttonText}>Weave My Blueprint</Text></LinearGradient>
+              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isPlaceValid}>
+                <LinearGradient colors={isPlaceValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !isPlaceValid && { color: SolunaColors.creamSubtle }]}>Weave My Blueprint</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           )}
@@ -346,57 +467,85 @@ const os = StyleSheet.create({
   scrollContent: { flexGrow: 1 },
   content: { flex: 1, paddingHorizontal: SolunaSpacing.lg, paddingTop: Platform.OS === "ios" ? 80 : 60, paddingBottom: 40, alignItems: "center" },
   backButton: { position: "absolute", top: Platform.OS === "ios" ? 60 : 40, left: SolunaSpacing.md, width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", zIndex: 10 },
+
+  // Logo
   logoWrap: { alignItems: "center", marginBottom: 32 },
   logoIconRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   logoText: { fontFamily: Fonts.heading, fontSize: 42, color: SolunaColors.cream, letterSpacing: 2 },
   welcomePromise: { fontFamily: Fonts.heading, fontSize: 24, color: SolunaColors.cream, textAlign: "center", marginBottom: 16, lineHeight: 32 },
-  welcomeDesc: { fontSize: 16, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 24, marginBottom: 40, maxWidth: 320 },
+  welcomeDesc: { fontSize: 16, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 24, marginBottom: 40, maxWidth: 320, fontFamily: Fonts.body },
+
+  // Steps
   stepContent: { alignItems: "center", marginTop: 32, width: "100%" },
   stepTitle: { fontFamily: Fonts.heading, fontSize: 26, color: SolunaColors.cream, textAlign: "center", marginBottom: 12, lineHeight: 34 },
-  stepSub: { fontSize: 15, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22, marginBottom: 32, maxWidth: 340 },
+  stepSub: { fontSize: 15, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22, marginBottom: 32, maxWidth: 340, fontFamily: Fonts.body },
+
+  // Input
   inputWrap: { width: "100%", maxWidth: 340, position: "relative", zIndex: 10 },
   input: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: SolunaRadius.md, paddingHorizontal: 20, paddingVertical: 16, fontSize: 18, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", fontFamily: Fonts.body },
   timeInput: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: SolunaRadius.md, paddingHorizontal: 20, paddingVertical: 16, fontSize: 32, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", textAlign: "center", fontFamily: Fonts.mono, letterSpacing: 4 },
   datePreview: { fontSize: 13, color: SolunaColors.creamMuted, marginTop: 8, textAlign: "center", fontStyle: "italic" },
   dateError: { fontSize: 13, color: SolunaColors.softPeach, marginTop: 8, textAlign: "center" },
+  skipNote: { fontSize: 12, color: SolunaColors.creamSubtle, marginTop: 8, fontStyle: "italic", fontFamily: Fonts.body },
+
+  // Button
   primaryButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 340, marginTop: 8 },
   primaryButtonDisabled: { opacity: 0.5 },
   buttonGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, paddingHorizontal: 32 },
   buttonText: { fontSize: 17, fontWeight: "600", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
+
+  // Birth time
   dontKnowButton: { paddingVertical: 12, paddingHorizontal: 20, marginBottom: 12 },
   dontKnowText: { fontSize: 15, color: SolunaColors.gentleLavender, textDecorationLine: "underline", fontFamily: Fonts.body },
-  unknownNote: { fontSize: 13, color: SolunaColors.creamSubtle, textAlign: "center", lineHeight: 20, maxWidth: 300, fontStyle: "italic" },
+  unknownCard: { flexDirection: "row", gap: 12, backgroundColor: "rgba(242,168,141,0.06)", borderRadius: SolunaRadius.md, padding: 14, borderWidth: 1, borderColor: "rgba(242,168,141,0.1)", marginBottom: 8 },
+  unknownTextWrap: { flex: 1 },
+  unknownTitle: { fontSize: 12, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 4 },
+  unknownNote: { fontSize: 12, color: SolunaColors.creamSubtle, lineHeight: 18, fontFamily: Fonts.body },
+
+  // City search
   cityDropdown: { position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "rgba(30,25,60,0.98)", borderRadius: SolunaRadius.md, marginTop: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", overflow: "hidden", zIndex: 20 },
-  cityOption: { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
+  cityDropdownHint: { fontSize: 10, color: SolunaColors.creamSubtle, paddingHorizontal: 16, paddingVertical: 8, fontFamily: Fonts.body, fontStyle: "italic" },
+  cityOption: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
   cityOptionText: { fontSize: 15, color: SolunaColors.cream, fontFamily: Fonts.body },
+  placeConfirmed: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(123,200,156,0.08)", borderRadius: SolunaRadius.md, paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, borderWidth: 1, borderColor: "rgba(123,200,156,0.15)" },
+  placeConfirmedIcon: { fontSize: 14, color: "#7BC89C", fontWeight: "700" },
+  placeConfirmedText: { flex: 1, fontSize: 15, color: SolunaColors.cream, fontFamily: Fonts.body },
+  placeChangeText: { fontSize: 12, color: SolunaColors.gentleLavender, fontFamily: Fonts.body },
+
   // Calculating
-  calcContainer: { flex: 1, alignItems: "center", justifyContent: "center", position: "relative" },
-  glyphStar: { position: "absolute" },
-  glyphStarText: { fontSize: 28, color: SolunaColors.warmGold },
-  chartCircle: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: "rgba(232,184,109,0.4)", alignItems: "center", justifyContent: "center", marginBottom: 24 },
-  calcTitle: { fontFamily: Fonts.heading, fontSize: 24, color: SolunaColors.cream, marginBottom: 8 },
-  calcSub: { fontSize: 16, color: SolunaColors.creamMuted },
+  calcContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  glyphsRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
+  glyphText: { fontSize: 22, color: SolunaColors.warmGold },
+  chartCircle: { width: 90, height: 90, borderRadius: 45, borderWidth: 2, borderColor: "rgba(232,184,109,0.4)", alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  calcTitle: { fontFamily: Fonts.heading, fontSize: 22, color: SolunaColors.cream, marginBottom: 8 },
+  calcSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 21, maxWidth: 280, fontFamily: Fonts.body },
+
   // Reveal
-  revealHeader: { alignItems: "center", marginBottom: 24, marginTop: 20 },
-  revealTitle: { fontFamily: Fonts.heading, fontSize: 26, color: SolunaColors.cream, marginTop: 16, marginBottom: 8, textAlign: "center" },
-  revealSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 21, maxWidth: 320 },
-  revealCard: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.lg, padding: 20, borderWidth: 1, borderColor: SolunaColors.cardBorder },
-  revealCardHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
+  revealHeader: { alignItems: "center", marginBottom: 16, marginTop: 20 },
+  revealTitle: { fontFamily: Fonts.heading, fontSize: 26, color: SolunaColors.cream, marginTop: 14, marginBottom: 8, textAlign: "center" },
+  revealSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 21, maxWidth: 320, fontFamily: Fonts.body },
+  accuracyCard: { flexDirection: "row", gap: 10, backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.md, padding: 12, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginBottom: 12, alignItems: "flex-start" },
+  accuracyTextWrap: { flex: 1 },
+  accuracyLine1: { fontSize: 11, color: SolunaColors.cream, fontFamily: Fonts.body, lineHeight: 16 },
+  accuracyLine2: { fontSize: 10, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginTop: 3, fontStyle: "italic" },
+  revealCardsContent: { gap: 10, paddingBottom: 24 },
+  revealCard: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.lg, padding: 18, borderWidth: 1, borderColor: SolunaColors.cardBorder },
+  revealCardHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   revealCardTitle: { fontSize: 16, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
-  bigThreeRow: { gap: 10 },
-  bigThreeItem: { marginBottom: 8 },
+  bigThreeRow: { gap: 8 },
+  bigThreeItem: { marginBottom: 6 },
   btLabel: { fontSize: 10, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", marginBottom: 2 },
-  btSign: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 4 },
+  btSign: { fontSize: 17, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 3 },
   btDesc: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18 },
-  numRow: { flexDirection: "row", gap: 16, alignItems: "center" },
-  numBig: { fontSize: 40, fontWeight: "700", color: SolunaColors.gentleLavender, fontFamily: Fonts.heading },
-  numLabel: { fontSize: 15, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 4 },
-  numDesc: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19 },
-  chineseMain: { fontSize: 24, fontFamily: Fonts.heading, color: SolunaColors.softPeach, marginBottom: 8 },
-  chineseDesc: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19 },
-  hdMain: { fontSize: 24, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 8 },
-  hdDesc: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19 },
-  beginButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 280, marginTop: 16 },
+  numRow: { flexDirection: "row", gap: 14, alignItems: "center" },
+  numBig: { fontSize: 38, fontWeight: "700", color: SolunaColors.gentleLavender, fontFamily: Fonts.heading },
+  numLabel: { fontSize: 14, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 3 },
+  numDesc: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18 },
+  chineseMain: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.softPeach, marginBottom: 6 },
+  chineseDesc: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18 },
+  hdMain: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 6 },
+  hdDesc: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18 },
+  beginButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 280, marginTop: 10 },
   beginGradient: { paddingVertical: 16, alignItems: "center" },
   beginButtonText: { fontSize: 18, fontWeight: "600", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
 });
