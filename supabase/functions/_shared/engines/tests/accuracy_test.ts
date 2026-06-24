@@ -59,19 +59,23 @@ Deno.test("full data: angles + houses ARE computed, medium/high precision", asyn
 Deno.test("blueprint accuracy: exact / partial / approximate are labeled honestly", async () => {
   const exact = await computeBlueprint(BASE);
   assertEquals(exact.blueprint.accuracy.accuracyLevel, "exact");
-  assertEquals(exact.blueprint.accuracy.missingInputs.length, 0);
+  // "exact" means we have time + place + timezone; a verified hosted ephemeris
+  // is a further refinement, so it may still be listed — but never the core inputs.
+  assert(!exact.blueprint.accuracy.missingInputs.includes("birth_time"));
+  assert(!exact.blueprint.accuracy.missingInputs.includes("birth_place"));
+  assert(!exact.blueprint.accuracy.missingInputs.includes("timezone"));
 
   const partial = await computeBlueprint({ ...BASE, lat: undefined, lng: undefined });
   assertEquals(partial.blueprint.accuracy.accuracyLevel, "partial");
-  assert(partial.blueprint.accuracy.missingInputs.includes("birthPlace"));
+  assert(partial.blueprint.accuracy.missingInputs.includes("birth_place"));
   // Reassures about what IS exact, and names the moon estimate honestly only
   // when time is missing — here time is known, so it asks for place.
   assert(partial.blueprint.accuracy.confidenceNotes.some((n) => n.toLowerCase().includes("place")));
 
   const approx = await computeBlueprint({ ...BASE, time: null, lat: undefined, lng: undefined });
   assertEquals(approx.blueprint.accuracy.accuracyLevel, "approximate");
-  assert(approx.blueprint.accuracy.missingInputs.includes("birthTime"));
-  assert(approx.blueprint.accuracy.missingInputs.includes("birthPlace"));
+  assert(approx.blueprint.accuracy.missingInputs.includes("birth_time"));
+  assert(approx.blueprint.accuracy.missingInputs.includes("birth_place"));
   // Moon must be flagged as an estimate when there's no birth time.
   assert(approx.blueprint.accuracy.confidenceNotes.some((n) => n.toLowerCase().includes("moon")));
 });

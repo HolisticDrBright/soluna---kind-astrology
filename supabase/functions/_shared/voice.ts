@@ -44,6 +44,50 @@ Return ONLY valid minified JSON matching the requested schema. No markdown, no
 code fences, no commentary before or after the JSON.
 `.trim();
 
+// ─── support mode (mood) ───────────────────────────────────────────
+// A user-selectable TONE. It changes HOW guidance is phrased, never the
+// underlying facts (placements, numbers, agreement). Centralized here so the
+// directive is consistent across daily readings, the Shift, and Ask Soluna.
+export type SupportMode = "gentle" | "clear" | "motivating" | "reflective" | "practical";
+export const SUPPORT_MODES: SupportMode[] = [
+  "gentle",
+  "clear",
+  "motivating",
+  "reflective",
+  "practical",
+];
+
+const SUPPORT_MODE_DIRECTIVES: Record<SupportMode, string> = {
+  gentle:
+    "Soft, reassuring, low-pressure. Slow the pace, normalize rest, and remove " +
+    "any sense of obligation. Lots of permission, no urgency.",
+  clear:
+    "Direct and plain-spoken. Lead with the point, trim hedging and flourishes, " +
+    "and keep it concise and decisive while staying kind.",
+  motivating:
+    "Warmly energizing. Emphasize momentum, agency, and the next step — encourage " +
+    "without hype, clichés, or pressure, and never imitate any motivational " +
+    "speaker or public figure.",
+  reflective:
+    "Contemplative and inward. Favor open questions, noticing, and meaning over " +
+    "instructions. Invite the person to sit with what's true for them.",
+  practical:
+    "Concrete and action-oriented. Translate the energy into specific, doable " +
+    "steps and plain logistics. Minimal mysticism, maximum usefulness.",
+};
+
+/**
+ * Tone directive for the chosen support mode, to append AFTER SOLUNA_VOICE.
+ * Returns "" when no mode is set (keep the default voice).
+ */
+export function supportModeDirective(mode?: SupportMode | null): string {
+  if (!mode || !(mode in SUPPORT_MODE_DIRECTIVES)) return "";
+  return (
+    `SUPPORT MODE — "${mode}". Adjust ONLY your tone and phrasing, never the ` +
+    `facts, placements, numbers, or which systems agree. ${SUPPORT_MODE_DIRECTIVES[mode]}`
+  );
+}
+
 // Lightweight, deterministic pre-screen for clear crisis signals. This is a
 // safety net BEFORE we spend an LLM call — if it trips, we return the supportive
 // message below instead of an astrological reading. It is intentionally

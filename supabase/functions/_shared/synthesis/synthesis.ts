@@ -5,11 +5,12 @@
 import { z } from "zod";
 import { llm } from "../llm.ts";
 import { LLMUnavailableError } from "../llm.ts";
-import { SAFE_FALLBACK_READING } from "../voice.ts";
+import { SAFE_FALLBACK_READING, type SupportMode, supportModeDirective } from "../voice.ts";
 import type { DayContext } from "./context.ts";
-import type { AgreementResult } from "./agreement.ts";
+import { type AgreementResult, THEME_TITLES, type ThemeId } from "./agreement.ts";
 import type { Blueprint } from "../engines/blueprint.ts";
 import type { ChineseAnimal, ChineseElement, HDType, ZodiacSign } from "../engines/types.ts";
+import type { SolunaShift } from "./types.ts";
 
 // ─── daily reading ─────────────────────────────────────────────────
 const dailyReadingSchema = z.object({
@@ -28,6 +29,7 @@ export type DailyReading = z.infer<typeof dailyReadingSchema>;
 export async function generateDailyReading(
   ctx: DayContext,
   agreement: AgreementResult,
+  supportMode?: SupportMode,
 ): Promise<{ reading: DailyReading; usedFallback: boolean }> {
   const prompt = [
     `Write today's reading for ${ctx.preferredName}. Date: ${ctx.date}.`,
@@ -51,12 +53,100 @@ export async function generateDailyReading(
 
   try {
     const reading = await llm.completeJSON([{ role: "user", content: prompt }], dailyReadingSchema, {
+      system: supportModeDirective(supportMode),
       temperature: 0.7,
       maxTokens: 900,
     });
     return { reading, usedFallback: false };
   } catch (_e) {
     return { reading: fallbackDailyReading(ctx, agreement), usedFallback: true };
+  }
+}
+
+// ─── Soluna Shift (explainable, practical guidance) ────────────────
+const shiftSchema = z.object({
+  reframe: z.string().min(10),
+  reset: z.string().min(5),
+  braveTinyAction: z.string().min(5),
+  journalPrompt: z.string().min(5),
+});
+
+// Warm, grounded, non-fear deterministic Shifts keyed to the day's theme.
+const FALLBACK_SHIFTS: Record<ThemeId, Omit<SolunaShift, "supportMode">> = {
+  rest: {
+    reframe:
+      "Today isn't asking you to push — it's offering permission to slow down. Lower output isn't falling behind; it's how you refill.",
+    reset: "Sit comfortably, close your eyes, and take five slow breaths — longer on the exhale than the inhale.",
+    braveTinyAction: "Say a gentle no to one thing that would only drain you today.",
+    journalPrompt: "Where am I running on empty, and what would refilling actually look like?",
+  },
+  action: {
+    reframe:
+      "There's a fresh current under today, and a small beginning is enough to catch it. You don't need the whole plan — just the first move.",
+    reset: "Stand up, roll your shoulders back, and take three energizing breaths before you begin.",
+    braveTinyAction: "Take the first two-minute step toward something you've been putting off.",
+    journalPrompt: "What would I start today if I trusted it would work out?",
+  },
+  connection: {
+    reframe:
+      "Today leans toward people, and warmth shared is warmth doubled. Connection isn't a detour from your goals — it's part of them.",
+    reset: "Bring to mind one person who feels like home, and let yourself feel grateful for them for a moment.",
+    braveTinyAction: "Send a genuine message to someone you've been meaning to reach.",
+    journalPrompt: "Who do I want to feel closer to, and what's one small way to bridge the distance?",
+  },
+  focus: {
+    reframe:
+      "Today rewards a gentle kind of focus — one clear thing done well beats ten half-done. Narrowing in is a gift to yourself, not a limit.",
+    reset: "Clear one distraction from your space and take a slow breath before choosing what matters most.",
+    braveTinyAction: "Pick the single most important task and give it ten undistracted minutes.",
+    journalPrompt: "If I could only finish one thing today, what would make me proudest?",
+  },
+  change: {
+    reframe:
+      "Something is ready to be set down. Release isn't loss — it's making room for what fits the you you're becoming.",
+    reset: "Breathe in slowly, and on the exhale picture letting go of one small thing you've outgrown.",
+    braveTinyAction: "Let go of one small thing — a task, a tab, a worry — you've been carrying out of habit.",
+    journalPrompt: "What am I ready to release, and what might open up if I do?",
+  },
+};
+
+function fallbackShift(themeId: ThemeId, supportMode?: SupportMode): SolunaShift {
+  const base = FALLBACK_SHIFTS[themeId] ?? FALLBACK_SHIFTS.focus;
+  return { ...base, supportMode };
+}
+
+/**
+ * The Soluna Shift: turns the day's reading into an explainable reframe, a tiny
+ * reset, one brave action, and a journal prompt — in the chosen support mode.
+ * Always returns something safe and on-voice, even offline.
+ */
+export async function generateSolunaShift(
+  ctx: DayContext,
+  agreement: AgreementResult,
+  supportMode?: SupportMode,
+): Promise<{ shift: SolunaShift; usedFallback: boolean }> {
+  const t = agreement.topTheme;
+  const prompt = [
+    `Write today's "Soluna Shift" for ${ctx.preferredName} — practical, explainable guidance.`,
+    `The systems converge on "${t.title}" (${t.score} systems). Today: Moon in ` +
+    `${ctx.transits.moon.sign} (${ctx.transits.moon.phase}), Personal Day ${ctx.personalDay}, ` +
+    `${ctx.chineseDaily.element} ${ctx.chineseDaily.animal}, card "${ctx.tarot.name}".`,
+    "",
+    "Return JSON {reframe (a kind, grounded reframe of today's energy, 1-2 sentences), " +
+    "reset (a concrete ~2-minute grounding or breathing practice), braveTinyAction (ONE " +
+    "small, doable, slightly brave action for today), journalPrompt (one reflective " +
+    "question)}. Keep it warm and non-fear-based. Do NOT imitate any specific public " +
+    "figure or motivational speaker, and do not give medical, financial, or legal advice.",
+  ].join("\n");
+  try {
+    const parsed = await llm.completeJSON([{ role: "user", content: prompt }], shiftSchema, {
+      system: supportModeDirective(supportMode),
+      temperature: 0.7,
+      maxTokens: 400,
+    });
+    return { shift: { ...parsed, supportMode }, usedFallback: false };
+  } catch (_e) {
+    return { shift: fallbackShift(t.id, supportMode), usedFallback: true };
   }
 }
 
@@ -399,7 +489,17 @@ export async function generateCompatibility(
 }
 
 // ─── chat (Ask Soluna) helpers ─────────────────────────────────────
-export function buildChatSystem(blueprint: Blueprint, memory: string[]): string {
+export interface ChatSystemOpts {
+  /** User-curated memory themes (only ENABLED ones are passed in). */
+  themes?: { label: string; description?: string | null }[];
+  supportMode?: SupportMode;
+}
+
+export function buildChatSystem(
+  blueprint: Blueprint,
+  memory: string[],
+  opts: ChatSystemOpts = {},
+): string {
   const s = blueprint.summary;
   const lines = [
     "You are answering as Soluna in a 1:1 chat. Reconcile multiple systems and",
@@ -413,6 +513,16 @@ export function buildChatSystem(blueprint: Blueprint, memory: string[]): string 
   if (memory.length) {
     lines.push("", "What you remember about them:", ...memory.map((m) => `- ${m}`));
   }
+  // Only themes the user explicitly enabled are ever surfaced here.
+  if (opts.themes?.length) {
+    lines.push(
+      "",
+      "Themes they've asked you to keep in mind (use ONLY these, gently):",
+      ...opts.themes.map((t) => `- ${t.label}${t.description ? `: ${t.description}` : ""}`),
+    );
+  }
+  const directive = supportModeDirective(opts.supportMode);
+  if (directive) lines.push("", directive);
   return lines.join("\n");
 }
 
@@ -532,6 +642,65 @@ export async function generateBondReading(
       },
       usedFallback: true,
     };
+  }
+}
+
+// ─── bond ritual (daily relationship guidance) ─────────────────────
+const bondRitualSchema = z.object({
+  supportEachOtherToday: z.string().min(10),
+  bestDayForDeepConversation: z.string().min(3),
+  possibleMisread: z.string().min(10),
+  sharedJournalPrompt: z.string().min(10),
+});
+export type BondRitualBody = z.infer<typeof bondRitualSchema>;
+
+function fallbackBondRitual(a: SharedFacets, b: SharedFacets): BondRitualBody {
+  return {
+    supportEachOtherToday:
+      `Today, the kindest thing ${a.name} and ${b.name} can do is listen without rushing ` +
+      `to fix. A small, genuine check-in goes further than any grand gesture.`,
+    bestDayForDeepConversation:
+      "When you both have unhurried time this week — even twenty quiet minutes with phones away is plenty.",
+    possibleMisread:
+      "If one of you goes quiet, it can read as distance when it's really just a need to recharge — ask before assuming.",
+    sharedJournalPrompt:
+      "What's one thing we each appreciated about the other this week, and one thing we'd love a little more of?",
+  };
+}
+
+/**
+ * A daily relationship "ritual" for a linked bond: how to support each other,
+ * the best window for a deep talk, a likely misread to soften, and a shared
+ * journaling prompt. Constructive and never fatalistic; the caller attaches the
+ * lens, evidence chips, and any confidence notes.
+ */
+export async function generateBondRitual(
+  a: SharedFacets,
+  b: SharedFacets,
+  lens: string,
+  weather: { moonPhase: string; moonSign: string },
+): Promise<{ ritual: BondRitualBody; usedFallback: boolean }> {
+  const prompt = [
+    `Write today's relationship "ritual" for ${a.name} and ${b.name} (${lens} bond).`,
+    `${a.name}: ${facetLine(a)}.`,
+    `${b.name}: ${facetLine(b)}.`,
+    `Today's shared sky: Moon in ${weather.moonSign} (${weather.moonPhase}).`,
+    "",
+    "Return JSON {supportEachOtherToday (2 warm, specific sentences on how to show up for " +
+    "each other today), bestDayForDeepConversation (a grounded suggestion for when a deeper " +
+    "talk may land well — a day or a kind of moment; do NOT overstate certainty), " +
+    "possibleMisread (one gentle, constructive heads-up about how a difference could be " +
+    "misread, with how to soften it), sharedJournalPrompt (one question they can each answer)}. " +
+    "Keep it constructive and never fatalistic; no doom, no predictions about the relationship ending.",
+  ].join("\n");
+  try {
+    const ritual = await llm.completeJSON([{ role: "user", content: prompt }], bondRitualSchema, {
+      temperature: 0.7,
+      maxTokens: 500,
+    });
+    return { ritual, usedFallback: false };
+  } catch (_e) {
+    return { ritual: fallbackBondRitual(a, b), usedFallback: true };
   }
 }
 

@@ -5,7 +5,8 @@ import { json, serve } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { loadBlueprint, loadPreferredName, todayISO } from "../_shared/repo.ts";
 import { computeTransits } from "../_shared/engines/astrology.ts";
-import { generateBondReading, shareFacets } from "../_shared/synthesis/synthesis.ts";
+import { generateBondReading, generateBondRitual, shareFacets } from "../_shared/synthesis/synthesis.ts";
+import { bondConfidenceNotes, bondEvidence } from "../_shared/synthesis/evidence.ts";
 import { logEvent } from "../_shared/log.ts";
 
 Deno.serve(serve(async (req) => {
@@ -31,12 +32,19 @@ Deno.serve(serve(async (req) => {
       if (!bpA || !bpB) continue;
 
       const transits = computeTransits(date);
+      const weather = { moonPhase: transits.moon.phase, moonSign: transits.moon.sign };
       const a = shareFacets(nameA, bpA.summary, link.a_share_prefs);
       const b = shareFacets(nameB, bpB.summary, link.b_share_prefs);
-      const { reading } = await generateBondReading(a, b, link.lens, {
-        moonPhase: transits.moon.phase,
-        moonSign: transits.moon.sign,
-      });
+      const [{ reading }, { ritual: ritualBody }] = await Promise.all([
+        generateBondReading(a, b, link.lens, weather),
+        generateBondRitual(a, b, link.lens, weather),
+      ]);
+      const ritual = {
+        ...ritualBody,
+        lens: link.lens,
+        evidence: bondEvidence(a, b),
+        confidenceNotes: bondConfidenceNotes(bpA.summary, bpB.summary),
+      };
 
       await svc.from("bond_readings").upsert({
         link_id: link.id,
@@ -44,6 +52,7 @@ Deno.serve(serve(async (req) => {
         together_text: reading.togetherText,
         flow_grow: reading.flowGrow,
         shared_weather: reading.sharedWeather,
+        ritual,
       }, { onConflict: "link_id,reading_date" });
 
       for (const uid of [link.user_a, link.user_b]) {

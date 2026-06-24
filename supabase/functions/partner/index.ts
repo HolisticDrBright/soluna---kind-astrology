@@ -16,9 +16,11 @@ import { logEvent } from "../_shared/log.ts";
 import { computeTransits } from "../_shared/engines/astrology.ts";
 import {
   generateBondReading,
+  generateBondRitual,
   generateCompatibility,
   shareFacets,
 } from "../_shared/synthesis/synthesis.ts";
+import { bondConfidenceNotes, bondEvidence } from "../_shared/synthesis/evidence.ts";
 
 function inviteCode(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -210,27 +212,45 @@ Deno.serve(serve(async (req) => {
       await logEvent("llm_call", { kind: "bond_compatibility", usedFallback }, user.id);
     }
 
-    // Today's bond reading (cache per link/day), respecting both share prefs.
+    // Today's bond reading + relationship ritual (cache per link/day), respecting
+    // both share prefs. The facets encode each partner's privacy choices.
     const date = todayISO();
-    let bond;
+    const aFacets = shareFacets(selfName, selfBp.summary, link.a_share_prefs);
+    const bFacets = shareFacets(otherName, otherBp.summary, link.b_share_prefs);
+    const you = isA ? aFacets : bFacets;
+    const them = isA ? bFacets : aFacets;
+
     const { data: cachedBond } = await svc.from("bond_readings")
-      .select("together_text, flow_grow, shared_weather").eq("link_id", linkId).eq("reading_date", date).maybeSingle();
-    if (cachedBond) {
+      .select("together_text, flow_grow, shared_weather, ritual")
+      .eq("link_id", linkId).eq("reading_date", date).maybeSingle();
+
+    let bond;
+    let ritual;
+    if (cachedBond && cachedBond.ritual) {
       bond = {
         togetherText: cachedBond.together_text,
         flowGrow: cachedBond.flow_grow,
         sharedWeather: cachedBond.shared_weather,
       };
+      ritual = cachedBond.ritual;
     } else {
       const transits = computeTransits(date);
-      const a = shareFacets(selfName, selfBp.summary, link.a_share_prefs);
-      const b = shareFacets(otherName, otherBp.summary, link.b_share_prefs);
-      const { reading, usedFallback } = await generateBondReading(
-        isA ? a : b,
-        isA ? b : a,
-        link.lens,
-        { moonPhase: transits.moon.phase, moonSign: transits.moon.sign },
-      );
+      const weather = { moonPhase: transits.moon.phase, moonSign: transits.moon.sign };
+      // Reuse an existing reading if present; only fill in the missing ritual.
+      const reading = cachedBond
+        ? {
+          togetherText: cachedBond.together_text,
+          flowGrow: cachedBond.flow_grow,
+          sharedWeather: cachedBond.shared_weather,
+        }
+        : (await generateBondReading(you, them, link.lens, weather)).reading;
+      const { ritual: ritualBody, usedFallback } = await generateBondRitual(you, them, link.lens, weather);
+      ritual = {
+        ...ritualBody,
+        lens: link.lens,
+        evidence: bondEvidence(you, them),
+        confidenceNotes: bondConfidenceNotes(selfBp.summary, otherBp.summary),
+      };
       bond = reading;
       await svc.from("bond_readings").upsert(
         {
@@ -239,6 +259,7 @@ Deno.serve(serve(async (req) => {
           together_text: reading.togetherText,
           flow_grow: reading.flowGrow,
           shared_weather: reading.sharedWeather,
+          ritual,
         },
         { onConflict: "link_id,reading_date" },
       );
@@ -251,6 +272,7 @@ Deno.serve(serve(async (req) => {
       sharePrefs: isA ? link.a_share_prefs : link.b_share_prefs,
       compatibility: { score: compatBody.overall, ...compatBody },
       bond,
+      ritual,
     });
   }
 

@@ -6,7 +6,9 @@ import { serviceClient } from "../_shared/supabase.ts";
 import { loadBlueprint, loadPreferredName, todayISO } from "../_shared/repo.ts";
 import { buildContext } from "../_shared/synthesis/context.ts";
 import { detectAgreement } from "../_shared/synthesis/agreement.ts";
-import { generateDailyReading } from "../_shared/synthesis/synthesis.ts";
+import { generateDailyReading, generateSolunaShift } from "../_shared/synthesis/synthesis.ts";
+import { dailyEvidence } from "../_shared/synthesis/evidence.ts";
+import { buildDailyNotify } from "../_shared/notify.ts";
 import { upsertDailyReading } from "../_shared/daily.ts";
 import { logEvent } from "../_shared/log.ts";
 
@@ -41,15 +43,20 @@ Deno.serve(serve(async (req) => {
 
       const ctx = await buildContext(p.user_id, date, bp, name);
       const agreement = detectAgreement(ctx);
-      const { reading } = await generateDailyReading(ctx, agreement);
-      await upsertDailyReading(p.user_id, ctx, reading, agreement);
+      const [{ reading }, { shift }] = await Promise.all([
+        generateDailyReading(ctx, agreement),
+        generateSolunaShift(ctx, agreement),
+      ]);
+      const evidence = dailyEvidence(ctx, agreement);
+      const notify = buildDailyNotify(agreement.topTheme.id, agreement.topTheme.score, shift);
+      await upsertDailyReading(p.user_id, ctx, reading, agreement, { shift, evidence, notify });
 
       await svc.rpc("queue_send", {
         p_queue: "send_push",
         p_msg: {
           user_id: p.user_id,
-          title: "Your Soluna reading is ready ✨",
-          body: reading.heroText.slice(0, 140),
+          title: notify.pushTitle,
+          body: notify.pushBody,
           kind: "daily_reading",
           data: { route: "/today" },
         },

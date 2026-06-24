@@ -99,6 +99,12 @@ verify_jwt = true
 [functions.me]
 verify_jwt = true
 
+[functions.memory-themes]
+verify_jwt = true
+
+[functions.weekly-report]
+verify_jwt = true
+
 [functions.entitlements]
 verify_jwt = true
 

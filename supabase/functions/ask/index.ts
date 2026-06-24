@@ -6,13 +6,14 @@
 import { getUser } from "../_shared/auth.ts";
 import { CORS_HEADERS, json, parse, serve, subPath } from "../_shared/http.ts";
 import { askInput, type AskInput } from "../_shared/schemas.ts";
-import { loadBlueprint } from "../_shared/repo.ts";
+import { loadBlueprint, loadEnabledMemoryThemes } from "../_shared/repo.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { logEvent } from "../_shared/log.ts";
 import { llm, LLMUnavailableError } from "../_shared/llm.ts";
 import { CRISIS_RESPONSE, detectCrisis } from "../_shared/voice.ts";
 import { getEntitlement } from "../_shared/entitlements.ts";
 import { buildChatSystem, extractMemoryFacts } from "../_shared/synthesis/synthesis.ts";
+import { askEvidence } from "../_shared/synthesis/evidence.ts";
 import { buildChatMessages } from "../_shared/chat.ts";
 
 // Free users get a generous daily allowance; Premium is unlimited.
@@ -111,9 +112,12 @@ Deno.serve(serve(async (req) => {
   const bp = await loadBlueprint(user.id);
   if (!bp) return json({ error: "Complete onboarding first." }, 409);
 
-  // Memory + recent history.
-  const { data: mem } = await svc.from("ask_memory").select("fact")
-    .eq("user_id", user.id).order("salience", { ascending: false }).limit(12);
+  // Memory facts + user-curated (enabled-only) memory themes.
+  const [{ data: mem }, themes] = await Promise.all([
+    svc.from("ask_memory").select("fact")
+      .eq("user_id", user.id).order("salience", { ascending: false }).limit(12),
+    loadEnabledMemoryThemes(user.id),
+  ]);
   const memory = (mem ?? []).map((m) => m.fact);
   // Load the MOST RECENT 20 messages (desc), then restore chronological order.
   // Loading oldest-first would drop the current turn in long conversations.
@@ -124,7 +128,7 @@ Deno.serve(serve(async (req) => {
   // message exactly once — no duplicate, no dropped turn.
   const priorMessages = buildChatMessages(historyChrono, body.message, currentMsgId);
 
-  const system = buildChatSystem(bp, memory);
+  const system = buildChatSystem(bp, memory, { themes, supportMode: body.supportMode });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -141,6 +145,10 @@ Deno.serve(serve(async (req) => {
           controller.enqueue(sse(JSON.stringify({ token: full })));
         }
       }
+      // Explainable chips for the systems this answer drew on, grounded in the
+      // user's real blueprint — emitted as a final structured frame before DONE.
+      const evidence = askEvidence(bp.summary, referencedSystems(full));
+      if (evidence.length) controller.enqueue(sse(JSON.stringify({ evidence })));
       controller.enqueue(sse("[DONE]"));
       controller.close();
 

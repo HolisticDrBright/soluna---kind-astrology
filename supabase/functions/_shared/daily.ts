@@ -3,14 +3,28 @@
 import { serviceClient } from "./supabase.ts";
 import type { DayContext } from "./synthesis/context.ts";
 import { type AgreementResult, buildAgreementEvidence } from "./synthesis/agreement.ts";
+import { dailyEvidence } from "./synthesis/evidence.ts";
 import type { DailyReading } from "./synthesis/synthesis.ts";
+import type { Evidence, NotifyPayload, SolunaShift, SupportMode } from "./synthesis/types.ts";
+import { buildDailyNotify } from "./notify.ts";
+
+export interface DailyExtras {
+  shift: SolunaShift;
+  evidence?: Evidence[];
+  notify?: NotifyPayload;
+  supportMode?: SupportMode;
+}
 
 export function buildReadingRow(
   userId: string,
   ctx: DayContext,
   reading: DailyReading,
   agreement: AgreementResult,
+  extras: DailyExtras,
 ) {
+  const evidence = extras.evidence ?? dailyEvidence(ctx, agreement);
+  const notify = extras.notify ??
+    buildDailyNotify(agreement.topTheme.id, agreement.topTheme.score, extras.shift);
   const energyLevel = Math.round(
     ((ctx.biorhythm.physical + ctx.biorhythm.emotional + ctx.biorhythm.intellectual) / 3 + 1) * 2.5,
   );
@@ -43,6 +57,11 @@ export function buildReadingRow(
       },
       caption: reading.energyCaption,
     },
+    // Explainable, actionable layer (see _shared/synthesis).
+    shift: { ...extras.shift, supportMode: extras.supportMode ?? extras.shift.supportMode },
+    evidence,
+    notify,
+    support_mode: extras.supportMode ?? extras.shift.supportMode ?? null,
   };
 }
 
@@ -58,6 +77,10 @@ export function shapeReading(r: any) {
     chineseDaily: r.chinese_daily,
     tarotCard: r.tarot_card,
     cosmicWeather: r.cosmic_weather,
+    shift: r.shift ?? null,
+    evidence: r.evidence ?? [],
+    notify: r.notify ?? null,
+    supportMode: r.support_mode ?? null,
   };
 }
 
@@ -66,8 +89,9 @@ export async function upsertDailyReading(
   ctx: DayContext,
   reading: DailyReading,
   agreement: AgreementResult,
+  extras: DailyExtras,
 ) {
-  const row = buildReadingRow(userId, ctx, reading, agreement);
+  const row = buildReadingRow(userId, ctx, reading, agreement, extras);
   const { data } = await serviceClient()
     .from("daily_readings")
     .upsert(row, { onConflict: "user_id,reading_date" })

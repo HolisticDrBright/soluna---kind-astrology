@@ -92,7 +92,7 @@ export async function computeBlueprint(
     humanDesign,
     biorhythmSeed: { birthDate: input.date },
     summary,
-    accuracy: computeAccuracy(input),
+    accuracy: computeAccuracy(input, astrology),
   };
 
   return { blueprint, placements: flattenPlacements(blueprint) };
@@ -103,14 +103,23 @@ export async function computeBlueprint(
  * don't have: Sun sign, Life Path, Chinese animal and biorhythms are exact from
  * the date alone; Moon sign is an estimate without a time; Rising, houses and
  * the full Human Design chart need birth time (and place for the angles).
+ *
+ * missingInputs uses the product-wide vocabulary: birth_time, birth_place,
+ * timezone, verified_ephemeris. accuracyLevel is driven by time + place; the
+ * timezone/ephemeris tokens are precision refinements that add a note without
+ * overstating or downgrading the core level.
  */
-function computeAccuracy(input: BirthInput): AccuracyReport {
+function computeAccuracy(input: BirthInput, astrology: AstrologyResult): AccuracyReport {
   const timeKnown = !!input.time;
   const placeKnown = input.lat != null && input.lng != null;
+  const tzKnown = !!input.timezone;
+  const hostedEphemeris = astrology.meta?.source === "hosted_api";
 
   const missingInputs: string[] = [];
-  if (!timeKnown) missingInputs.push("birthTime");
-  if (!placeKnown) missingInputs.push("birthPlace");
+  if (!timeKnown) missingInputs.push("birth_time");
+  if (!placeKnown) missingInputs.push("birth_place");
+  if (timeKnown && placeKnown && !tzKnown) missingInputs.push("timezone");
+  if (!hostedEphemeris) missingInputs.push("verified_ephemeris");
 
   let accuracyLevel: AccuracyLevel;
   if (timeKnown && placeKnown) accuracyLevel = "exact";
@@ -122,6 +131,16 @@ function computeAccuracy(input: BirthInput): AccuracyReport {
     confidenceNotes.push(
       "We have your birth date, time, and place, so your full chart is computed.",
     );
+    if (!tzKnown) {
+      confidenceNotes.push(
+        "Add your birth timezone for the most exact angles around the minute of birth.",
+      );
+    }
+    if (!hostedEphemeris) {
+      confidenceNotes.push(
+        "Your chart uses Soluna's built-in astronomy library; connecting a verified ephemeris service sharpens the finest details.",
+      );
+    }
   } else {
     // Always reassure about what IS exact before naming what's missing.
     confidenceNotes.push(

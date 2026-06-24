@@ -24,11 +24,34 @@ export const onboardingBlueprintInput = birthBlock.extend({
 });
 export type OnboardingBlueprintInput = z.infer<typeof onboardingBlueprintInput>;
 
+export const supportModeSchema = z.enum([
+  "gentle",
+  "clear",
+  "motivating",
+  "reflective",
+  "practical",
+]);
+
 export const askInput = z.object({
   message: z.string().min(1).max(4000),
   conversationId: z.string().uuid().optional(),
+  supportMode: supportModeSchema.optional(),
 });
 export type AskInput = z.infer<typeof askInput>;
+
+export const memoryThemeCreateInput = z.object({
+  label: z.string().min(1).max(80),
+  description: z.string().max(400).optional(),
+  enabled: z.boolean().optional(),
+});
+export type MemoryThemeCreateInput = z.infer<typeof memoryThemeCreateInput>;
+
+export const memoryThemePatchInput = z.object({
+  label: z.string().min(1).max(80).optional(),
+  description: z.string().max(400).nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+export type MemoryThemePatchInput = z.infer<typeof memoryThemePatchInput>;
 
 export const tarotDrawInput = z.object({
   spread: z.enum(["daily", "three-card", "celtic-cross"]),

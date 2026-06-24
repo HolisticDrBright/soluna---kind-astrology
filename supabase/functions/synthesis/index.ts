@@ -6,6 +6,7 @@ import { HttpError, json, serve } from "../_shared/http.ts";
 import { loadBlueprint, loadPreferredName, todayISO } from "../_shared/repo.ts";
 import { buildContext } from "../_shared/synthesis/context.ts";
 import { detectAgreement } from "../_shared/synthesis/agreement.ts";
+import { themeEvidence } from "../_shared/synthesis/evidence.ts";
 import { llm } from "../_shared/llm.ts";
 
 Deno.serve(serve(async (req) => {
@@ -28,6 +29,8 @@ Deno.serve(serve(async (req) => {
         title: t.title,
         systemsAgree: t.score,
         blocks: t.evidence.map((e) => ({ system: e.system, label: e.label, signal: e.signal })),
+        // Unified explainable chips (system/signal/detail/confidence/source).
+        evidence: themeEvidence(t),
       })),
     });
   }
@@ -40,6 +43,7 @@ Deno.serve(serve(async (req) => {
     title: theme.title,
     systemsAgree: theme.score,
     blocks: theme.evidence.map((e) => ({ system: e.system, label: e.label, signal: e.signal })),
+    evidence: themeEvidence(theme),
     combinedTakeaway,
   });
 }));

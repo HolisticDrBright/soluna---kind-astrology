@@ -57,7 +57,8 @@ export const api = {
   blueprintSystem: (system: string) =>
     invoke<{ system: string; data: unknown; placements: BackendPlacement[] }>(`blueprint/${system}`),
 
-  today: (date?: string) => invoke<{ reading: BackendReading }>(`today${qs({ date })}`),
+  today: (date?: string, supportMode?: SupportMode) =>
+    invoke<{ reading: BackendReading; accuracy?: AccuracyReport }>(`today${qs({ date, supportMode })}`),
   insight: (system: string, key: string) =>
     invoke<{ system: string; key: string; body: string; why: string }>(`insight${qs({ system, key })}`),
   synthesis: (theme?: string) => invoke<BackendSynthesis>(`synthesis${qs({ theme })}`),
@@ -97,21 +98,42 @@ export const api = {
   patchMe: (body: unknown) =>
     invoke<{ ok: boolean; recompute?: boolean; recomputeQueued?: boolean }>("me", { method: "PATCH", body }),
 
+  // ── Personal pattern memory (user-controlled) ──
+  memoryThemes: () => invoke<{ themes: BackendMemoryTheme[] }>("memory-themes"),
+  addMemoryTheme: (body: { label: string; description?: string; enabled?: boolean }) =>
+    invoke<{ theme: BackendMemoryTheme }>("memory-themes", { method: "POST", body }),
+  updateMemoryTheme: (id: string, body: { label?: string; description?: string | null; enabled?: boolean }) =>
+    invoke<{ theme: BackendMemoryTheme }>(`memory-themes/${id}`, { method: "PATCH", body }),
+  deleteMemoryTheme: (id: string) =>
+    invoke<{ ok: boolean }>(`memory-themes/${id}`, { method: "DELETE" }),
+
+  // ── Weekly integration report ──
+  weeklyReport: (weekStart?: string) =>
+    invoke<{ report: BackendWeeklyReport; cached: boolean }>(`weekly-report${qs({ weekStart })}`),
+
   entitlements: () => invoke<BackendEntitlements>("entitlements"),
 };
 
 // ─── Ask streaming (SSE via expo/fetch, which supports response.body in RN) ──
 export interface StreamHandlers {
   onToken: (token: string) => void;
+  /** Explainable evidence chips for the systems this answer drew on. */
+  onEvidence?: (evidence: Evidence[]) => void;
   onDone?: (conversationId: string | null) => void;
   onError?: (err: Error) => void;
 }
 
+export interface AskOptions {
+  conversationId?: string;
+  supportMode?: SupportMode;
+}
+
 export async function streamAsk(
   message: string,
-  conversationId: string | undefined,
+  options: AskOptions | undefined,
   handlers: StreamHandlers,
 ): Promise<void> {
+  const conversationId = options?.conversationId;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token ?? "";
@@ -122,7 +144,7 @@ export async function streamAsk(
         authorization: `Bearer ${token}`,
         apikey: SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ message, conversationId }),
+      body: JSON.stringify({ message, conversationId, supportMode: options?.supportMode }),
     });
     if (!res.ok || !res.body) {
       throw new ApiError(res.status, `Ask failed (${res.status})`);
@@ -148,6 +170,7 @@ export async function streamAsk(
         try {
           const j = JSON.parse(d);
           if (j.token) handlers.onToken(j.token);
+          else if (j.evidence) handlers.onEvidence?.(j.evidence as Evidence[]);
         } catch {
           // ignore partial/non-JSON frames
         }
@@ -185,6 +208,67 @@ export interface EngineMeta {
   precision: "high" | "medium" | "low";
   userFacingNote?: string;
 }
+
+// ─── product layer: support mode, evidence, shift, notify ───────────
+export type SupportMode = "gentle" | "clear" | "motivating" | "reflective" | "practical";
+
+export interface Evidence {
+  system: "astrology" | "numerology" | "human_design" | "chinese" | "tarot" | "biorhythm";
+  signal: string;
+  detail: string;
+  confidence: "high" | "medium" | "low";
+  source: string;
+}
+
+export interface SolunaShift {
+  reframe: string;
+  reset: string;
+  braveTinyAction: string;
+  journalPrompt: string;
+  supportMode?: SupportMode | null;
+}
+
+export interface NotifyPayload {
+  widgetTitle: string;
+  widgetBody: string;
+  pushTitle: string;
+  pushBody: string;
+}
+
+export interface BackendMemoryTheme {
+  id: string;
+  label: string;
+  description: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackendWeeklyReport {
+  weekStart: string;
+  weekEnd: string;
+  repeatingThemes: string[];
+  systemsThatAgreed: { system: string; count: number }[];
+  savedReadings: unknown[];
+  journalHighlights: string[];
+  carryForward: string;
+  shiftForNextWeek: string;
+  daysWithReadings: number;
+  enoughData: boolean;
+  accuracyLevel: AccuracyReport["accuracyLevel"];
+  confidenceNotes: string[];
+  notify?: NotifyPayload;
+}
+
+export interface BondRitual {
+  supportEachOtherToday: string;
+  bestDayForDeepConversation: string;
+  possibleMisread: string;
+  sharedJournalPrompt: string;
+  lens: string;
+  evidence: Evidence[];
+  confidenceNotes: string[];
+}
 export interface BackendBlueprint {
   astrology: any; numerology: any; chinese: any; humanDesign: any;
   biorhythmSeed: { birthDate: string }; summary: BackendSummary;
@@ -196,6 +280,11 @@ export interface BackendReading {
   doEmbraceEase: { do: string; embrace: string; ease: string };
   personalDay: number; chineseDaily: { animal: string; element: string };
   tarotCard: any; cosmicWeather: any;
+  // Explainable guidance layer.
+  shift?: SolunaShift | null;
+  evidence?: Evidence[];
+  notify?: NotifyPayload | null;
+  supportMode?: SupportMode | null;
 }
 export interface BackendSynthesis {
   themes?: { id: string; title: string; systemsAgree: number; blocks: any[] }[];
@@ -228,6 +317,7 @@ export interface BackendBondSpace {
   sharePrefs: Record<string, boolean>;
   compatibility: BackendCompatibility & { score: number };
   bond: { togetherText: string; flowGrow: { flow: string; grow: string }; sharedWeather: string };
+  ritual?: BondRitual;
 }
 export interface BackendTarotReading {
   id: string; spread: string; cards: any[]; question: string | null;

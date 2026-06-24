@@ -109,7 +109,7 @@ export default function AskSolunaScreen() {
 
     if (live) {
       streamIdRef.current = null;
-      await streamAsk(trimmed, conversationId, {
+      await streamAsk(trimmed, { conversationId }, {
         onToken: (tok) => {
           setMessages((prev) => {
             if (streamIdRef.current === null) {

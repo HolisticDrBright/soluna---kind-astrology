@@ -73,6 +73,30 @@ export async function loadPlacements(userId: string, system?: string) {
   return data ?? [];
 }
 
+/** Just the blueprint's accuracy report (cheap; for attaching trust to responses). */
+export async function loadAccuracy(userId: string) {
+  const { data } = await serviceClient()
+    .from("blueprints")
+    .select("accuracy")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.accuracy ?? null;
+}
+
+/** Enabled, user-curated memory themes (only these are ever fed to the LLM). */
+export async function loadEnabledMemoryThemes(
+  userId: string,
+): Promise<{ label: string; description: string | null }[]> {
+  const { data } = await serviceClient()
+    .from("user_memory_themes")
+    .select("label, description")
+    .eq("user_id", userId)
+    .eq("enabled", true)
+    .order("created_at", { ascending: true })
+    .limit(20);
+  return (data ?? []).map((t) => ({ label: t.label, description: t.description ?? null }));
+}
+
 export async function loadPreferredName(userId: string): Promise<string> {
   const { data } = await serviceClient()
     .from("users")
