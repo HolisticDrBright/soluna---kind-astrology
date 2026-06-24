@@ -4,13 +4,17 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useState, useCallback } from "react";
 import SolunaColors from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { Fonts, DAILY_READINGS, ZODIAC_SYMBOLS, PLANET_SYMBOLS } from "@/constants/mockData";
 import type { DailyReading } from "@/constants/mockData";
+import SystemAgreeBadge from "@/components/SystemAgreeBadge";
+import InsightActionBar from "@/components/InsightActionBar";
+import ConfidencePill from "@/components/ConfidencePill";
 
 // ─── Layer 1: Hero card + reading + nudge ────────────────────────
 export default function TodayScreen() {
@@ -19,6 +23,12 @@ export default function TodayScreen() {
 
   const todayReading: DailyReading =
     DAILY_READINGS.find((r) => r.date === "2026-06-24") ?? DAILY_READINGS[0];
+
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = useCallback(() => {
+    setSaved(true);
+  }, []);
 
   return (
     <LinearGradient
@@ -51,9 +61,22 @@ export default function TodayScreen() {
               Try this today: {todayReading.do}
             </Text>
           </View>
+
+          <InsightActionBar
+            onSave={saved ? undefined : handleSave}
+            askPrompt={todayReading.reading.slice(0, 80)}
+          />
         </View>
 
-        <Text style={st.layerTag}>Layer 1 loaded. Adding next layer...</Text>
+        {/* ─── Systems Agree Card ─── */}
+        <SystemAgreeBadge
+          count={todayReading.systemsAgree.systems.length}
+          systems={todayReading.systemsAgree.systems}
+          summary={todayReading.systemsAgree.summary}
+          onSeeWhy={() => {}}
+        />
+
+        <Text style={st.layerTag}>Layer 2 loaded. Adding next layer...</Text>
       </ScrollView>
     </LinearGradient>
   );
