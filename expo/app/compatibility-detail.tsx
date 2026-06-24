@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
-import { ChevronLeft, Heart, Star, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
+import { ChevronLeft, Heart, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
 
 export default function CompatibilityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,15 +16,28 @@ export default function CompatibilityDetailScreen() {
   const person = CONNECTIONS.find((c) => c.id === id);
   if (!person) return null;
 
-  const color = person.compatibilityScore >= 80 ? SolunaColors.warmGold : person.compatibilityScore >= 60 ? SolunaColors.gentleLavender : SolunaColors.softPeach;
-  const lensTips: Record<RelationshipLens, string> = { Romance: person.romanceTip, Friendship: person.friendshipTip, Work: person.workTip, Family: person.familyTip };
+  const color =
+    person.compatibilityScore >= 80
+      ? SolunaColors.warmGold
+      : person.compatibilityScore >= 60
+        ? SolunaColors.gentleLavender
+        : SolunaColors.softPeach;
+
+  const lensTips: Record<RelationshipLens, string> = {
+    Romance: person.romanceTip,
+    Friendship: person.friendshipTip,
+    Work: person.workTip,
+    Family: person.familyTip,
+  };
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.gradient}>
       <ScrollView contentContainerStyle={st.scrollContent}>
-        <TouchableOpacity style={st.backBtn} onPress={() => router.back()}><ChevronLeft size={24} color={SolunaColors.cream} /></TouchableOpacity>
+        <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
+          <ChevronLeft size={24} color={SolunaColors.cream} />
+        </TouchableOpacity>
 
-        {/* Hero */}
+        {/* Hero — no scary single score as main event */}
         <View style={st.hero}>
           <View style={st.avatarsRow}>
             <View style={[st.avatar, { borderColor: SolunaColors.softPeach }]}>
@@ -33,55 +46,104 @@ export default function CompatibilityDetailScreen() {
             </View>
             <View style={st.avatarsConnector}>
               <Heart size={20} color={color} fill={color} opacity={0.6} />
-              <View style={[st.scoreCircle, { borderColor: color }]}><Text style={[st.scoreText, { color }]}>{person.compatibilityScore}%</Text></View>
             </View>
             <View style={[st.avatar, { borderColor: color }]}>
               <Text style={st.avatarText}>{person.avatarInitial}</Text>
               <Text style={st.avatarSign}>{ZODIAC_SYMBOLS[person.sunSign]}</Text>
             </View>
           </View>
-          <Text style={st.heroTitle}>{user.preferredName} & {person.name}</Text>
-          <View style={[st.labelBadge, { backgroundColor: `${color}15` }]}><Text style={[st.labelText, { color }]}>{person.compatibilityLabel}</Text></View>
-
-          {/* Blended scores */}
-          <View style={st.blendedRow}>
-            <View style={st.blendedItem}><Text style={st.blendedEmoji}>♋</Text><Text style={st.blendedScore}>{person.compatibilityScore}%</Text><Text style={st.blendedSys}>Astro</Text></View>
-            <View style={st.blendedDivider} />
-            <View style={st.blendedItem}><Hash size={14} color={SolunaColors.gentleLavender} /><Text style={st.blendedScore}>{person.numerologyScore}%</Text><Text style={st.blendedSys}>Nums</Text></View>
-            <View style={st.blendedDivider} />
-            <View style={st.blendedItem}><Bird size={14} color={SolunaColors.softPeach} /><Text style={st.blendedScore}>{person.chineseScore}%</Text><Text style={st.blendedSys}>Chinese</Text></View>
+          <Text style={st.heroTitle}>
+            {user.preferredName} & {person.name}
+          </Text>
+          <View style={[st.labelBadge, { backgroundColor: `${color}15` }]}>
+            <Text style={[st.labelText, { color }]}>{person.compatibilityLabel}</Text>
           </View>
+        </View>
 
-          <Text style={st.blendedSummary}>{person.blendedSummary}</Text>
+        {/* Blended summary — leads the experience */}
+        <View style={st.summaryCard}>
+          <Sparkles size={16} color={SolunaColors.warmGold} />
+          <Text style={st.summaryText}>{person.blendedSummary}</Text>
+        </View>
+
+        {/* Small blended scores (secondary, not primary) */}
+        <View style={st.blendedRow}>
+          <View style={st.blendedItem}>
+            <Text style={st.blendedEmoji}>♋</Text>
+            <Text style={st.blendedScore}>{person.compatibilityScore}%</Text>
+            <Text style={st.blendedSys}>Astro</Text>
+          </View>
+          <View style={st.blendedDivider} />
+          <View style={st.blendedItem}>
+            <Hash size={14} color={SolunaColors.gentleLavender} />
+            <Text style={st.blendedScore}>{person.numerologyScore}%</Text>
+            <Text style={st.blendedSys}>Nums</Text>
+          </View>
+          <View style={st.blendedDivider} />
+          <View style={st.blendedItem}>
+            <Bird size={14} color={SolunaColors.softPeach} />
+            <Text style={st.blendedScore}>{person.chineseScore}%</Text>
+            <Text style={st.blendedSys}>Chinese</Text>
+          </View>
         </View>
 
         {/* Lens Tabs */}
         <View style={st.lensWrap}>
           {(["Romance", "Friendship", "Work", "Family"] as const).map((l) => (
-            <TouchableOpacity key={l} style={[st.lensTab, lens === l && { backgroundColor: `${color}15`, borderColor: `${color}30` }]} onPress={() => setLens(l)}>
+            <TouchableOpacity
+              key={l}
+              style={[st.lensTab, lens === l && { backgroundColor: `${color}15`, borderColor: `${color}30` }]}
+              onPress={() => setLens(l)}
+            >
               <Text style={[st.lensText, lens === l && { color }]}>{l}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Where You Flow */}
+        {/* Where You Flow (primary) */}
         <View style={st.section}>
-          <View style={st.sectionHeader}><Sparkles size={16} color={SolunaColors.warmGold} /><Text style={st.sectionTitle}>Where You Flow</Text></View>
+          <View style={st.sectionHeader}>
+            <Sparkles size={16} color={SolunaColors.warmGold} />
+            <Text style={st.sectionTitle}>Where you flow</Text>
+          </View>
           <Text style={st.sectionText}>{person.whereYouFlow}</Text>
         </View>
 
         {/* Where You Grow */}
         <View style={st.section}>
-          <View style={st.sectionHeader}><Star size={16} color={SolunaColors.gentleLavender} /><Text style={st.sectionTitle}>Where You Grow</Text></View>
+          <View style={st.sectionHeader}>
+            <Sparkles size={16} color={SolunaColors.gentleLavender} />
+            <Text style={st.sectionTitle}>Where you grow</Text>
+          </View>
           <Text style={st.sectionText}>{person.whereYouGrow}</Text>
         </View>
 
-        {/* How to Love Well */}
+        {/* How to Support Each Other */}
         <View style={st.section}>
-          <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} /><Text style={st.sectionTitle}>How to Support Each Other</Text></View>
+          <View style={st.sectionHeader}>
+            <Heart size={16} color={SolunaColors.softPeach} />
+            <Text style={st.sectionTitle}>How to support each other</Text>
+          </View>
           {person.howToLove.map((tip, i) => (
-            <View key={i} style={st.tipRow}><Text style={st.tipBullet}>{i + 1}.</Text><Text style={st.tipText}>{tip}</Text></View>
+            <View key={i} style={st.tipRow}>
+              <Text style={st.tipBullet}>{i + 1}.</Text>
+              <Text style={st.tipText}>{tip}</Text>
+            </View>
           ))}
+        </View>
+
+        {/* Why the systems say this */}
+        <View style={st.section}>
+          <View style={st.sectionHeader}>
+            <Sparkles size={16} color={SolunaColors.warmGold} />
+            <Text style={st.sectionTitle}>Why the systems say this</Text>
+          </View>
+          <Text style={st.sectionText}>
+            Your blending across astrology, numerology, and Chinese astrology shows a
+            connection that's {person.compatibilityScore >= 80 ? "naturally harmonious" : "rich with growth potential"}. 
+            The combined score reflects how your core energies interact — not a judgment, 
+            but a map to navigate with care.
+          </Text>
         </View>
 
         {/* Lens insight */}
@@ -90,7 +152,23 @@ export default function CompatibilityDetailScreen() {
           <Text style={st.lensInsightText}>{lensTips[lens]}</Text>
         </View>
 
-        {/* Share button */}
+        {/* Ask Soluna about this bond */}
+        <TouchableOpacity
+          style={st.askBtn}
+          onPress={() =>
+            router.push({
+              pathname: "/(tabs)/ask",
+              params: {
+                prompt: `Tell me more about my connection with ${person.name}`,
+              },
+            })
+          }
+        >
+          <Sparkles size={16} color={SolunaColors.warmGold} />
+          <Text style={st.askBtnText}>Ask Soluna about this connection</Text>
+        </TouchableOpacity>
+
+        {/* Share */}
         <TouchableOpacity style={st.shareBtn} activeOpacity={0.8}>
           <Share2 size={16} color={SolunaColors.warmGold} />
           <Text style={st.shareBtnText}>Share this result</Text>
@@ -105,38 +183,71 @@ export default function CompatibilityDetailScreen() {
 const st = StyleSheet.create({
   gradient: { flex: 1 },
   scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center", marginBottom: 20 },
-  hero: { alignItems: "center", marginBottom: 20 },
-  avatarsRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 28, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.heading },
-  avatarSign: { fontSize: 18, marginTop: -4 },
-  avatarsConnector: { alignItems: "center", gap: 6 },
-  scoreCircle: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.03)" },
-  scoreText: { fontSize: 13, fontWeight: "800", fontFamily: Fonts.body },
-  heroTitle: { fontSize: 24, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 10 },
-  labelBadge: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16, marginBottom: 14 },
-  labelText: { fontSize: 13, fontWeight: "600", fontFamily: Fonts.body },
-  blendedRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center",
+    marginBottom: 20,
+  },
+  hero: { alignItems: "center", marginBottom: 16 },
+  avatarsRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
+  avatar: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 2,
+    alignItems: "center", justifyContent: "center",
+  },
+  avatarText: { fontSize: 26, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.heading },
+  avatarSign: { fontSize: 16, marginTop: -4 },
+  avatarsConnector: { alignItems: "center" },
+  heroTitle: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 8 },
+  labelBadge: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 14 },
+  labelText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.body },
+  // Summary
+  summaryCard: {
+    flexDirection: "row", gap: 10, alignItems: "flex-start",
+    backgroundColor: "rgba(232,184,109,0.05)", borderRadius: SolunaRadius.md,
+    padding: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginBottom: 12,
+  },
+  summaryText: { flex: 1, fontSize: 13, color: SolunaColors.cream, lineHeight: 20, fontFamily: Fonts.body },
+  // Blended scores
+  blendedRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 20 },
   blendedItem: { alignItems: "center", gap: 2 },
   blendedEmoji: { fontSize: 14 },
   blendedScore: { fontSize: 13, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
   blendedSys: { fontSize: 9, color: SolunaColors.creamSubtle, fontWeight: "600" },
-  blendedDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.08)" },
-  blendedSummary: { fontSize: 13, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 20, fontFamily: Fonts.body, maxWidth: 320 },
-  lensWrap: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 4, marginBottom: 24 },
+  blendedDivider: { width: 1, height: 28, backgroundColor: "rgba(255,255,255,0.08)" },
+  // Lens tabs
+  lensWrap: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 4, marginBottom: 20 },
   lensTab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: SolunaRadius.sm, borderWidth: 1, borderColor: "transparent" },
   lensText: { fontSize: 12, fontWeight: "600", color: SolunaColors.creamMuted, fontFamily: Fonts.body },
-  section: { marginBottom: 24 },
+  // Sections
+  section: { marginBottom: 20 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
-  sectionText: { fontSize: 15, color: SolunaColors.creamMuted, lineHeight: 24, fontFamily: Fonts.body },
-  tipRow: { flexDirection: "row", gap: 8, marginBottom: 10, paddingLeft: 4 },
-  tipBullet: { fontSize: 14, fontWeight: "700", color: SolunaColors.softPeach, fontFamily: Fonts.body, width: 20 },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
+  sectionText: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
+  tipRow: { flexDirection: "row", gap: 8, marginBottom: 8, paddingLeft: 4 },
+  tipBullet: { fontSize: 13, fontWeight: "700", color: SolunaColors.softPeach, fontFamily: Fonts.body, width: 18 },
   tipText: { flex: 1, fontSize: 14, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body },
-  lensInsightCard: { backgroundColor: "rgba(242,168,141,0.05)", borderRadius: SolunaRadius.md, padding: 18, borderWidth: 1, borderColor: "rgba(242,168,141,0.1)", marginBottom: 16 },
-  lensInsightLabel: { fontSize: 11, color: SolunaColors.softPeach, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 8 },
+  lensInsightCard: {
+    backgroundColor: "rgba(242,168,141,0.05)", borderRadius: SolunaRadius.md, padding: 16,
+    borderWidth: 1, borderColor: "rgba(242,168,141,0.1)", marginBottom: 16,
+  },
+  lensInsightLabel: {
+    fontSize: 10, color: SolunaColors.softPeach, textTransform: "uppercase",
+    letterSpacing: 1.5, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 6,
+  },
   lensInsightText: { fontSize: 14, color: SolunaColors.cream, lineHeight: 22, fontFamily: Fonts.body },
-  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.lg, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)" },
+  // Ask
+  askBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+    backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.lg,
+    paddingVertical: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)", marginBottom: 12,
+  },
+  askBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  // Share
+  shareBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.lg,
+    paddingVertical: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)",
+  },
   shareBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });

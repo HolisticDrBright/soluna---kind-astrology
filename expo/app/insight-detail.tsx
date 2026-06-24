@@ -9,7 +9,7 @@ import {
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
-import { Sparkles, ChevronLeft, MessageCircle, Bookmark } from "lucide-react-native";
+import { Sparkles, ChevronLeft, MessageCircle } from "lucide-react-native";
 
 function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number) {
   const planetMeanings: Record<Planet, string> = {
@@ -32,11 +32,13 @@ function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: numbe
     Sagittarius: "adventurous, optimistic, and wisdom-seeking", Capricorn: "determined, wise, and quietly powerful",
     Aquarius: "innovative, humanitarian, and refreshingly original", Pisces: "compassionate, creative, and deeply soulful",
   };
+  const suffixes = ["th", "st", "nd", "rd"];
+  const suffix = suffixes[house % 10 > 3 ? 0 : house % 10] ?? "th";
   return {
-    description: `Your ${planet} in ${sign} lives in your ${house}${["th","st","nd","rd"][house%10>3?0:house%10]||"th"} house, the ${HOUSE_NAMES[house]?.toLowerCase() || `${house}th house`}. This means ${planetMeanings[planet]} expresses itself through the lens of ${sign.toLowerCase()} energy — ${signQualities[sign]}. When filtered through your ${house}${["th","st","nd","rd"][house%10>3?0:house%10]||"th"} house, this placement colors how you experience ${HOUSE_NAMES[house]?.toLowerCase() || "this area of life"}.\n\nEvery placement in your chart tells part of your story, and this one is a meaningful thread. Take what resonates — your lived experience is the real interpreter here.`,
+    description: `Your ${planet} in ${sign} lives in your ${house}${suffix} house, the ${HOUSE_NAMES[house]?.toLowerCase() ?? `${house}th house`}. This means ${planetMeanings[planet]} expresses itself through the lens of ${sign.toLowerCase()} energy — ${signQualities[sign]}. When filtered through your ${house}${suffix} house, this placement colors how you experience ${HOUSE_NAMES[house]?.toLowerCase() ?? "this area of life"}.\n\nEvery placement in your chart tells part of your story, and this one is a meaningful thread. Take what resonates — your lived experience is the real interpreter here.`,
     strengths: [
-      `A natural ${signQualities[sign].split(",")[0]} approach to ${HOUSE_NAMES[house]?.toLowerCase() || "this area of life"}`,
-      `The ability to bring ${planet.toLowerCase()} energy into ${HOUSE_NAMES[house]?.toLowerCase() || "your daily experience"} with grace`,
+      `A natural ${signQualities[sign].split(",")[0]} approach to ${HOUSE_NAMES[house]?.toLowerCase() ?? "this area of life"}`,
+      `The ability to bring ${planet.toLowerCase()} energy into ${HOUSE_NAMES[house]?.toLowerCase() ?? "your daily experience"} with grace`,
     ],
     growthEdge: `With ${planet} in ${sign}, you might sometimes feel the pull between your natural ${sign.toLowerCase()} expression and what the world expects. Remember that your chart is not a rulebook — it's an invitation to understand yourself more deeply.`,
   };
@@ -47,7 +49,7 @@ export default function InsightDetailScreen() {
   const { user } = useAppState();
   if (!user || !type) return null;
 
-  // Numeric insight
+  // ── Number insight ──
   if (type === "number" && number) {
     const num = parseInt(number, 10);
     const info = NUMBER_MEANINGS[num];
@@ -55,7 +57,9 @@ export default function InsightDetailScreen() {
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
         <ScrollView contentContainerStyle={s.scrollContent}>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}><ChevronLeft size={24} color={SolunaColors.cream} /></TouchableOpacity>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <ChevronLeft size={24} color={SolunaColors.cream} />
+          </TouchableOpacity>
           <View style={s.heroWrap}>
             <View style={[s.glyphCircle, { borderColor: "rgba(185,163,227,0.3)", backgroundColor: "rgba(185,163,227,0.08)" }]}>
               <Text style={[s.glyphText, { color: SolunaColors.gentleLavender }]}>{num}</Text>
@@ -67,57 +71,120 @@ export default function InsightDetailScreen() {
           <View style={s.section}><Text style={s.interpretationTitle}>What This Gives You</Text>{info.strengths.map((sx, i) => (<View key={i} style={s.strengthRow}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>))}</View>
           <View style={s.section}><Text style={s.interpretationTitle}>Gentle Growth Edge</Text><Text style={s.growthText}>{info.growthEdge}</Text></View>
           <View style={s.section}><Text style={s.interpretationTitle}>Why You're Seeing This</Text><Text style={s.whyText}>In numerology, each number carries an archetypal vibration. Your {num} emerges from calculations based on your full birth name and birth date — it's not random, it's mathematical. This number describes a core thread in your life's pattern.</Text></View>
-          <TouchableOpacity style={s.askBtn} onPress={() => router.push("/(tabs)/ask")}><MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about your number {num}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.askBtn} onPress={() => router.push({ pathname: "/(tabs)/ask", params: { prompt: `Tell me more about my number ${num}` } })}>
+            <MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about this number</Text>
+          </TouchableOpacity>
           <View style={{ height: 60 }} />
         </ScrollView>
       </LinearGradient>
     );
   }
 
-  // Astrology placement insight
-  if (type === "placement" && planet) {
-    if (planet === "Rising") {
-      return (
-        <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
-          <ScrollView contentContainerStyle={s.scrollContent}>
-            <TouchableOpacity style={s.backBtn} onPress={() => router.back()}><ChevronLeft size={24} color={SolunaColors.cream} /></TouchableOpacity>
-            <View style={s.heroWrap}>
-              <View style={[s.glyphCircle, { borderColor: "rgba(242,168,141,0.25)" }]}>
-                <Text style={[s.glyphText, { color: SolunaColors.softPeach, fontSize: 28 }]}>ASC</Text>
-              </View>
-              <Text style={s.heroTitle}>Rising Sign</Text>
-              <Text style={s.heroSign}>{ZODIAC_SYMBOLS[user.chart.rising]} {user.chart.rising}</Text>
-              <Text style={s.heroHouse}>Ascendant · 1st House</Text>
+  // ── Rising sign insight ──
+  if (type === "placement" && planet === "Rising") {
+    return (
+      <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
+        <ScrollView contentContainerStyle={s.scrollContent}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <ChevronLeft size={24} color={SolunaColors.cream} />
+          </TouchableOpacity>
+          <View style={s.heroWrap}>
+            <View style={[s.glyphCircle, { borderColor: "rgba(242,168,141,0.25)" }]}>
+              <Text style={[s.glyphText, { color: SolunaColors.softPeach, fontSize: 28 }]}>ASC</Text>
             </View>
-            <View style={s.section}><Text style={s.interpretationTitle}>What This Means</Text><Text style={s.interpretationText}>Your rising sign (or ascendant) is the zodiac sign that was literally rising on the eastern horizon at the exact moment you were born. It changes about every two hours — which is why your birth time matters so much. Your rising sign shapes your personal style, your instinctive reactions, and the energy you bring into a room before you even say a word. Think of it as the doorway through which everything else in your chart enters the world. With {user.chart.rising} rising, you greet the world with warmth and grace — people feel at ease around you.</Text></View>
-            <TouchableOpacity style={s.askBtn} onPress={() => router.push("/(tabs)/ask")}><MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about your Rising sign</Text></TouchableOpacity>
-          </ScrollView>
-        </LinearGradient>
-      );
-    }
+            <Text style={s.heroTitle}>Rising Sign</Text>
+            <Text style={s.heroSign}>{ZODIAC_SYMBOLS[user.chart.rising]} {user.chart.rising}</Text>
+            <Text style={s.heroHouse}>Ascendant · 1st House</Text>
+          </View>
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>What This Means</Text>
+            <Text style={s.interpretationText}>
+              Your rising sign (or ascendant) is the zodiac sign that was literally rising on the eastern horizon at the exact moment you were born. It changes about every two hours — which is why your birth time matters so much. Your rising sign shapes your personal style, your instinctive reactions, and the energy you bring into a room before you even say a word. Think of it as the doorway through which everything else in your chart enters the world. With {user.chart.rising} rising, you greet the world with warmth and grace — people feel at ease around you.
+            </Text>
+          </View>
+          {!user.birthTimeKnown && (
+            <View style={s.warningCard}>
+              <Text style={s.warningTitle}>Why this is approximate</Text>
+              <Text style={s.warningText}>
+                Without an exact birth time, your Rising sign is estimated at noon. The actual rising sign could differ. Add your birth time in Profile to get an exact reading.
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={s.askBtn}
+            onPress={() =>
+              router.push({ pathname: "/(tabs)/ask", params: { prompt: "Tell me more about my Rising sign" } })
+            }
+          >
+            <MessageCircle size={18} color={SolunaColors.warmGold} />
+            <Text style={s.askBtnText}>Ask Soluna about your Rising sign</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </LinearGradient>
+    );
+  }
 
+  // ── Astrology placement insight ──
+  if (type === "placement" && planet) {
     const placement = user.chart.placements.find((p) => p.planet === planet);
     if (!placement) return null;
-    const interp = getPlacementInterpretation(placement.planet, placement.sign, placement.house) ?? getGenericInterpretation(placement.planet, placement.sign, placement.house);
-    const isBigThree = placement.planet === "Sun" || placement.planet === "Moon";
+    const interp =
+      getPlacementInterpretation(placement.planet, placement.sign, placement.house) ??
+      getGenericInterpretation(placement.planet, placement.sign, placement.house);
 
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
         <ScrollView contentContainerStyle={s.scrollContent}>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}><ChevronLeft size={24} color={SolunaColors.cream} /></TouchableOpacity>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <ChevronLeft size={24} color={SolunaColors.cream} />
+          </TouchableOpacity>
           <View style={s.heroWrap}>
-            <View style={[s.glyphCircle, isBigThree && { borderColor: "rgba(232,184,109,0.25)", backgroundColor: "rgba(232,184,109,0.06)" }]}>
+            <View style={s.glyphCircle}>
               <Text style={s.glyphText}>{PLANET_SYMBOLS[placement.planet]}</Text>
             </View>
             <Text style={s.heroTitle}>{placement.planet}</Text>
-            <Text style={s.heroSign}>{ZODIAC_SYMBOLS[placement.sign]} {placement.sign}</Text>
-            <Text style={s.heroHouse}>{placement.house}{["th","st","nd","rd"][placement.house%10>3?0:placement.house%10]||"th"} House · {placement.degree}°</Text>
+            <Text style={s.heroSign}>
+              {ZODIAC_SYMBOLS[placement.sign]} {placement.sign}
+            </Text>
+            <Text style={s.heroHouse}>
+              {placement.degree}° · House {placement.house}
+            </Text>
           </View>
-          <View style={s.section}><Text style={s.interpretationTitle}>What This Means</Text><Text style={s.interpretationText}>{interp.description}</Text></View>
-          <View style={s.section}><Text style={s.interpretationTitle}>What This Gives You</Text>{interp.strengths.map((sx, i) => (<View key={i} style={s.strengthRow}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>))}</View>
-          <View style={s.section}><Text style={s.interpretationTitle}>Gentle Growth Edge</Text><Text style={s.growthText}>{interp.growthEdge}</Text></View>
-          <View style={s.section}><Text style={s.interpretationTitle}>Why You're Seeing This</Text><Text style={s.whyText}>This placement comes from the exact position of {placement.planet} at the moment of your birth — {placement.degree}° into {placement.sign}, falling in your {placement.house}{["th","st","nd","rd"][placement.house%10>3?0:placement.house%10]||"th"} house. Your birth time and location determine which house each planet falls into.</Text></View>
-          <TouchableOpacity style={s.askBtn} onPress={() => router.push("/(tabs)/ask")}><MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about your {placement.planet} in {placement.sign}</Text></TouchableOpacity>
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>What This Means</Text>
+            <Text style={s.interpretationText}>{interp.description}</Text>
+          </View>
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>What This Gives You</Text>
+            {interp.strengths.map((sx, i) => (
+              <View key={i} style={s.strengthRow}>
+                <Sparkles size={14} color={SolunaColors.warmGold} />
+                <Text style={s.strengthText}>{sx}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>Gentle Growth Edge</Text>
+            <Text style={s.growthText}>{interp.growthEdge}</Text>
+          </View>
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>Why You're Seeing This</Text>
+            <Text style={s.whyText}>
+              This placement comes from the exact position of {placement.planet} at the moment of your birth — {placement.degree}° into {placement.sign}, falling in your {placement.house}th house. Your birth time and location determine which house each planet falls into.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={s.askBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/ask",
+                params: { prompt: `Tell me more about my ${placement.planet} in ${placement.sign}` },
+              })
+            }
+          >
+            <MessageCircle size={18} color={SolunaColors.warmGold} />
+            <Text style={s.askBtnText}>Ask Soluna about this placement</Text>
+          </TouchableOpacity>
           <View style={{ height: 60 }} />
         </ScrollView>
       </LinearGradient>
@@ -146,4 +213,7 @@ const s = StyleSheet.create({
   whyText: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
   askBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.lg, paddingVertical: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)", marginTop: 8 },
   askBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  warningCard: { backgroundColor: "rgba(242,168,141,0.06)", borderRadius: SolunaRadius.md, padding: 14, borderWidth: 1, borderColor: "rgba(242,168,141,0.1)", marginBottom: 20 },
+  warningTitle: { fontSize: 13, fontWeight: "700", color: SolunaColors.softPeach, fontFamily: Fonts.body, marginBottom: 4 },
+  warningText: { fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
 });
