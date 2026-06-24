@@ -1,15 +1,18 @@
-import { View, Text } from "react-native";
+import { Stack } from "expo-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppProvider } from "@/state/useAppState";
 
-// Minimal diagnostic — confirms providers + basic rendering work
+const queryClient = new QueryClient();
+
 export default function RootLayout() {
   return (
-    <View style={{ flex: 1, backgroundColor: "#1A1635", alignItems: "center", justifyContent: "center", padding: 40 }}>
-      <Text style={{ color: "#E8B86D", fontSize: 24, fontWeight: "700", marginBottom: 12 }}>
-        Soluna — Diagnostic
-      </Text>
-      <Text style={{ color: "#C4BFB5", fontSize: 14, textAlign: "center" }}>
-        Root layout rendering successfully.{"\n"}If you can see this, the crash is in navigation or screens.
-      </Text>
-    </View>
+    <QueryClientProvider client={queryClient}>
+      <AppProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+        </Stack>
+      </AppProvider>
+    </QueryClientProvider>
   );
 }
