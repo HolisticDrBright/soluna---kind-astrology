@@ -3,39 +3,14 @@ import {
   KeyboardAvoidingView, Platform, Animated as RNAnimated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState, useRef, useEffect, useCallback, Component } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { MOCK_CHAT_HISTORY, Fonts, type ChatMessage } from "@/constants/mockData";
 import { useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Hash, BookOpen, Heart, Star, Clock, Compass } from "lucide-react-native";
 
-// ─── Error Boundary ──────────────────────────────────────────
-class CrashBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; errorMsg: string }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, errorMsg: "" };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, errorMsg: error?.message ?? String(error) };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={errS.wrap}>
-          <Text style={errS.title}>Ask Soluna Error</Text>
-          <Text style={errS.msg}>{this.state.errorMsg}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
-const errS = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: SolunaColors.deepIndigo, alignItems: "center", justifyContent: "center", padding: 32 },
-  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
-  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
-});
+
 
 // ─── Prompt Group definitions ────────────────────────────────────
 const PROMPT_GROUPS: { label: string; icon: React.ComponentType<{ size: number; color: string }>; prompts: string[] }[] = [
@@ -68,8 +43,8 @@ function TypingIndicator() {
     const pulse = (dot: RNAnimated.Value, delay: number) => {
       RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.delay(delay),
-        RNAnimated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
-        RNAnimated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: true }),
+        RNAnimated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: false }),
+        RNAnimated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: false }),
       ])).start();
     };
     pulse(dots[0], 0); pulse(dots[1], 200); pulse(dots[2], 400);
@@ -288,11 +263,7 @@ function AskContent() {
 }
 
 export default function AskSolunaScreen() {
-  return (
-    <CrashBoundary>
-      <AskContent />
-    </CrashBoundary>
-  );
+  return <AskContent />;
 }
 
 const st = StyleSheet.create({

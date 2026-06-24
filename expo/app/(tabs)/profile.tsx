@@ -1,39 +1,14 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, Component } from "react";
+import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts } from "@/constants/mockData";
 import { getBlueprintSummary } from "@/constants/mockData";
-import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Bird, Cpu, Heart } from "lucide-react-native";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart } from "lucide-react-native";
 
-// ─── Error Boundary ──────────────────────────────────────────
-class CrashBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; errorMsg: string }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, errorMsg: "" };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, errorMsg: error?.message ?? String(error) };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={errS.wrap}>
-          <Text style={errS.title}>Profile Error</Text>
-          <Text style={errS.msg}>{this.state.errorMsg}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
-const errS = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: SolunaColors.deepIndigo, alignItems: "center", justifyContent: "center", padding: 32 },
-  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
-  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
-});
+
 
 function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
   return (
@@ -184,11 +159,7 @@ function ProfileContent() {
 }
 
 export default function ProfileScreen() {
-  return (
-    <CrashBoundary>
-      <ProfileContent />
-    </CrashBoundary>
-  );
+  return <ProfileContent />;
 }
 
 const st = StyleSheet.create({

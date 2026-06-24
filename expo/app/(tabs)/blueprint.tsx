@@ -3,7 +3,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useMemo, Component } from "react";
+import React, { useState, useMemo } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
@@ -21,35 +21,7 @@ import {
 
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
 
-// ─── Error Boundary ──────────────────────────────────────────
-class CrashBoundary extends Component<
-  { children: React.ReactNode },
-  { hasError: boolean; errorMsg: string }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, errorMsg: "" };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, errorMsg: error?.message ?? String(error) };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={errS.wrap}>
-          <Text style={errS.title}>Blueprint Error</Text>
-          <Text style={errS.msg}>{this.state.errorMsg}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
-const errS = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: SolunaColors.deepIndigo, alignItems: "center", justifyContent: "center", padding: 32 },
-  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
-  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
-});
+
 
 // ─── Safe ordinal ─────────────────────────────────────────────────
 function ordinal(n: number): string {
@@ -485,11 +457,7 @@ function BlueprintContent() {
 }
 
 export default function BlueprintScreen() {
-  return (
-    <CrashBoundary>
-      <BlueprintContent />
-    </CrashBoundary>
-  );
+  return <BlueprintContent />;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────

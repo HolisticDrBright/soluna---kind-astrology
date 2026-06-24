@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated as RNAnimated, Dimensions, RefreshControl,
+  Animated as RNAnimated, RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -16,8 +16,6 @@ import LoadingSkeletonCard from "@/components/LoadingSkeletonCard";
 import {
   Sun, Moon, Sparkles, Star, Hash, BookOpen,
 } from "lucide-react-native";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Compact Expandable Module Card ──────────────────────────────
 function ModuleCard({
@@ -119,7 +117,7 @@ export default function TodayScreen() {
     // Simulate initial load
     setLoading(true);
     const t = setTimeout(() => setLoading(false), 800);
-    RNAnimated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    RNAnimated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: false }).start();
     return () => clearTimeout(t);
   }, [fadeIn]);
 

@@ -49,17 +49,17 @@ export default function OnboardingScreen() {
 
   const animateIn = useCallback(() => {
     fadeAnim.setValue(0); slideAnim.setValue(30);
-    RNAnimated.parallel([RNAnimated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }), RNAnimated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true })]).start();
+    RNAnimated.parallel([RNAnimated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: false }), RNAnimated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: false })]).start();
   }, [fadeAnim, slideAnim]);
 
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
   useEffect(() => {
     if (onboardingStep === "calculating") {
-      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: true }).start(() => {
+      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: false }).start(() => {
         setTimeout(() => {
           setShowCalculating(false); setRevealReady(true);
-          RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+          RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
         }, 500);
       });
     }

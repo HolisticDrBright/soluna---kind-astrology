@@ -13,8 +13,8 @@ export default function LoadingSkeletonCard({ lines = 3, height = 160 }: Loading
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 1000, useNativeDriver: false }),
+        Animated.timing(anim, { toValue: 0, duration: 1000, useNativeDriver: false }),
       ])
     );
     loop.start();
