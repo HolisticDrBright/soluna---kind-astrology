@@ -117,6 +117,28 @@ export const api = {
   geoResolve: (placeId: string, date: string) =>
     invoke<{ place: ResolvedPlace }>(`geo/resolve${qs({ placeId, date })}`),
 
+  // ── Soluna Focus ──
+  getFocuses: (status?: string) =>
+    invoke<{ focuses: BackendFocus[] }>(`focuses${qs({ status })}`),
+  createFocus: (body: FocusCreateBody) =>
+    invoke<{ focus: BackendFocus; guidance: FocusGuidance; accuracy: AccuracyReport }>(
+      "focuses",
+      { method: "POST", body },
+    ),
+  getFocus: (id: string) =>
+    invoke<{
+      focus: BackendFocus;
+      guidance: FocusGuidance | null;
+      accuracy: AccuracyReport | null;
+      checkins: BackendFocusCheckin[];
+    }>(`focuses/${id}`),
+  updateFocus: (id: string, body: FocusUpdateBody) =>
+    invoke<{ focus: BackendFocus }>(`focuses/${id}`, { method: "PATCH", body }),
+  createFocusCheckin: (id: string, body: { checkinStatus: FocusCheckinStatus; checkinText?: string }) =>
+    invoke<{ guidance: FocusCheckinGuidance }>(`focuses/${id}/checkin`, { method: "POST", body }),
+  deleteFocus: (id: string) =>
+    invoke<{ ok: boolean }>(`focuses/${id}`, { method: "DELETE" }),
+
   entitlements: () => invoke<BackendEntitlements>("entitlements"),
 };
 
@@ -125,6 +147,8 @@ export interface StreamHandlers {
   onToken: (token: string) => void;
   /** Explainable evidence chips for the systems this answer drew on. */
   onEvidence?: (evidence: Evidence[]) => void;
+  /** The active Focus this answer referenced, if any. */
+  onFocusId?: (focusId: string) => void;
   onDone?: (conversationId: string | null) => void;
   onError?: (err: Error) => void;
 }
@@ -132,6 +156,8 @@ export interface StreamHandlers {
 export interface AskOptions {
   conversationId?: string;
   supportMode?: SupportMode;
+  /** Reference an active Focus (must belong to the user). */
+  focusId?: string;
 }
 
 export async function streamAsk(
@@ -150,7 +176,7 @@ export async function streamAsk(
         authorization: `Bearer ${token}`,
         apikey: SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ message, conversationId, supportMode: options?.supportMode }),
+      body: JSON.stringify({ message, conversationId, supportMode: options?.supportMode, focusId: options?.focusId }),
     });
     if (!res.ok || !res.body) {
       throw new ApiError(res.status, `Ask failed (${res.status})`);
@@ -177,6 +203,7 @@ export async function streamAsk(
           const j = JSON.parse(d);
           if (j.token) handlers.onToken(j.token);
           else if (j.evidence) handlers.onEvidence?.(j.evidence as Evidence[]);
+          else if (j.focusId) handlers.onFocusId?.(j.focusId as string);
         } catch {
           // ignore partial/non-JSON frames
         }
@@ -276,6 +303,95 @@ export interface ResolvedPlace {
   lng: number;
   timezone: string;
   utcOffsetSeconds: number;
+}
+
+// ─── Soluna Focus ──────────────────────────────────────────────────
+export type FocusCategory =
+  | "relationship" | "work" | "school" | "big_decision" | "family" | "friendship"
+  | "money" | "self_worth" | "creativity" | "spiritual_growth" | "personal";
+export type FocusStatus = "active" | "paused" | "resolved" | "archived";
+export type FocusCheckinStatus =
+  | "better" | "still_unclear" | "harder_than_expected" | "took_the_step" | "not_yet";
+
+export interface FocusAllowedContext {
+  recentJournalThemes?: boolean;
+  savedReadings?: boolean;
+  currentMood?: boolean;
+  memoryThemes?: boolean;
+  recentAskHistory?: boolean;
+  selectedBondDynamics?: boolean;
+}
+
+export interface FocusEvidence {
+  system:
+    | "astrology" | "numerology" | "human_design" | "chinese" | "tarot" | "biorhythm"
+    | "journal" | "memory" | "bond" | "saved_reading" | "ask_history";
+  signal: string;
+  detail: string;
+  confidence: "high" | "medium" | "low";
+  source: string;
+}
+
+export interface FocusGuidance {
+  whatSolunaNotices: string;
+  deeperPattern: string;
+  watchFor: string;
+  tryThisNext: string;
+  relationshipGuidance?: string;
+  reflectionPrompt: string;
+  followUpQuestion: string;
+  evidence: FocusEvidence[];
+  safetyNote?: string;
+  suggestedMemoryTheme?: { label: string; description: string } | null;
+}
+
+export interface FocusCheckinGuidance {
+  whatShifted: string;
+  nextStep: string;
+  keepPauseOrResolve: "keep" | "pause" | "resolve";
+  reflectionPrompt: string;
+  evidence: FocusEvidence[];
+}
+
+export interface BackendFocus {
+  id: string;
+  category: FocusCategory;
+  title: string | null;
+  problemText: string;
+  supportMode: SupportMode;
+  selectedConnectionId: string | null;
+  selectedBondId: string | null;
+  allowedContext: FocusAllowedContext;
+  status: FocusStatus;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface BackendFocusCheckin {
+  status: FocusCheckinStatus;
+  text: string | null;
+  guidance: FocusCheckinGuidance | null;
+  createdAt: string;
+}
+
+export interface FocusCreateBody {
+  category: FocusCategory;
+  title?: string;
+  problemText: string;
+  supportMode: SupportMode;
+  selectedConnectionId?: string;
+  selectedBondId?: string;
+  allowedContext: FocusAllowedContext;
+}
+
+export interface FocusUpdateBody {
+  title?: string;
+  status?: FocusStatus;
+  supportMode?: SupportMode;
+  allowedContext?: FocusAllowedContext;
+  selectedConnectionId?: string | null;
+  selectedBondId?: string | null;
 }
 
 export interface BondRitual {

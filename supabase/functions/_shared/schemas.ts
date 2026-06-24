@@ -36,6 +36,8 @@ export const askInput = z.object({
   message: z.string().min(1).max(4000),
   conversationId: z.string().uuid().optional(),
   supportMode: supportModeSchema.optional(),
+  /** When set, the chat may reference this active Focus (must belong to the user). */
+  focusId: z.string().uuid().optional(),
 });
 export type AskInput = z.infer<typeof askInput>;
 
@@ -52,6 +54,55 @@ export const memoryThemePatchInput = z.object({
   enabled: z.boolean().optional(),
 });
 export type MemoryThemePatchInput = z.infer<typeof memoryThemePatchInput>;
+
+// ─── Soluna Focus ──────────────────────────────────────────────────
+export const focusCategorySchema = z.enum([
+  "relationship", "work", "school", "big_decision", "family", "friendship",
+  "money", "self_worth", "creativity", "spiritual_growth", "personal",
+]);
+export type FocusCategory = z.infer<typeof focusCategorySchema>;
+
+export const focusStatusSchema = z.enum(["active", "paused", "resolved", "archived"]);
+
+// Privacy-first: every context source is opt-in (defaults to false when omitted).
+export const allowedContextSchema = z.object({
+  recentJournalThemes: z.boolean().optional(),
+  savedReadings: z.boolean().optional(),
+  currentMood: z.boolean().optional(),
+  memoryThemes: z.boolean().optional(),
+  recentAskHistory: z.boolean().optional(),
+  selectedBondDynamics: z.boolean().optional(),
+});
+export type AllowedContextInput = z.infer<typeof allowedContextSchema>;
+
+export const focusCreateInput = z.object({
+  category: focusCategorySchema,
+  title: z.string().max(160).optional(),
+  problemText: z.string().min(1, "Tell Soluna what you're navigating.").max(3000),
+  supportMode: supportModeSchema.default("gentle"),
+  selectedConnectionId: z.string().uuid().optional(),
+  selectedBondId: z.string().uuid().optional(),
+  allowedContext: allowedContextSchema.default({}),
+});
+export type FocusCreateInput = z.infer<typeof focusCreateInput>;
+
+export const focusPatchInput = z.object({
+  title: z.string().max(160).optional(),
+  status: focusStatusSchema.optional(),
+  supportMode: supportModeSchema.optional(),
+  allowedContext: allowedContextSchema.optional(),
+  selectedConnectionId: z.string().uuid().nullable().optional(),
+  selectedBondId: z.string().uuid().nullable().optional(),
+});
+export type FocusPatchInput = z.infer<typeof focusPatchInput>;
+
+export const focusCheckinInput = z.object({
+  checkinStatus: z.enum([
+    "better", "still_unclear", "harder_than_expected", "took_the_step", "not_yet",
+  ]),
+  checkinText: z.string().max(2000).optional(),
+});
+export type FocusCheckinInput = z.infer<typeof focusCheckinInput>;
 
 export const tarotDrawInput = z.object({
   spread: z.enum(["daily", "three-card", "celtic-cross"]),

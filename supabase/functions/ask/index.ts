@@ -128,7 +128,20 @@ Deno.serve(serve(async (req) => {
   // message exactly once — no duplicate, no dropped turn.
   const priorMessages = buildChatMessages(historyChrono, body.message, currentMsgId);
 
-  const system = buildChatSystem(bp, memory, { themes, supportMode: body.supportMode });
+  let system = buildChatSystem(bp, memory, { themes, supportMode: body.supportMode });
+
+  // Optional: let the chat reference an ACTIVE focus the user chose (own row only).
+  let activeFocusId: string | null = null;
+  if (body.focusId) {
+    const { data: f } = await svc.from("focuses")
+      .select("id, category, problem_text, status").eq("id", body.focusId).eq("user_id", user.id).maybeSingle();
+    if (f && f.status === "active") {
+      activeFocusId = f.id;
+      const snippet = String(f.problem_text).slice(0, 400);
+      system += `\n\nThey're navigating an active Focus (${f.category}): "${snippet}". ` +
+        `If this question relates to it, weave in supportive, user-led guidance — never deterministic, never fear-based.`;
+    }
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -149,6 +162,7 @@ Deno.serve(serve(async (req) => {
       // user's real blueprint — emitted as a final structured frame before DONE.
       const evidence = askEvidence(bp.summary, referencedSystems(full));
       if (evidence.length) controller.enqueue(sse(JSON.stringify({ evidence })));
+      if (activeFocusId) controller.enqueue(sse(JSON.stringify({ focusId: activeFocusId })));
       controller.enqueue(sse("[DONE]"));
       controller.close();
 

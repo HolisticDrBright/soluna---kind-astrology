@@ -108,6 +108,9 @@ verify_jwt = true
 [functions.weekly-report]
 verify_jwt = true
 
+[functions.focuses]
+verify_jwt = true
+
 [functions.entitlements]
 verify_jwt = true
 
