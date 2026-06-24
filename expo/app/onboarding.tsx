@@ -30,6 +30,8 @@ export default function OnboardingScreen() {
   const [fullName, setFullName] = useState("Maya Elizabeth Chen");
   const [preferredName, setPreferredName] = useState("Maya");
   const [birthDate, setBirthDate] = useState(new Date(1995, 5, 22));
+  const [birthDateText, setBirthDateText] = useState("June 22, 1995");
+  const [dateError, setDateError] = useState("");
   const [birthTime, setBirthTime] = useState("14:35");
   const [birthTimeKnown, setBirthTimeKnown] = useState(true);
   const [birthPlace, setBirthPlace] = useState("Portland, Oregon, USA");
@@ -100,7 +102,46 @@ export default function OnboardingScreen() {
     router.replace("/(tabs)");
   };
 
-  const formatDate = (d: Date) => d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const formatDateLong = (d: Date) => d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  const parseAndSetDate = (text: string) => {
+    setBirthDateText(text);
+    setDateError("");
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return;
+    // Try multiple formats
+    let parsed: Date | null = null;
+    // MM/DD/YYYY or M/D/YYYY
+    const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+      const [_, m, d, y] = slashMatch;
+      parsed = new Date(+y, +m - 1, +d);
+    }
+    // YYYY-MM-DD
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!parsed && isoMatch) {
+      const [_, y, m, d] = isoMatch;
+      parsed = new Date(+y, +m - 1, +d);
+    }
+    // Natural: "June 22, 1995" or "22 June 1995"
+    if (!parsed) {
+      parsed = new Date(trimmed);
+    }
+    if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2025) {
+      setBirthDate(parsed);
+      setBirthDateText(parsed.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
+      setDateError("");
+    } else if (trimmed.length >= 3) {
+      setDateError("Try a format like 'June 22, 1995' or '06/22/1995'");
+    }
+  };
+
+  const handleDateBlur = () => {
+    // Reformat to canonical display
+    if (!dateError) {
+      setBirthDateText(birthDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
+    }
+  };
 
   // Calculating screen
   if (showCalculating) {
@@ -239,14 +280,20 @@ export default function OnboardingScreen() {
             <View style={os.stepContent}>
               <Text style={os.stepTitle}>When were you born?</Text>
               <Text style={os.stepSub}>Your birth date anchors your Sun sign, Life Path, Chinese animal, and more — across all four systems.</Text>
-              <View style={os.datePickerWrap}>
-                <TouchableOpacity style={os.dateBtn} onPress={() => { const d = new Date(birthDate); d.setDate(d.getDate() - 1); setBirthDate(d); }}><ChevronLeft size={20} color={SolunaColors.cream} /></TouchableOpacity>
-                <View style={os.dateDisplay}>
-                  <TouchableOpacity onPress={() => { const d = new Date(birthDate); d.setFullYear(d.getFullYear() - 1); setBirthDate(d); }}><Text style={os.dateSmall}>▲</Text></TouchableOpacity>
-                  <Text style={os.dateMain}>{formatDate(birthDate)}</Text>
-                  <TouchableOpacity onPress={() => { const d = new Date(birthDate); d.setFullYear(d.getFullYear() + 1); setBirthDate(d); }}><Text style={os.dateSmall}>▼</Text></TouchableOpacity>
-                </View>
-                <TouchableOpacity style={os.dateBtn} onPress={() => { const d = new Date(birthDate); d.setDate(d.getDate() + 1); setBirthDate(d); }}><ChevronRight size={20} color={SolunaColors.cream} /></TouchableOpacity>
+              <View style={os.inputWrap}>
+                <TextInput
+                  style={[os.input, dateError ? { borderColor: SolunaColors.softPeach } : undefined]}
+                  value={birthDateText}
+                  onChangeText={parseAndSetDate}
+                  onBlur={handleDateBlur}
+                  placeholder="e.g. June 22, 1995"
+                  placeholderTextColor={SolunaColors.creamSubtle}
+                  autoFocus
+                  autoCorrect={false}
+                />
+                {dateError ? <Text style={os.dateError}>{dateError}</Text> : (
+                  <Text style={os.datePreview}>{formatDateLong(birthDate)}</Text>
+                )}
               </View>
               <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
                 <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}><Text style={os.buttonText}>Continue</Text></LinearGradient>
@@ -310,11 +357,8 @@ const os = StyleSheet.create({
   inputWrap: { width: "100%", maxWidth: 340, position: "relative", zIndex: 10 },
   input: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: SolunaRadius.md, paddingHorizontal: 20, paddingVertical: 16, fontSize: 18, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", fontFamily: Fonts.body },
   timeInput: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: SolunaRadius.md, paddingHorizontal: 20, paddingVertical: 16, fontSize: 32, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", textAlign: "center", fontFamily: Fonts.mono, letterSpacing: 4 },
-  datePickerWrap: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
-  dateBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
-  dateDisplay: { alignItems: "center", paddingHorizontal: 16 },
-  dateMain: { fontSize: 16, color: SolunaColors.cream, fontFamily: Fonts.heading, paddingVertical: 8 },
-  dateSmall: { fontSize: 12, color: SolunaColors.creamMuted },
+  datePreview: { fontSize: 13, color: SolunaColors.creamMuted, marginTop: 8, textAlign: "center", fontStyle: "italic" },
+  dateError: { fontSize: 13, color: SolunaColors.softPeach, marginTop: 8, textAlign: "center" },
   primaryButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 340, marginTop: 8 },
   primaryButtonDisabled: { opacity: 0.5 },
   buttonGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, paddingHorizontal: 32 },
