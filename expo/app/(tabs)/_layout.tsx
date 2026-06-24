@@ -1,5 +1,5 @@
-import { Tabs } from "expo-router";
-import React from "react";
+import { Tabs, router, useRootNavigationState } from "expo-router";
+import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import {
   Sun,
@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react-native";
 import SolunaColors from "@/constants/colors";
+import { useAppState } from "@/state/useAppState";
 import { Fonts } from "@/constants/mockData";
 
 function TabIcon({
@@ -24,6 +25,21 @@ function TabIcon({
 }
 
 export default function TabLayout() {
+  const { hasOnboarded } = useAppState();
+  const rootNavState = useRootNavigationState();
+
+  // Defer redirect until after the navigation container has fully mounted.
+  // requestAnimationFrame runs after paint — past the commit phase where
+  // the "navigate before mounting" assertion fires.
+  useEffect(() => {
+    if (rootNavState?.key && !hasOnboarded) {
+      const raf = requestAnimationFrame(() => {
+        router.replace("/onboarding");
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [rootNavState?.key, hasOnboarded]);
+
   return (
     <Tabs
       screenOptions={{

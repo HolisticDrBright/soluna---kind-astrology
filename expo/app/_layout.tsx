@@ -1,25 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, router, useRootNavigationState } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
-import { AppProvider, useAppState } from "@/state/useAppState";
+import { AppProvider } from "@/state/useAppState";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootStack() {
-  const { hasOnboarded } = useAppState();
-  const rootNavState = useRootNavigationState();
-
-  useEffect(() => {
-    if (rootNavState?.key && !hasOnboarded) {
-      router.replace("/onboarding");
-    }
-  }, [rootNavState?.key, hasOnboarded]);
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
