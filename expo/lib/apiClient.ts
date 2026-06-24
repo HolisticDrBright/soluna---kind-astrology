@@ -94,7 +94,8 @@ export const api = {
   removeSaved: (id: string) => invoke<{ ok: boolean }>(`saved/${id}`, { method: "DELETE" }),
 
   me: () => invoke<BackendMe>("me"),
-  patchMe: (body: unknown) => invoke<{ ok: boolean; recompute?: boolean }>("me", { method: "PATCH", body }),
+  patchMe: (body: unknown) =>
+    invoke<{ ok: boolean; recompute?: boolean; recomputeQueued?: boolean }>("me", { method: "PATCH", body }),
 
   entitlements: () => invoke<BackendEntitlements>("entitlements"),
 };
@@ -162,6 +163,7 @@ export async function streamAsk(
 export interface OnboardingResponse {
   summary: BackendSummary;
   needsBirthTime: boolean;
+  accuracy?: AccuracyReport;
   bigThree: { sun: string; moon: string; rising: string | null };
   lifePath: number;
   chinese: { animal: string; element: string };
@@ -172,9 +174,21 @@ export interface BackendSummary {
   lifePath: number; expression: number; animal: string; element: string;
   hdType: string | null; hdAuthority: string | null; hdProfile: string | null; timeKnown: boolean;
 }
+// Honest accuracy: what's exact vs estimated, and how to improve it.
+export interface AccuracyReport {
+  accuracyLevel: "exact" | "partial" | "approximate" | "blocked";
+  missingInputs: string[];
+  confidenceNotes: string[];
+}
+export interface EngineMeta {
+  source: "hosted_api" | "verified_library" | "prototype_fallback";
+  precision: "high" | "medium" | "low";
+  userFacingNote?: string;
+}
 export interface BackendBlueprint {
   astrology: any; numerology: any; chinese: any; humanDesign: any;
   biorhythmSeed: { birthDate: string }; summary: BackendSummary;
+  accuracy?: AccuracyReport;
 }
 export interface BackendPlacement { system: string; key: string; label: string; detail: any }
 export interface BackendReading {
@@ -200,7 +214,10 @@ export interface BackendCompatibility {
   whereYouFlow: string[]; whereYouGrow: string[]; howToSupport: string[]; tip: string;
   astrologyScore: number; numerologyScore: number; chineseScore: number;
   confidence: number;
-  evidenceBySystem: { system: string; score: number; signal: string }[];
+  evidenceBySystem: { system: string; score: number | null; signal: string }[];
+  // Honest, deterministic per-system notes + provenance (backend-computed).
+  astrologyNote?: string; numerologyNote?: string; chineseNote?: string; humanDesignNote?: string;
+  confidenceNotes?: string[]; sources?: string[];
 }
 export interface InviteResponse { inviteCode: string; link: string; lens: string; rewardTeaser: string }
 export interface InvitePreview { valid: boolean; inviterName?: string; lens?: string; status?: string }

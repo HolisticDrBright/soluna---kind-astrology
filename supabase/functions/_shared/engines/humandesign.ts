@@ -238,6 +238,14 @@ export function computeHumanDesign(input: BirthInput): HumanDesignResult | Needs
     incarnationCross:
       `${angle} Cross of gates ${pSun.gate}/${pEarth.gate} | ${dSun.gate}/${dEarth.gate}`,
     timeKnown: true,
+    meta: {
+      source: "verified_library",
+      precision: "high",
+      // HD is exquisitely time-sensitive, so we're upfront that an approximate
+      // birth time can move gates near a boundary.
+      userFacingNote:
+        "Computed from your exact birth time with an open ephemeris. Human Design is very sensitive to birth-time accuracy — if your time is approximate, gates near a cusp may shift.",
+    },
   };
 }
 

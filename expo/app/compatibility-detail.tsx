@@ -23,6 +23,9 @@ interface CompatView {
   whereYouGrow: string[];
   howToSupport: string[];
   lensTip: string;
+  systemNotes?: { astrology?: string; numerology?: string; chinese?: string; humanDesign?: string };
+  confidenceNotes?: string[];
+  sources?: string[];
 }
 
 export default function CompatibilityDetailScreen() {
@@ -59,6 +62,14 @@ export default function CompatibilityDetailScreen() {
         whereYouGrow: liveCompat.whereYouGrow ?? [],
         howToSupport: liveCompat.howToSupport ?? [],
         lensTip: liveCompat.tip,
+        systemNotes: {
+          astrology: liveCompat.astrologyNote,
+          numerology: liveCompat.numerologyNote,
+          chinese: liveCompat.chineseNote,
+          humanDesign: liveCompat.humanDesignNote,
+        },
+        confidenceNotes: liveCompat.confidenceNotes,
+        sources: liveCompat.sources,
       };
     }
   } else {
@@ -158,6 +169,37 @@ export default function CompatibilityDetailScreen() {
           ))}
         </View>
 
+        {/* What this reading is based on — honest, per-system provenance */}
+        {person.systemNotes && (person.systemNotes.astrology || person.systemNotes.numerology || person.systemNotes.chinese || person.systemNotes.humanDesign) ? (
+          <View style={st.section}>
+            <View style={st.sectionHeader}><Star size={16} color={SolunaColors.warmGold} /><Text style={st.sectionTitle}>What this is based on</Text></View>
+            {person.systemNotes.astrology ? (
+              <View style={st.noteRow}><Text style={st.noteLabel}>Astrology</Text><Text style={st.noteText}>{person.systemNotes.astrology}</Text></View>
+            ) : null}
+            {person.systemNotes.numerology ? (
+              <View style={st.noteRow}><Text style={st.noteLabel}>Numerology</Text><Text style={st.noteText}>{person.systemNotes.numerology}</Text></View>
+            ) : null}
+            {person.systemNotes.chinese ? (
+              <View style={st.noteRow}><Text style={st.noteLabel}>Chinese</Text><Text style={st.noteText}>{person.systemNotes.chinese}</Text></View>
+            ) : null}
+            {person.systemNotes.humanDesign ? (
+              <View style={st.noteRow}><Text style={st.noteLabel}>Human Design</Text><Text style={st.noteText}>{person.systemNotes.humanDesign}</Text></View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Honest confidence notes (what's exact vs needs birth times) */}
+        {person.confidenceNotes && person.confidenceNotes.length ? (
+          <View style={st.confidenceCard}>
+            {person.confidenceNotes.map((n, i) => (
+              <View key={i} style={st.confidenceRow}>
+                <Sparkles size={12} color={SolunaColors.creamSubtle} />
+                <Text style={st.confidenceText}>{n}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {/* Lens insight */}
         <View style={st.lensInsightCard}>
           <Text style={st.lensInsightLabel}>{lens} insight</Text>
@@ -221,6 +263,12 @@ const st = StyleSheet.create({
   tipRow: { flexDirection: "row", gap: 8, marginBottom: 10, paddingLeft: 4 },
   tipBullet: { fontSize: 14, fontWeight: "700", color: SolunaColors.softPeach, fontFamily: Fonts.body, width: 20 },
   tipText: { flex: 1, fontSize: 14, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body },
+  noteRow: { marginBottom: 12 },
+  noteLabel: { fontSize: 11, color: SolunaColors.warmGold, textTransform: "uppercase", letterSpacing: 1.2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 3 },
+  noteText: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 21, fontFamily: Fonts.body },
+  confidenceCard: { backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", marginBottom: 16, gap: 8 },
+  confidenceRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  confidenceText: { flex: 1, fontSize: 12, color: SolunaColors.creamSubtle, lineHeight: 18, fontFamily: Fonts.body, fontStyle: "italic" },
   lensInsightCard: { backgroundColor: "rgba(242,168,141,0.05)", borderRadius: SolunaRadius.md, padding: 18, borderWidth: 1, borderColor: "rgba(242,168,141,0.1)", marginBottom: 16 },
   lensInsightLabel: { fontSize: 11, color: SolunaColors.softPeach, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 8 },
   lensInsightText: { fontSize: 14, color: SolunaColors.cream, lineHeight: 22, fontFamily: Fonts.body },

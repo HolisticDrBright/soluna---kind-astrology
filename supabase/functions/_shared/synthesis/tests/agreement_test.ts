@@ -26,6 +26,8 @@ function ctx(overrides: {
       moon: { phase: overrides.moonPhase, emoji: "🌔", sign: overrides.moonSign, illumination: 0.5 },
     },
     personalDay: overrides.personalDay,
+    personalMonth: 5,
+    personalYear: 2,
     chineseDaily: { animal: "Snake", element: overrides.element },
     biorhythm: { ...(overrides.bio ?? { physical: 0, emotional: 0, intellectual: 0 }), dayIndex: 100 },
     tarot: { name: "The Moon", arcana: "major", imageEmoji: "🌑", uprightMeaning: "..." },
@@ -73,15 +75,22 @@ Deno.test("scoring counts DISTINCT systems (astrology counted once per theme)", 
   assertEquals(rest.evidence.length, 2);
 });
 
-Deno.test("evidence carries structured detail + confidence (no prose parsing)", () => {
+Deno.test("evidence carries structured detail + source + confidence (no prose parsing)", () => {
   const r = detectAgreement(ctx({
     personalDay: 7, moonSign: "Cancer", moonPhase: "Waning Gibbous",
     element: "Water", hdAuthority: "Emotional",
+    bio: { physical: -0.5, emotional: -0.6, intellectual: -0.4 },
   }));
   for (const e of r.topTheme.evidence) {
     assert(typeof e.detail === "string" && e.detail.length > 0);
+    // Source must ground the signal in real daily data, not be a generic label.
+    assert(typeof e.source === "string" && e.source.length > 0);
     assert(e.confidence > 0 && e.confidence <= 1);
   }
+  // The Personal Day source must reference the actual date + number used.
+  const numEv = r.topTheme.evidence.find((e) => e.system === "numerology")!;
+  assert(numEv.source.includes("2026-06-24"));
+  assert(numEv.source.includes("7"));
 });
 
 Deno.test("buildAgreementEvidence yields a structured systems-agree payload", () => {
@@ -94,7 +103,7 @@ Deno.test("buildAgreementEvidence yields a structured systems-agree payload", ()
   assert(ev.score >= 1);
   assert(ev.systems.length === r.topTheme.evidence.length);
   for (const s of ev.systems) {
-    assert(!!s.system && !!s.label && !!s.signal && !!s.detail);
+    assert(!!s.system && !!s.label && !!s.signal && !!s.detail && !!s.source);
     assert(s.confidence > 0 && s.confidence <= 1);
   }
   assert(ev.combinedTakeaway.length > 0);

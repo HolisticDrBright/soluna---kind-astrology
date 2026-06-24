@@ -13,6 +13,7 @@ import { llm, LLMUnavailableError } from "../_shared/llm.ts";
 import { CRISIS_RESPONSE, detectCrisis } from "../_shared/voice.ts";
 import { getEntitlement } from "../_shared/entitlements.ts";
 import { buildChatSystem, extractMemoryFacts } from "../_shared/synthesis/synthesis.ts";
+import { buildChatMessages } from "../_shared/chat.ts";
 
 // Free users get a generous daily allowance; Premium is unlimited.
 const FREE_DAILY_ASK = 5;
@@ -61,12 +62,14 @@ Deno.serve(serve(async (req) => {
   }
   const convId: string = conversationId!;
 
-  // Persist the user message immediately.
-  await svc.from("ask_messages").insert({
+  // Persist the user message immediately (so it survives a dropped stream).
+  // Capture its id so we can exclude it from the history we feed back to the LLM.
+  const { data: insertedMsg } = await svc.from("ask_messages").insert({
     conversation_id: convId,
     role: "user",
     content: body.message,
-  });
+  }).select("id").single();
+  const currentMsgId: string | undefined = insertedMsg?.id;
 
   // Crisis short-circuit — no LLM, supportive resources instead.
   if (detectCrisis(body.message)) {
@@ -112,11 +115,14 @@ Deno.serve(serve(async (req) => {
   const { data: mem } = await svc.from("ask_memory").select("fact")
     .eq("user_id", user.id).order("salience", { ascending: false }).limit(12);
   const memory = (mem ?? []).map((m) => m.fact);
-  const { data: hist } = await svc.from("ask_messages").select("role, content")
-    .eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(20);
-  const priorMessages = (hist ?? [])
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+  // Load the MOST RECENT 20 messages (desc), then restore chronological order.
+  // Loading oldest-first would drop the current turn in long conversations.
+  const { data: hist } = await svc.from("ask_messages").select("id, role, content")
+    .eq("conversation_id", convId).order("created_at", { ascending: false }).limit(20);
+  const historyChrono = (hist ?? []).slice().reverse();
+  // buildChatMessages excludes the just-inserted row and appends the current
+  // message exactly once — no duplicate, no dropped turn.
+  const priorMessages = buildChatMessages(historyChrono, body.message, currentMsgId);
 
   const system = buildChatSystem(bp, memory);
 

@@ -8,7 +8,7 @@ import type { BirthInput } from "./engines/types.ts";
 export async function loadBlueprint(userId: string): Promise<Blueprint | null> {
   const { data } = await serviceClient()
     .from("blueprints")
-    .select("astrology, numerology, chinese, human_design, biorhythm_seed, summary")
+    .select("astrology, numerology, chinese, human_design, biorhythm_seed, summary, accuracy")
     .eq("user_id", userId)
     .maybeSingle();
   if (!data) return null;
@@ -19,6 +19,7 @@ export async function loadBlueprint(userId: string): Promise<Blueprint | null> {
     humanDesign: data.human_design,
     biorhythmSeed: data.biorhythm_seed,
     summary: data.summary,
+    accuracy: data.accuracy,
   } as Blueprint;
 }
 
@@ -39,6 +40,7 @@ export async function saveBlueprint(
         human_design: blueprint.humanDesign,
         biorhythm_seed: blueprint.biorhythmSeed,
         summary: blueprint.summary,
+        accuracy: blueprint.accuracy,
         computed_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },

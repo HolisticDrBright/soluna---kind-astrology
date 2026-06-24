@@ -9,7 +9,7 @@ import { SAFE_FALLBACK_READING } from "../voice.ts";
 import type { DayContext } from "./context.ts";
 import type { AgreementResult } from "./agreement.ts";
 import type { Blueprint } from "../engines/blueprint.ts";
-import type { ChineseAnimal, ZodiacSign } from "../engines/types.ts";
+import type { ChineseAnimal, ChineseElement, HDType, ZodiacSign } from "../engines/types.ts";
 
 // ─── daily reading ─────────────────────────────────────────────────
 const dailyReadingSchema = z.object({
@@ -202,23 +202,52 @@ const compatibilitySchema = z.object({
 });
 
 export interface CompatEvidence {
-  system: "astrology" | "numerology" | "chinese";
-  score: number;
+  system: "astrology" | "numerology" | "chinese" | "humanDesign";
+  score: number | null; // null when the dimension isn't a scored number (e.g. HD)
   signal: string;
+}
+
+/** A person's facets for compatibility. Moon + HD are optional (need birth time). */
+export interface CompatPerson {
+  name: string;
+  sunSign: ZodiacSign;
+  moonSign?: ZodiacSign | null;
+  lifePath: number;
+  animal: ChineseAnimal;
+  element?: ChineseElement;
+  hdType?: HDType | null;
+  timeKnown?: boolean;
+}
+
+/** Honest, deterministic notes grounded in the ACTUAL placements (not LLM prose). */
+export interface CompatNotes {
+  astrologyNote: string;
+  numerologyNote: string;
+  chineseNote: string;
+  humanDesignNote: string;
+  confidenceNotes: string[];
+  sources: string[];
 }
 
 export type CompatibilityBody =
   & z.infer<typeof compatibilitySchema>
   & CompatScores
+  & CompatNotes
   & { lens: string; score: number; confidence: number; evidenceBySystem: CompatEvidence[] };
 
-function compatEvidence(scores: CompatScores): CompatEvidence[] {
+function compatEvidence(self: CompatPerson, other: CompatPerson, scores: CompatScores): CompatEvidence[] {
   const phrase = (s: number) => (s >= 80 ? "strong harmony" : s >= 65 ? "easy complement" : "growth tension");
-  return [
+  const ev: CompatEvidence[] = [
     { system: "astrology", score: scores.astrologyScore, signal: `Your sun signs show ${phrase(scores.astrologyScore)}.` },
     { system: "numerology", score: scores.numerologyScore, signal: `Your Life Path numbers show ${phrase(scores.numerologyScore)}.` },
     { system: "chinese", score: scores.chineseScore, signal: `Your Chinese signs show ${phrase(scores.chineseScore)}.` },
   ];
+  // Human Design is a qualitative dynamic, not a scalar — include it as evidence
+  // only when both birth times are known.
+  if (self.hdType && other.hdType && self.timeKnown !== false && other.timeKnown !== false) {
+    ev.push({ system: "humanDesign", score: null, signal: hdDynamic(self.hdType, other.hdType) });
+  }
+  return ev;
 }
 
 /** Confidence: high when the three systems agree, lower when they diverge. */
@@ -228,19 +257,109 @@ function compatConfidence(scores: CompatScores): number {
   return Math.round(Math.min(0.95, Math.max(0.5, 0.95 - spread / 100)) * 100) / 100;
 }
 
+const SIGN_ELEMENT_LABEL: Record<"fire" | "earth" | "air" | "water", string> = {
+  fire: "Fire", earth: "Earth", air: "Air", water: "Water",
+};
+
+/** A warm, true description of how two HD types tend to interact. Symmetric. */
+function hdDynamic(a: HDType, b: HDType): string {
+  const hasSacral = (t: HDType) => t === "Generator" || t === "Manifesting Generator";
+  const set = new Set<HDType>([a, b]);
+  if (set.has("Reflector")) {
+    return "One of you is a Reflector, who samples the energy around them — a calm, consistent shared environment helps this bond feel safe and clear.";
+  }
+  if (set.has("Manifestor")) {
+    return "Manifestor energy initiates; the kindest key here is informing each other before acting, so momentum feels shared rather than surprising.";
+  }
+  if (set.has("Projector") && (hasSacral(a) || hasSacral(b))) {
+    return "A natural guide-and-engine pairing: the Projector sees the other clearly, and their response gives the Projector something real to work with — best when invitations and recognition flow both ways.";
+  }
+  if (a === "Projector" && b === "Projector") {
+    return "Two Projectors see each other well — just remember you both thrive on genuine invitation and recognition, so offer it generously.";
+  }
+  if (hasSacral(a) && hasSacral(b)) {
+    return "You both carry sustainable life-force energy — you can build and sustain a lot together when you each follow what genuinely lights you up.";
+  }
+  return "Your Human Design types bring different rhythms — honoring each other's strategy keeps the energy easy between you.";
+}
+
+/** Build deterministic, honest per-system notes + confidence + sources. */
+function buildCompatNotes(self: CompatPerson, other: CompatPerson, scores: CompatScores): CompatNotes {
+  const harmony = (s: number) => (s >= 80 ? "flow easily" : s >= 65 ? "complement each other" : "stretch each other to grow");
+  const selfEl = SIGN_ELEMENT_LABEL[ELEMENT_OF[self.sunSign]];
+  const otherEl = SIGN_ELEMENT_LABEL[ELEMENT_OF[other.sunSign]];
+
+  let astrologyNote =
+    `${self.sunSign} (${selfEl}) and ${other.sunSign} (${otherEl}) suns ${harmony(scores.astrologyScore)}.`;
+  const bothMoon = self.moonSign && other.moonSign;
+  const moonReliable = bothMoon && self.timeKnown !== false && other.timeKnown !== false;
+  if (bothMoon) {
+    astrologyNote += moonReliable
+      ? ` Emotionally, your ${self.moonSign} and ${other.moonSign} moons shape how you each feel cared for.`
+      : ` Moon signs (${self.moonSign}/${other.moonSign}) add emotional depth, but add birth times to confirm them.`;
+  }
+
+  const numerologyNote = self.lifePath === other.lifePath
+    ? `You share Life Path ${self.lifePath} — a deep, mirroring resonance in what you're each here to learn.`
+    : `Life Path ${self.lifePath} and ${other.lifePath} ${harmony(scores.numerologyScore)} on what matters most to each of you.`;
+
+  const sameTrine = scores.chineseScore >= 88;
+  const clash = scores.chineseScore <= 60;
+  const chineseNote = sameTrine
+    ? `Your ${self.animal} and ${other.name}'s ${other.animal} fall in the same trine — a famously easy, allied pairing.`
+    : clash
+    ? `${self.animal} and ${other.animal} sit opposite on the zodiac wheel — spirited, and a real chance to grow through difference.`
+    : `${self.animal} and ${other.animal} get along with a little understanding — neither allied nor opposed.`;
+
+  const hdKnown = self.hdType && other.hdType && self.timeKnown !== false && other.timeKnown !== false;
+  const humanDesignNote = hdKnown
+    ? hdDynamic(self.hdType!, other.hdType!)
+    : "Add both birth times and we can compare your Human Design types — it adds a rich layer about how your energies actually mesh.";
+
+  const sources = [
+    "Sun-sign elemental harmony (astrology)",
+    "Life Path numbers (numerology)",
+    "Chinese zodiac trine/clash (Chinese astrology)",
+  ];
+  if (hdKnown) sources.push("Human Design type dynamic");
+
+  const confidenceNotes: string[] = [
+    "This blend is grounded in Sun signs, Life Path numbers, and Chinese signs — exact from birth dates.",
+  ];
+  if (!bothMoon || !moonReliable) {
+    confidenceNotes.push("Add birth times for both of you to include Moon-sign emotional compatibility.");
+  }
+  if (!hdKnown) {
+    confidenceNotes.push("Human Design comparison needs both birth times — it's not in this score yet.");
+  }
+
+  return { astrologyNote, numerologyNote, chineseNote, humanDesignNote, confidenceNotes, sources };
+}
+
 export async function generateCompatibility(
-  self: { name: string; sunSign: ZodiacSign; lifePath: number; animal: ChineseAnimal },
-  other: { name: string; sunSign: ZodiacSign; lifePath: number; animal: ChineseAnimal },
+  self: CompatPerson,
+  other: CompatPerson,
   lens: string,
 ): Promise<{ body: CompatibilityBody; usedFallback: boolean }> {
   const scores = compatibilityScore(self, other);
-  const structured = { ...scores, lens, score: scores.overall, confidence: compatConfidence(scores), evidenceBySystem: compatEvidence(scores) };
+  const notes = buildCompatNotes(self, other, scores);
+  const structured = {
+    ...scores,
+    ...notes,
+    lens,
+    score: scores.overall,
+    confidence: compatConfidence(scores),
+    evidenceBySystem: compatEvidence(self, other, scores),
+  };
   const prompt =
     `Describe the ${lens} compatibility between ${self.name} (${self.sunSign} sun, Life Path ` +
-    `${self.lifePath}, ${self.animal}) and ${other.name} (${other.sunSign} sun, Life Path ` +
-    `${other.lifePath}, ${other.animal}). Blended scores — astrology ${scores.astrologyScore}, ` +
+    `${self.lifePath}, ${self.animal}${self.hdType ? `, ${self.hdType}` : ""}) and ${other.name} ` +
+    `(${other.sunSign} sun, Life Path ${other.lifePath}, ${other.animal}` +
+    `${other.hdType ? `, ${other.hdType}` : ""}). Blended scores — astrology ${scores.astrologyScore}, ` +
     `numerology ${scores.numerologyScore}, Chinese ${scores.chineseScore}, overall ` +
-    `${scores.overall}. Frame constructively (no doom; differences are growth, not flaws). ` +
+    `${scores.overall}. Grounding notes you should stay consistent with: ${notes.astrologyNote} ` +
+    `${notes.numerologyNote} ${notes.chineseNote} ${notes.humanDesignNote} ` +
+    `Frame constructively (no doom; differences are growth, not flaws). ` +
     `Return JSON {label (2-4 word vibe), blendedSummary, whereYouFlow (2-3 short items), ` +
     `whereYouGrow (2-3 short items), howToSupport (3 short actionable items), ` +
     `tip (one ${lens}-specific suggestion)}.`;

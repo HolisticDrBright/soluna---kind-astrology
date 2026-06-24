@@ -73,8 +73,26 @@ Deno.serve(serve(async (req) => {
     if (!otherSummary) throw new HttpError(409, "Connection blueprint missing.");
 
     const { body, usedFallback } = await generateCompatibility(
-      { name: "You", sunSign: self.summary.sunSign, lifePath: self.summary.lifePath, animal: self.summary.animal },
-      { name: conn.name, sunSign: otherSummary.sunSign, lifePath: otherSummary.lifePath, animal: otherSummary.animal },
+      {
+        name: "You",
+        sunSign: self.summary.sunSign,
+        moonSign: self.summary.moonSign,
+        lifePath: self.summary.lifePath,
+        animal: self.summary.animal,
+        element: self.summary.element,
+        hdType: self.summary.hdType,
+        timeKnown: self.summary.timeKnown,
+      },
+      {
+        name: conn.name,
+        sunSign: otherSummary.sunSign,
+        moonSign: otherSummary.moonSign,
+        lifePath: otherSummary.lifePath,
+        animal: otherSummary.animal,
+        element: otherSummary.element,
+        hdType: otherSummary.hdType,
+        timeKnown: otherSummary.timeKnown,
+      },
       lens,
     );
 

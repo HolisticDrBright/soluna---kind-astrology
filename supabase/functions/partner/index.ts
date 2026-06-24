@@ -180,8 +180,26 @@ Deno.serve(serve(async (req) => {
       compatBody = cachedCompat.body;
     } else {
       const { body, usedFallback } = await generateCompatibility(
-        { name: selfName, sunSign: selfBp.summary.sunSign, lifePath: selfBp.summary.lifePath, animal: selfBp.summary.animal },
-        { name: otherName, sunSign: otherBp.summary.sunSign, lifePath: otherBp.summary.lifePath, animal: otherBp.summary.animal },
+        {
+          name: selfName,
+          sunSign: selfBp.summary.sunSign,
+          moonSign: selfBp.summary.moonSign,
+          lifePath: selfBp.summary.lifePath,
+          animal: selfBp.summary.animal,
+          element: selfBp.summary.element,
+          hdType: selfBp.summary.hdType,
+          timeKnown: selfBp.summary.timeKnown,
+        },
+        {
+          name: otherName,
+          sunSign: otherBp.summary.sunSign,
+          moonSign: otherBp.summary.moonSign,
+          lifePath: otherBp.summary.lifePath,
+          animal: otherBp.summary.animal,
+          element: otherBp.summary.element,
+          hdType: otherBp.summary.hdType,
+          timeKnown: otherBp.summary.timeKnown,
+        },
         link.lens,
       );
       compatBody = body;

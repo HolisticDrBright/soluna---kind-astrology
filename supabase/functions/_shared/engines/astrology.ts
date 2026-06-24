@@ -18,7 +18,7 @@ import type {
   PlanetPosition,
   ZodiacSign,
 } from "./types.ts";
-import { needsBirthTime } from "./types.ts";
+import { unavailable } from "./types.ts";
 
 // deno-lint-ignore no-explicit-any
 const { Origin, Horoscope } = pkg as any;
@@ -53,6 +53,10 @@ function fallbackNatal(input: BirthInput): AstrologyResult {
   }
   const lat = input.lat ?? 0;
   const lng = input.lng ?? 0;
+  const hasLocation = input.lat != null && input.lng != null;
+  // Rising/MC/houses (and house placements) need BOTH an exact time AND a
+  // location. Without them we never fake precision — we flag them instead.
+  const canHouses = timeKnown && hasLocation;
 
   const origin = new Origin({
     year: y,
@@ -82,15 +86,20 @@ function fallbackNatal(input: BirthInput): AstrologyResult {
       sign: signFromLongitude(lon),
       longitude: round2(lon),
       degree: round2(((lon % 30) + 30) % 30),
-      house: timeKnown ? (b?.House?.id ?? null) : null,
+      house: canHouses ? (b?.House?.id ?? null) : null,
       retrograde: !!b?.isRetrograde,
     };
   });
 
-  let ascendant: AstrologyResult["ascendant"] = needsBirthTime("Your Rising sign");
-  let midheaven: AstrologyResult["midheaven"] = needsBirthTime("Your Midheaven");
-  let houses: AstrologyResult["houses"] = needsBirthTime("Your house placements");
-  if (timeKnown) {
+  const reason = !timeKnown && !hasLocation
+    ? "needs your birth time and place to be accurate."
+    : !timeKnown
+    ? "needs your exact birth time to be accurate."
+    : "needs your birth place (latitude & longitude) to be accurate.";
+  let ascendant: AstrologyResult["ascendant"] = unavailable("Your Rising sign", reason);
+  let midheaven: AstrologyResult["midheaven"] = unavailable("Your Midheaven", reason);
+  let houses: AstrologyResult["houses"] = unavailable("Your house placements", reason);
+  if (canHouses) {
     const ascLon = horoscope.Ascendant?.ChartPosition?.Ecliptic?.DecimalDegrees ?? 0;
     const mcLon = horoscope.Midheaven?.ChartPosition?.Ecliptic?.DecimalDegrees ?? 0;
     ascendant = { sign: signFromLongitude(ascLon), degree: round2(ascLon % 30) };
@@ -120,7 +129,15 @@ function fallbackNatal(input: BirthInput): AstrologyResult {
     aspects,
     houseSystem: input.houseSystem ?? "placidus",
     timeKnown,
+    locationKnown: hasLocation,
     source: "fallback",
+    meta: {
+      source: "verified_library",
+      precision: canHouses ? "medium" : "low",
+      userFacingNote: canHouses
+        ? "Computed in-app from an open ephemeris library (Sun-sign accurate; for highest precision connect a hosted ephemeris API)."
+        : "Planet signs are reliable, but Rising, Midheaven, and houses are unavailable until birth time and place are added.",
+    },
   };
 }
 
@@ -158,6 +175,10 @@ async function hostedNatal(input: BirthInput): Promise<AstrologyResult> {
   // Minimal validation; require at least planets[].
   if (!Array.isArray(data?.planets)) throw new Error("hosted astrology API: unexpected shape");
   const timeKnown = !!input.time;
+  const hasLocation = input.lat != null && input.lng != null;
+  // Even with a hosted API, angles + houses are only real with both time AND
+  // place. We gate them rather than passing through whatever the API guessed.
+  const canHouses = timeKnown && hasLocation;
   // deno-lint-ignore no-explicit-any
   const planets: PlanetPosition[] = data.planets.map((p: any) => {
     const lon = Number(p.longitude ?? 0);
@@ -166,23 +187,38 @@ async function hostedNatal(input: BirthInput): Promise<AstrologyResult> {
       sign: (p.sign as ZodiacSign) ?? signFromLongitude(lon),
       longitude: round2(lon),
       degree: round2(((lon % 30) + 30) % 30),
-      house: timeKnown ? (p.house ?? null) : null,
+      house: canHouses ? (p.house ?? null) : null,
       retrograde: !!p.retrograde,
     };
   });
+  const reason = !timeKnown && !hasLocation
+    ? "needs your birth time and place to be accurate."
+    : !timeKnown
+    ? "needs your exact birth time to be accurate."
+    : "needs your birth place (latitude & longitude) to be accurate.";
   return {
     planets,
-    ascendant: timeKnown && data.ascendant
+    ascendant: canHouses && data.ascendant
       ? { sign: data.ascendant.sign, degree: round2(Number(data.ascendant.degree ?? 0)) }
-      : needsBirthTime("Your Rising sign"),
-    midheaven: timeKnown && data.midheaven
+      : unavailable("Your Rising sign", reason),
+    midheaven: canHouses && data.midheaven
       ? { sign: data.midheaven.sign, degree: round2(Number(data.midheaven.degree ?? 0)) }
-      : needsBirthTime("Your Midheaven"),
-    houses: timeKnown && Array.isArray(data.houses) ? data.houses : needsBirthTime("Your house placements"),
+      : unavailable("Your Midheaven", reason),
+    houses: canHouses && Array.isArray(data.houses)
+      ? data.houses
+      : unavailable("Your house placements", reason),
     aspects: Array.isArray(data.aspects) ? data.aspects : [],
     houseSystem: input.houseSystem ?? "placidus",
     timeKnown,
+    locationKnown: hasLocation,
     source: "api",
+    meta: {
+      source: "hosted_api",
+      precision: canHouses ? "high" : "medium",
+      userFacingNote: canHouses
+        ? undefined
+        : "Computed from a precise ephemeris, but Rising, Midheaven, and houses stay hidden until birth time and place are added.",
+    },
   };
 }
 

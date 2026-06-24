@@ -80,6 +80,15 @@ export function computeChinese(birthDate: string, birthTime: string | null): Chi
     elementAnimalLabel: `${element} ${animal}`,
     bazi: pillars,
     hourPillarKnown,
+    meta: {
+      source: "verified_library",
+      // Year/month/day pillars (and your animal, element, polarity) are exact
+      // from the date alone; only the hour pillar needs birth time.
+      precision: hourPillarKnown ? "high" : "medium",
+      userFacingNote: hourPillarKnown
+        ? undefined
+        : "Your animal, element, and three of the Four Pillars are exact. The hour pillar appears once you add your birth time.",
+    },
   };
 }
 

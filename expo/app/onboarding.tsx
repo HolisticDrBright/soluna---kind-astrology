@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { useAuth } from "@/state/useAuth";
-import { api } from "@/lib/apiClient";
+import { api, type AccuracyReport } from "@/lib/apiClient";
 import { backendBlueprintToUserData } from "@/lib/mappers";
 import { CITY_COORDS } from "@/constants/cityCoords";
 import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, type UserData, NUMBER_MEANINGS } from "@/constants/mockData";
@@ -34,6 +34,7 @@ export default function OnboardingScreen() {
   const { authActive, isAuthenticated } = useAuth();
   const live = authActive && isAuthenticated;
   const [liveUserData, setLiveUserData] = useState<UserData | null>(null);
+  const [accuracy, setAccuracy] = useState<AccuracyReport | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [fullName, setFullName] = useState("Maya Elizabeth Chen");
   const [preferredName, setPreferredName] = useState("Maya");
@@ -70,7 +71,7 @@ export default function OnboardingScreen() {
       if (live) {
         try {
           const coords = CITY_COORDS[birthPlace];
-          await api.onboarding({
+          const onboardRes = await api.onboarding({
             fullBirthName: fullName,
             preferredName: preferredName || fullName.split(" ")[0],
             birthDate: isoDate,
@@ -81,6 +82,7 @@ export default function OnboardingScreen() {
             lng: coords?.lng,
             timezone: coords?.timezone,
           });
+          if (!cancelled && onboardRes?.accuracy) setAccuracy(onboardRes.accuracy);
           const { blueprint } = await api.blueprint();
           userData = backendBlueprintToUserData(blueprint, {
             fullName,
@@ -189,6 +191,16 @@ export default function OnboardingScreen() {
             <Text style={os.revealTitle}>Here's your Cosmic Blueprint</Text>
             <Text style={os.revealSub}>Four systems, one you. Here's what each lens sees — notice how they echo each other.</Text>
           </View>
+          {accuracy && accuracy.accuracyLevel !== "exact" && accuracy.confidenceNotes.length ? (
+            <View style={os.accuracyBanner}>
+              {accuracy.confidenceNotes.map((n, i) => (
+                <View key={i} style={os.accuracyRow}>
+                  <Sparkles size={12} color={SolunaColors.warmGold} />
+                  <Text style={os.accuracyText}>{n}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
             {/* Astrology */}
             <View style={os.revealCard}>
@@ -383,6 +395,9 @@ const os = StyleSheet.create({
   revealHeader: { alignItems: "center", marginBottom: 24, marginTop: 20 },
   revealTitle: { fontFamily: Fonts.heading, fontSize: 26, color: SolunaColors.cream, marginTop: 16, marginBottom: 8, textAlign: "center" },
   revealSub: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 21, maxWidth: 320 },
+  accuracyBanner: { backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.md, padding: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.14)", marginBottom: 12, gap: 8 },
+  accuracyRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  accuracyText: { flex: 1, fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18, fontFamily: Fonts.body },
   revealCard: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.lg, padding: 20, borderWidth: 1, borderColor: SolunaColors.cardBorder },
   revealCardHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
   revealCardTitle: { fontSize: 16, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },

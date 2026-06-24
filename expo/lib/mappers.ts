@@ -221,6 +221,7 @@ export function backendReadingToDailyReading(r: BackendReading): DailyReading {
         label: s.label,
         signal: s.signal,
         detail: s.detail,
+        source: s.source,
         confidence: s.confidence ?? 0.7,
       })),
     },

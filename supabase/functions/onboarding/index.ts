@@ -63,6 +63,7 @@ Deno.serve(serve(async (req) => {
   return json({
     summary: blueprint.summary,
     needsBirthTime: !timeKnown,
+    accuracy: blueprint.accuracy,
     bigThree: {
       sun: blueprint.summary.sunSign,
       moon: blueprint.summary.moonSign,

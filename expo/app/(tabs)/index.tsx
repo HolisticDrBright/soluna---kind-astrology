@@ -206,6 +206,7 @@ export default function TodayScreen() {
                     </View>
                     <Text style={st.whyLabel}>{e.label}</Text>
                     <Text style={st.whyDetail}>{e.detail}</Text>
+                    {!!e.source && <Text style={st.whySource}>{e.source}</Text>}
                   </View>
                 ))}
                 {!!(reading.systemsAgree.combinedTakeaway ?? reading.systemsAgree.detail) && (
@@ -405,6 +406,7 @@ const st = StyleSheet.create({
   confFill: { height: 4, borderRadius: 2, backgroundColor: SolunaColors.warmGold },
   whyLabel: { fontSize: 13, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
   whyDetail: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18, fontFamily: Fonts.body },
+  whySource: { fontSize: 11, color: SolunaColors.creamSubtle, lineHeight: 16, fontFamily: Fonts.body, fontStyle: "italic", marginTop: 3 },
   whyTakeaway: { fontSize: 13, color: SolunaColors.cream, lineHeight: 20, fontFamily: Fonts.body, fontStyle: "italic", marginTop: 2 },
   // Section
   sectionTitle: { fontSize: 12, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 10 },

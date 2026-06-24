@@ -72,14 +72,21 @@ Deno.serve(serve(async (req) => {
       if (Object.keys(patch).length) {
         await svc.from("birth_profiles").update(patch).eq("user_id", user.id);
         recompute = true;
-        // Re-enqueue blueprint compute; drained within a minute. Also clear today's
-        // cached reading so the next /today reflects the new chart.
+        // Re-enqueue blueprint compute; drained within a minute. Then clear every
+        // cache derived from the OLD chart so nothing stale (or fake-precise)
+        // survives the change: today's reading, cached insights, and the user's
+        // side of any compatibility reports (they'll regenerate on next request).
         await svc.rpc("enqueue_blueprint", { p_user: user.id });
-        await svc.from("daily_readings").delete().eq("user_id", user.id);
+        await Promise.all([
+          svc.from("daily_readings").delete().eq("user_id", user.id),
+          svc.from("insights").delete().eq("user_id", user.id),
+          svc.from("compatibility_reports").delete().eq("user_id", user.id),
+        ]);
       }
     }
 
-    return json({ ok: true, recompute });
+    // `recompute` kept for backward compat; `recomputeQueued` is the canonical flag.
+    return json({ ok: true, recompute, recomputeQueued: recompute });
   }
 
   return json({ error: "Use GET or PATCH /me" }, 405);

@@ -31,6 +31,31 @@ export function needsBirthTime(what: string): NeedsBirthTime {
   };
 }
 
+/** Marks an output unavailable for a specific honest reason (time and/or place). */
+export function unavailable(what: string, reason: string): NeedsBirthTime {
+  return { needsBirthTime: true, note: `${what} ${reason}` };
+}
+
+// ─── engine provenance + accuracy ──────────────────────────────────
+export interface EngineMeta {
+  /** Where the data came from. */
+  source: "hosted_api" | "verified_library" | "prototype_fallback";
+  /** How precise the output is. */
+  precision: "high" | "medium" | "low";
+  /** Short, warm, honest note for the UI (e.g. "approximate without birth time"). */
+  userFacingNote?: string;
+}
+
+export type AccuracyLevel = "exact" | "partial" | "approximate" | "blocked";
+
+export interface AccuracyReport {
+  accuracyLevel: AccuracyLevel;
+  /** Inputs that, if added, would improve accuracy (e.g. "birthTime", "birthPlace"). */
+  missingInputs: string[];
+  /** Warm, specific notes the frontend can show verbatim. */
+  confidenceNotes: string[];
+}
+
 // ─── numerology ────────────────────────────────────────────────────
 export interface NumerologyResult {
   lifePath: number;
@@ -74,6 +99,7 @@ export interface ChineseResult {
   elementAnimalLabel: string;
   bazi: BaZiPillar[];
   hourPillarKnown: boolean;
+  meta: EngineMeta;
 }
 export interface ChineseDaily {
   animal: ChineseAnimal;
@@ -124,7 +150,10 @@ export interface AstrologyResult {
   aspects: AspectHit[];
   houseSystem: HouseSystem;
   timeKnown: boolean;
+  /** True only when both birth time AND location were supplied. */
+  locationKnown: boolean;
   source: "api" | "fallback";
+  meta: EngineMeta;
 }
 
 // ─── human design ──────────────────────────────────────────────────
@@ -157,4 +186,5 @@ export interface HumanDesignResult {
   notSelf: string;
   incarnationCross: string;
   timeKnown: boolean;
+  meta: EngineMeta;
 }

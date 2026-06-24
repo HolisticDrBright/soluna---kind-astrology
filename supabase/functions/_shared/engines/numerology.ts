@@ -118,3 +118,13 @@ export function computeNumerology(
 export function personalDay(birthDate: string, forDate: string): number {
   return computeNumerology("", birthDate, { forDate }).personalDay;
 }
+
+/** Personal Month for an arbitrary date. */
+export function personalMonth(birthDate: string, forDate: string): number {
+  return computeNumerology("", birthDate, { forDate }).personalMonth;
+}
+
+/** Personal Year for an arbitrary date. */
+export function personalYear(birthDate: string, forDate: string): number {
+  return computeNumerology("", birthDate, { forDate }).personalYear;
+}

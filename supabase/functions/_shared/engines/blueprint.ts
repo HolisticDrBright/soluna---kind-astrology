@@ -8,6 +8,8 @@ import { computeNumerology } from "./numerology.ts";
 import { computeChinese } from "./chinese.ts";
 import { computeHumanDesign } from "./humandesign.ts";
 import type {
+  AccuracyLevel,
+  AccuracyReport,
   AstrologyResult,
   BirthInput,
   ChineseAnimal,
@@ -42,6 +44,8 @@ export interface Blueprint {
   humanDesign: HumanDesignResult | NeedsBirthTime;
   biorhythmSeed: { birthDate: string };
   summary: BlueprintSummary;
+  /** Honest, structured accuracy the frontend can surface verbatim. */
+  accuracy: AccuracyReport;
 }
 
 export interface PlacementRow {
@@ -88,9 +92,57 @@ export async function computeBlueprint(
     humanDesign,
     biorhythmSeed: { birthDate: input.date },
     summary,
+    accuracy: computeAccuracy(input),
   };
 
   return { blueprint, placements: flattenPlacements(blueprint) };
+}
+
+/**
+ * Honest accuracy report for the whole blueprint. We never claim precision we
+ * don't have: Sun sign, Life Path, Chinese animal and biorhythms are exact from
+ * the date alone; Moon sign is an estimate without a time; Rising, houses and
+ * the full Human Design chart need birth time (and place for the angles).
+ */
+function computeAccuracy(input: BirthInput): AccuracyReport {
+  const timeKnown = !!input.time;
+  const placeKnown = input.lat != null && input.lng != null;
+
+  const missingInputs: string[] = [];
+  if (!timeKnown) missingInputs.push("birthTime");
+  if (!placeKnown) missingInputs.push("birthPlace");
+
+  let accuracyLevel: AccuracyLevel;
+  if (timeKnown && placeKnown) accuracyLevel = "exact";
+  else if (timeKnown || placeKnown) accuracyLevel = "partial";
+  else accuracyLevel = "approximate";
+
+  const confidenceNotes: string[] = [];
+  if (timeKnown && placeKnown) {
+    confidenceNotes.push(
+      "We have your birth date, time, and place, so your full chart is computed.",
+    );
+  } else {
+    // Always reassure about what IS exact before naming what's missing.
+    confidenceNotes.push(
+      "Your Sun sign, Life Path, Chinese animal, and biorhythms are exact from your birth date.",
+    );
+    if (!timeKnown) {
+      confidenceNotes.push(
+        "Your Moon sign is our best estimate for the day — the Moon can change signs within 24 hours, so add your birth time to lock it in.",
+      );
+      confidenceNotes.push(
+        "Your Rising sign, houses, and full Human Design chart unlock once you add your birth time.",
+      );
+    }
+    if (timeKnown && !placeKnown) {
+      confidenceNotes.push(
+        "Add your birth place (latitude & longitude) and we can place your Rising sign, Midheaven, and houses accurately.",
+      );
+    }
+  }
+
+  return { accuracyLevel, missingInputs, confidenceNotes };
 }
 
 function flattenPlacements(bp: Blueprint): PlacementRow[] {

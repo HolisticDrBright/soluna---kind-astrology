@@ -418,7 +418,7 @@ export interface DailyReading {
     // Structured evidence for the "See why" drawer (no prose parsing).
     theme?: string;
     combinedTakeaway?: string;
-    evidence?: { system: string; label: string; signal: string; detail: string; confidence: number }[];
+    evidence?: { system: string; label: string; signal: string; detail: string; source?: string; confidence: number }[];
   };
   cardOfTheDay: TarotCard;
 }

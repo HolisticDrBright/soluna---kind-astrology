@@ -25,6 +25,8 @@ export interface ThemeEvidence {
   signal: string;
   /** A fuller, structured explanation (so the UI never parses prose). */
   detail: string;
+  /** Concrete provenance — the actual daily data point this signal came from. */
+  source: string;
   /** 0..1 — how strongly this system points at the theme. */
   confidence: number;
   theme: ThemeId;
@@ -47,7 +49,14 @@ export interface AgreementEvidence {
   theme: ThemeId;
   title: string;
   score: number;
-  systems: { system: EvidenceSystem; label: string; signal: string; detail: string; confidence: number }[];
+  systems: {
+    system: EvidenceSystem;
+    label: string;
+    signal: string;
+    detail: string;
+    source: string;
+    confidence: number;
+  }[];
   combinedTakeaway: string;
 }
 
@@ -101,20 +110,22 @@ export function detectAgreement(ctx: DayContext): AgreementResult {
   const add = (e: Omit<ThemeEvidence, "detail"> & { detail?: string }) =>
     evidence.push({ ...e, detail: e.detail ?? detailFor(e.signal, e.theme) });
 
-  // Numerology — Personal Day
+  // Numerology — Personal Day (derived from the user's birth date + today)
   add({
     system: "numerology",
     label: `Personal Day ${ctx.personalDay}`,
     signal: personalDaySignal(ctx.personalDay),
+    source: `Your Personal Day number for ${ctx.date} is ${ctx.personalDay}.`,
     confidence: 0.85,
     theme: PERSONAL_DAY_THEME[ctx.personalDay] ?? "focus",
   });
 
-  // Astrology — Moon sign + Moon phase (one system, up to two themes)
+  // Astrology — today's transiting Moon sign + phase (one system, up to two themes)
   add({
     system: "astrology",
     label: `Moon in ${ctx.transits.moon.sign}`,
     signal: `The Moon in ${ctx.transits.moon.sign} colors the emotional weather of the day.`,
+    source: `The transiting Moon is in ${ctx.transits.moon.sign} on ${ctx.date}.`,
     confidence: 0.8,
     theme: moonSignTheme(ctx.transits.moon.sign),
   });
@@ -122,24 +133,29 @@ export function detectAgreement(ctx: DayContext): AgreementResult {
     system: "astrology",
     label: ctx.transits.moon.phase,
     signal: `The ${ctx.transits.moon.phase} marks where you are in the lunar cycle.`,
+    source: `Today's lunar phase is ${ctx.transits.moon.phase}.`,
     confidence: 0.65,
     theme: moonPhaseTheme(ctx.transits.moon.phase),
   });
 
-  // Chinese — daily element
+  // Chinese — today's day pillar (element + animal)
   add({
     system: "chinese",
     label: `${ctx.chineseDaily.element} ${ctx.chineseDaily.animal} day`,
     signal: `Today carries ${ctx.chineseDaily.element} ${ctx.chineseDaily.animal} energy.`,
+    source: `Today's Chinese day pillar is ${ctx.chineseDaily.element} ${ctx.chineseDaily.animal}.`,
     confidence: 0.7,
     theme: ELEMENT_THEME[ctx.chineseDaily.element],
   });
 
-  // Human Design — stable bias from authority
+  // Human Design — stable bias from your chart's authority
   add({
     system: "humanDesign",
     label: `${ctx.summary.hdAuthority ?? "Your"} Authority`,
     signal: hdSignal(ctx.summary.hdAuthority),
+    source: ctx.summary.hdAuthority
+      ? `Your Human Design chart gives you ${ctx.summary.hdAuthority} Authority.`
+      : "Your Human Design authority needs your birth time to be precise.",
     confidence: ctx.summary.hdAuthority ? 0.85 : 0.5,
     theme: authorityTheme(ctx.summary.hdAuthority),
   });
@@ -159,13 +175,23 @@ export function detectAgreement(ctx: DayContext): AgreementResult {
   return { topTheme: themes[0], themes: themes.filter((t) => t.score > 0) };
 }
 
-type BioEvidence = { system: "biorhythm"; label: string; signal: string; confidence: number; theme: ThemeId };
+type BioEvidence = {
+  system: "biorhythm";
+  label: string;
+  signal: string;
+  source: string;
+  confidence: number;
+  theme: ThemeId;
+};
 
 function biorhythmTheme(b: DayContext["biorhythm"]): BioEvidence | null {
   const { physical, emotional, intellectual } = b;
   const max = Math.max(physical, emotional, intellectual);
   const min = Math.min(physical, emotional, intellectual);
-  const base = { system: "biorhythm" as const, confidence: 0.6 };
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const source = `Today's biorhythm: physical ${pct(physical)}, emotional ${pct(emotional)}, ` +
+    `intellectual ${pct(intellectual)} (day ${b.dayIndex} since birth).`;
+  const base = { system: "biorhythm" as const, confidence: 0.6, source };
   if (max < -0.3) {
     return { ...base, label: "Biorhythm low ebb", signal: "All three biorhythm cycles are in a low ebb — a natural rest window.", theme: "rest" };
   }
@@ -190,6 +216,7 @@ export function buildAgreementEvidence(result: AgreementResult, llmTakeaway?: st
     label: e.label,
     signal: e.signal,
     detail: e.detail,
+    source: e.source,
     confidence: e.confidence,
   }));
   const deterministic = `${t.score} of your systems point toward ${t.title.toLowerCase()} today. ` +
