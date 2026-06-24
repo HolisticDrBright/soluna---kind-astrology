@@ -1,16 +1,14 @@
-import { Tabs, router, useRootNavigationState } from "expo-router";
-import React, { useEffect } from "react";
-import { StyleSheet, View, TouchableOpacity } from "react-native";
+import { Tabs } from "expo-router";
+import React from "react";
+import { StyleSheet, TouchableOpacity } from "react-native";
 import {
   Sun,
   Compass,
-  MessageCircle,
   Heart,
   User,
   Sparkles,
 } from "lucide-react-native";
 import SolunaColors from "@/constants/colors";
-import { useAppState } from "@/state/useAppState";
 import { Fonts } from "@/constants/mockData";
 
 function TabIcon({
@@ -26,15 +24,6 @@ function TabIcon({
 }
 
 export default function TabLayout() {
-  const { hasOnboarded } = useAppState();
-  const rootNavState = useRootNavigationState();
-
-  useEffect(() => {
-    if (rootNavState?.key && !hasOnboarded) {
-      router.replace("/onboarding");
-    }
-  }, [rootNavState?.key, hasOnboarded]);
-
   return (
     <Tabs
       screenOptions={{
