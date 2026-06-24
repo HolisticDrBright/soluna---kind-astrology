@@ -14,11 +14,13 @@ import {
   DAILY_READINGS,
   ZODIAC_SYMBOLS,
   PLANET_SYMBOLS,
+  MOOD_OPTIONS,
+  type MoodSupport,
 } from "@/constants/mockData";
 import type { DailyReading } from "@/constants/mockData";
-import SystemAgreeBadge from "@/components/SystemAgreeBadge";
 import InsightActionBar from "@/components/InsightActionBar";
 import ConfidencePill from "@/components/ConfidencePill";
+import SolunaShiftCard from "@/components/SolunaShiftCard";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 
@@ -29,18 +31,19 @@ export default function TodayScreen() {
   const { user } = useAppState();
   if (!user) return null;
 
+  const todayStr = "2026-06-24";
   const todayReading: DailyReading =
-    DAILY_READINGS.find((r) => r.date === "2026-06-24") ?? DAILY_READINGS[0];
+    DAILY_READINGS.find((r) => r.date === todayStr) ?? DAILY_READINGS[0];
 
   const [saved, setSaved] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
+  const [selectedWhySystem, setSelectedWhySystem] = useState<string | null>(null);
+  const [moodSupport, setMoodSupport] = useState<MoodSupport | null>(null);
   const [expanded, setExpanded] = useState<Set<SectionKey>>(
     new Set<SectionKey>(),
   );
 
-  const handleSave = useCallback(() => {
-    setSaved(true);
-  }, []);
+  const handleSave = useCallback(() => setSaved(true), []);
 
   const toggleExpanded = useCallback((key: SectionKey) => {
     setExpanded((prev) => {
@@ -75,6 +78,29 @@ export default function TodayScreen() {
     ];
   }, [user.numerology]);
 
+  // ─── System chip labels for explainability ────────
+  const systemChipExplanations: Record<string, string> = {
+    "Moon in Cancer": "Your natal Moon is in Cancer, so when the transiting Moon moves through Cancer, you feel it deeply — emotions are closer to the surface, and your need for safety and nurturing is heightened today.",
+    "Personal Day 7": "Today's date reduces to the number 7 in your personal numerology cycle. Personal Day 7 is always about introspection, spiritual connection, and trusting what you can't yet see.",
+    "Generator Sacral": "As a Generator in Human Design, your Sacral center responds to life with clear yes/no signals. When multiple systems say 'rest,' your Sacral is underlining the message: wait to respond, don't force.",
+    "Sun in 12th House": "Your natal Sun in the 12th house creates a direct channel to your subconscious. On days when transits activate this house, creative inspiration and intuitive downloads flow more freely.",
+    "Life Path 3": "Your Life Path 3 is the Creative Communicator — expression is your purpose. When this number is highlighted, it's a signal to share what's inside you, even if it feels vulnerable.",
+    "Wood Pig": "In Chinese astrology, the Wood Pig brings generous, warm-hearted optimism. When this sign is active in your daily reading, it amplifies your natural ability to uplift others.",
+    "Full Moon 8H": "The Full Moon illuminating your 8th house activates themes of transformation, emotional release, and intimacy. What needs to be felt fully before it can be released?",
+    "Soul Urge 9": "Your Soul Urge 9 is the humanitarian — you feel the world deeply. When this number is highlighted, emotional processing isn't a detour; it IS the path.",
+    "Emotional Authority": "Your Human Design Emotional Authority means clarity comes through feeling the full wave of your emotions over time. Don't decide in the moment — let the wave rise and fall.",
+    "Moon Waning Virgo": "The waning Moon in Virgo supports reflection, gentle order, and releasing what no longer serves. A beautiful day for quiet completions.",
+    "Expression 7": "Your Expression number 7 thrives in depth, analysis, and solitude. When highlighted, it's a signal to honor your need for quiet reflection.",
+    "6/2 Hermit": "Your 6/2 profile's Hermit line literally needs alone time to function at its best. This isn't antisocial — it's design maintenance.",
+    "Venus 10H": "Venus transiting your 10th house makes you magnetically warm in professional and public spaces. People are drawn to you now — trust that.",
+    "Generator": "As a Generator, your defined Sacral center provides sustainable creative energy when you're aligned. Frustration is the signal you've drifted — satisfaction is the signal you're on track.",
+    "Moon in Leo": "The Moon in Leo activates bold, radiant energy. It's a day for being seen, for sharing your light, for trusting that your presence is a gift.",
+    "Personal Day 9": "Personal Day 9 brings completion energy. Something is ready to be released or celebrated — honor the cycle.",
+    "Generator Signature": "Your Generator signature of 'Satisfaction' is your internal compass. If something feels deeply satisfying, it's aligned with your design. Frustration means you're off track.",
+    "Moon in Scorpio": "The Moon in Scorpio calls you into emotional truth and depth. Surface interactions won't satisfy today — go deep or go quiet.",
+    "Personal Day 4": "Personal Day 4 centers on home, foundations, and what's real. Ground yourself in what truly matters.",
+  };
+
   return (
     <LinearGradient
       colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]}
@@ -94,6 +120,45 @@ export default function TodayScreen() {
             day: "numeric",
           })}
         </Text>
+
+        {/* ─── Mood Check-In ─── */}
+        <View style={st.moodWrap}>
+          <Text style={st.moodQuestion}>What kind of support do you need today?</Text>
+          <View style={st.moodRow}>
+            {MOOD_OPTIONS.map((opt) => {
+              const isSelected = moodSupport === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    st.moodChip,
+                    isSelected && { backgroundColor: `${opt.color}18`, borderColor: `${opt.color}30` },
+                  ]}
+                  onPress={() => setMoodSupport(isSelected ? null : opt.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={st.moodEmoji}>{opt.emoji}</Text>
+                  <Text style={[st.moodLabel, isSelected && { color: opt.color, fontWeight: "700" }]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {moodSupport && (
+            <View style={st.moodFeedback}>
+              <Text style={st.moodFeedbackText}>
+                {
+                  MOOD_OPTIONS.find((o) => o.id === moodSupport)?.description
+                }
+              </Text>
+              <Text style={st.moodFeedbackHint}>
+                I'll tune today's insights to feel more{" "}
+                {moodSupport.toLowerCase()}.
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* ─── Confidence Badge ─── */}
         <View style={st.confRow}>
@@ -118,29 +183,70 @@ export default function TodayScreen() {
           />
         </View>
 
-        {/* ─── Systems Agree Card ─── */}
-        <SystemAgreeBadge
-          count={todayReading.systemsAgree.systems.length}
-          systems={todayReading.systemsAgree.systems}
-          summary={todayReading.systemsAgree.summary}
-          onSeeWhy={() => setShowWhy(true)}
-        />
-
-        {/* ─── Show me why: detail panel ─── */}
-        {showWhy && (
-          <View style={st.whyPanel}>
-            <Text style={st.whyTitle}>Why you're seeing this</Text>
-            <Text style={st.whyBody}>
-              {todayReading.systemsAgree.detail}
+        {/* ─── Systems Agree Card with Explainable Chips ─── */}
+        <View style={st.systemsCard}>
+          <View style={st.systemsHeader}>
+            <Text style={st.systemsCount}>
+              {todayReading.systemsAgree.systems.length} systems agree
             </Text>
-            <TouchableOpacity
-              style={st.whyClose}
-              onPress={() => setShowWhy(false)}
-            >
-              <Text style={st.whyCloseText}>Got it</Text>
+            <TouchableOpacity onPress={() => setShowWhy(!showWhy)}>
+              <Text style={st.systemsSeeWhy}>
+                {showWhy ? "Hide why" : "See why →"}
+              </Text>
             </TouchableOpacity>
           </View>
-        )}
+          <Text style={st.systemsSummary}>{todayReading.systemsAgree.summary}</Text>
+
+          {/* Explainable system chips */}
+          <View style={st.systemsChipRow}>
+            {todayReading.systemsAgree.systems.map((sys) => {
+              const isSelected = selectedWhySystem === sys;
+              return (
+                <TouchableOpacity
+                  key={sys}
+                  style={[st.sysChip, isSelected && st.sysChipActive]}
+                  onPress={() => setSelectedWhySystem(isSelected ? null : sys)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[st.sysChipText, isSelected && st.sysChipTextActive]}>
+                    {sys}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Explainable detail panels */}
+          {selectedWhySystem && systemChipExplanations[selectedWhySystem] && (
+            <View style={st.sysExplain}>
+              <Text style={st.sysExplainTitle}>
+                Why "{selectedWhySystem}" appears today
+              </Text>
+              <Text style={st.sysExplainBody}>
+                {systemChipExplanations[selectedWhySystem]}
+              </Text>
+            </View>
+          )}
+
+          {/* Overall why panel */}
+          {showWhy && (
+            <View style={st.whyPanel}>
+              <Text style={st.whyTitle}>Why you're seeing this</Text>
+              <Text style={st.whyBody}>
+                {todayReading.systemsAgree.detail}
+              </Text>
+              <TouchableOpacity
+                style={st.whyClose}
+                onPress={() => setShowWhy(false)}
+              >
+                <Text style={st.whyCloseText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* ─── Soluna Shift ─── */}
+        <SolunaShiftCard date={todayStr} />
 
         {/* ─── Your Big Three ─── */}
         {bigThree && (
@@ -257,9 +363,7 @@ export default function TodayScreen() {
                 {todayReading.cardOfTheDay.imageEmoji}
               </Text>
               <View>
-                <Text style={st.accordionTitle}>
-                  Card of the Day
-                </Text>
+                <Text style={st.accordionTitle}>Card of the Day</Text>
                 <Text style={st.accordionSub}>
                   {todayReading.cardOfTheDay.name}
                   {todayReading.cardOfTheDay.arcana === "major"
@@ -425,7 +529,68 @@ const st = StyleSheet.create({
     fontSize: 13,
     color: SolunaColors.creamMuted,
     fontFamily: Fonts.body,
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+
+  // Mood Check-In
+  moodWrap: {
+    marginBottom: 18,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  moodQuestion: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+    marginBottom: 10,
+  },
+  moodRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  moodChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  moodEmoji: { fontSize: 12 },
+  moodLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+  },
+  moodFeedback: {
+    marginTop: 10,
+    backgroundColor: "rgba(232,184,109,0.06)",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(232,184,109,0.1)",
+  },
+  moodFeedbackText: {
+    fontSize: 12,
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  moodFeedbackHint: {
+    fontSize: 11,
+    color: SolunaColors.warmGold,
+    fontFamily: Fonts.body,
+    fontStyle: "italic",
   },
 
   // Confidence
@@ -480,38 +645,123 @@ const st = StyleSheet.create({
     flex: 1,
   },
 
-  // Why panel
-  whyPanel: {
-    backgroundColor: "rgba(185,163,227,0.08)",
+  // Systems Agree Card
+  systemsCard: {
+    backgroundColor: "rgba(232,184,109,0.06)",
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "rgba(185,163,227,0.15)",
+    borderColor: "rgba(232,184,109,0.15)",
     marginBottom: 20,
   },
-  whyTitle: {
+  systemsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  systemsCount: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: SolunaColors.warmGold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    fontFamily: Fonts.body,
+  },
+  systemsSeeWhy: {
+    fontSize: 12,
+    color: SolunaColors.warmGold,
+    fontWeight: "600",
+    fontFamily: Fonts.body,
+  },
+  systemsSummary: {
     fontSize: 14,
+    fontWeight: "600",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+    lineHeight: 21,
+    marginBottom: 10,
+  },
+  systemsChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  sysChip: {
+    backgroundColor: "rgba(232,184,109,0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(232,184,109,0.12)",
+  },
+  sysChipActive: {
+    backgroundColor: "rgba(232,184,109,0.15)",
+    borderColor: "rgba(232,184,109,0.3)",
+  },
+  sysChipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+  },
+  sysChipTextActive: {
+    color: SolunaColors.warmGold,
+  },
+  sysExplain: {
+    marginTop: 10,
+    backgroundColor: "rgba(232,184,109,0.06)",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(232,184,109,0.12)",
+  },
+  sysExplainTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: SolunaColors.warmGold,
+    fontFamily: Fonts.body,
+    marginBottom: 6,
+  },
+  sysExplainBody: {
+    fontSize: 12,
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+    lineHeight: 18,
+  },
+
+  // Why panel
+  whyPanel: {
+    marginTop: 10,
+    backgroundColor: "rgba(185,163,227,0.08)",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.12)",
+  },
+  whyTitle: {
+    fontSize: 13,
     fontWeight: "700",
     fontFamily: Fonts.body,
     color: SolunaColors.gentleLavender,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   whyBody: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: Fonts.body,
     color: SolunaColors.creamMuted,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   whyClose: {
     alignSelf: "flex-end",
     backgroundColor: "rgba(185,163,227,0.15)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   whyCloseText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     fontFamily: Fonts.body,
     color: SolunaColors.gentleLavender,

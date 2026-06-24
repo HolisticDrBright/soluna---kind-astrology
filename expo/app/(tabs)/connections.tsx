@@ -4,10 +4,10 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
+import { CONNECTIONS, ZODIAC_SYMBOLS, MOCK_BOND_RITUALS, Fonts, type RelationshipLens, type BondRitualData } from "@/constants/mockData";
 import EmptyState from "@/components/EmptyState";
 import ConfidencePill from "@/components/ConfidencePill";
-import { Heart, Plus, ChevronRight, Sparkles, Share2, Users, Shield, Star, Briefcase, HeartHandshake, Baby } from "lucide-react-native";
+import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle } from "lucide-react-native";
 
 // ─── Lens config ───────────────────────────────────────────
 const LENSES: { key: RelationshipLens; label: string; icon: typeof Heart; color: string }[] = [
@@ -61,6 +61,135 @@ const fS = StyleSheet.create({
   addText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });
 
+// ─── Bond Ritual Section ──────────────────────────────────
+function BondRitualSection({ ritual, partnerName }: { ritual: BondRitualData; partnerName: string }) {
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const toggle = (key: string) => setExpandedSection((prev) => (prev === key ? null : key));
+
+  return (
+    <View style={brS.wrap}>
+      <View style={brS.header}>
+        <Sparkles size={14} color={SolunaColors.warmGold} />
+        <Text style={brS.headerTitle}>Bond Rituals</Text>
+      </View>
+
+      {/* How to support today */}
+      <TouchableOpacity style={brS.item} onPress={() => toggle("support")} activeOpacity={0.7}>
+        <View style={brS.itemRow}>
+          <View style={[brS.itemIcon, { backgroundColor: "rgba(232,184,109,0.1)" }]}>
+            <Heart size={13} color={SolunaColors.warmGold} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[brS.itemLabel, expandedSection === "support" ? { marginBottom: 6 } : null]}>How to support {partnerName} today</Text>
+            {expandedSection === "support" && (
+              <Text style={brS.itemText}>{ritual.howToSupportToday}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Best day for deep conversation */}
+      <TouchableOpacity style={brS.item} onPress={() => toggle("bestDay")} activeOpacity={0.7}>
+        <View style={brS.itemRow}>
+          <View style={[brS.itemIcon, { backgroundColor: "rgba(185,163,227,0.1)" }]}>
+            <Calendar size={13} color={SolunaColors.gentleLavender} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[brS.itemLabel, { color: SolunaColors.gentleLavender }, expandedSection === "bestDay" ? { marginBottom: 6 } : null]}>Best day this week for a deeper conversation</Text>
+            {expandedSection === "bestDay" && (
+              <Text style={brS.itemText}>{ritual.bestDayForDeepConversation}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Where you may be misreading */}
+      <TouchableOpacity style={brS.item} onPress={() => toggle("misread")} activeOpacity={0.7}>
+        <View style={brS.itemRow}>
+          <View style={[brS.itemIcon, { backgroundColor: "rgba(242,168,141,0.1)" }]}>
+            <AlertTriangle size={13} color={SolunaColors.softPeach} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[brS.itemLabel, { color: SolunaColors.softPeach }, expandedSection === "misread" ? { marginBottom: 6 } : null]}>Where you may be misreading each other</Text>
+            {expandedSection === "misread" && (
+              <Text style={brS.itemText}>{ritual.whereYouMayBeMisreading}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Shared journal prompt */}
+      <TouchableOpacity style={[brS.item, { borderBottomWidth: 0 }]} onPress={() => toggle("journal")} activeOpacity={0.7}>
+        <View style={brS.itemRow}>
+          <View style={[brS.itemIcon, { backgroundColor: "rgba(123,200,156,0.1)" }]}>
+            <BookOpen size={13} color="#7BC89C" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[brS.itemLabel, { color: "#7BC89C" }, expandedSection === "journal" ? { marginBottom: 6 } : null]}>Shared journal prompt</Text>
+            {expandedSection === "journal" && (
+              <Text style={brS.itemText}>{ritual.sharedJournalPrompt}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+const brS = StyleSheet.create({
+  wrap: {
+    backgroundColor: "rgba(185,163,227,0.06)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.1)",
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+  },
+  item: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.03)",
+  },
+  itemRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  itemIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  itemLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+  },
+  itemText: {
+    fontSize: 12,
+    color: SolunaColors.creamMuted,
+    lineHeight: 18,
+    fontFamily: Fonts.body,
+  },
+});
+
 function ConnectionsContent() {
   const { user } = useAppState();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,14 +219,14 @@ function ConnectionsContent() {
           <LinearGradient colors={["rgba(232,184,109,0.1)", "rgba(242,168,141,0.04)"]} style={st.inviteHeroInner}>
             <View style={st.inviteHeroIcon}><Share2 size={24} color={SolunaColors.warmGold} /></View>
             <Text style={st.inviteHeroTitle}>Invite someone to create a Bond</Text>
-            <Text style={st.inviteHeroDesc}>Linked partners get daily shared readings, a private Bond Space, and cross-system compatibility insight — free for both of you. You choose what you share. Unlink anytime.</Text>
+            <Text style={st.inviteHeroDesc}>Linked partners get daily shared readings, Bond Rituals, and cross-system compatibility insight — free for both of you. You choose what you share. Unlink anytime.</Text>
             <View style={st.inviteHeroCta}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={st.inviteHeroCtaText}>Send an invite</Text></View>
           </LinearGradient>
         </TouchableOpacity>
 
         {/* ── Your Bonds ── */}
         <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} fill={SolunaColors.softPeach} /><Text style={st.sectionTitle}>Linked Bonds</Text></View>
-        <EmptyState icon={Heart} title="No Bonds yet" description="Bonds are linked partners who get daily shared readings with you. Invite someone special — it's free for both of you." actionLabel="Invite someone" onAction={() => {}} />
+        <EmptyState icon={Heart} title="No Bonds yet" description="Bonds are linked partners who get daily shared readings and Bond Rituals with you. Invite someone special — it's free for both of you." actionLabel="Invite someone" onAction={() => {}} />
 
         {/* ── Lens Switcher ── */}
         <View style={st.sectionHeader}>
@@ -129,6 +258,8 @@ function ConnectionsContent() {
         {CONNECTIONS.map((person) => {
           const isOpen = tapState[person.id] ?? false;
           const lensActive = LENSES.find((l) => l.key === activeLens)!;
+          const ritual = MOCK_BOND_RITUALS[person.id];
+
           return (
             <TouchableOpacity key={person.id} style={pcS.card} onPress={() => toggleTap(person.id)} activeOpacity={0.7}>
               <View style={pcS.top}>
@@ -175,6 +306,9 @@ function ConnectionsContent() {
                       <View key={i} style={pcS.tipRow}><Sparkles size={10} color={SolunaColors.warmGold} /><Text style={pcS.tipText}>{tip}</Text></View>
                     ))}
                   </View>
+
+                  {/* Bond Rituals */}
+                  {ritual && <BondRitualSection ritual={ritual} partnerName={person.name} />}
 
                   {/* Cross-system scores */}
                   <View style={pcS.scoresRow}>

@@ -256,6 +256,212 @@ export interface JournalEntry {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// SOLUNA SHIFT
+// ══════════════════════════════════════════════════════════════════
+
+export interface SolunaShiftData {
+  reframe: string;
+  reset: string;
+  braveTinyAction: string;
+  journalPrompt: string;
+}
+
+export const SOLUNA_SHIFTS: Record<string, SolunaShiftData> = {
+  "2026-06-24": {
+    reframe: "Today's slower rhythm isn't a setback — it's your body and your chart agreeing that deep integration needs stillness. What feels like 'not enough' is actually the quiet hum of realignment. Your Cancer Sun, Personal Day 7, and Generator design are all asking you the same question: 'What if resting IS the work today?'",
+    reset: "Try the 4-7-8 breath: inhale through your nose for 4 counts, hold for 7, exhale slowly through your mouth for 8. Just three rounds. This gently signals your nervous system that you're safe — exactly what your Moon in Pisces 8th house needs when emotions feel close.",
+    braveTinyAction: "Send one message to someone you trust that simply says: 'Thinking of you today — no need to reply.' Your Cancer heart will feel the warmth of connection without the weight of conversation.",
+    journalPrompt: "What am I longing for that I haven't let myself name yet? Write for five minutes without editing — the first thing that surfaces is usually the truest.",
+  },
+  "2026-06-25": {
+    reframe: "Your creative spark today isn't random — your Sun lighting up the 12th house and your Life Path 3 are conspiring to remind you that expression is oxygen for your soul. What feels like 'just an idea' might actually be a compass pointing toward something real.",
+    reset: "Place both hands on your heart and take five slow breaths while mentally repeating: 'I am allowed to create things that don't have to be perfect.' This small somatic anchor helps your body believe what your mind is learning.",
+    braveTinyAction: "Write down your creative idea somewhere visible — a sticky note, your phone wallpaper, the fridge. Give it one day of being seen before you decide if it's 'practical' or not.",
+    journalPrompt: "If I weren't afraid of being 'impractical,' what would I spend today doing? What would my life look like if I trusted my creativity as much as my logic?",
+  },
+  "2026-06-26": {
+    reframe: "The Full Moon in Leo is illuminating not just what you've accomplished, but who you've become in the process. Your Life Path 3, your Generator signature of satisfaction, and this Leo Full Moon are all saying: your light is not too bright for this room.",
+    reset: "Stand in front of a mirror, look yourself in the eyes, and say out loud: 'I'm proud of you.' Let it land. Your 6/2 profile's hermit side might squirm — but your Role Model line needs to practice receiving acknowledgment without deflecting.",
+    braveTinyAction: "Share one genuine win from the past month with someone who will celebrate with you. Not humble-bragging — just honest, warm sharing. Your Wood Pig generosity means your joy is contagious.",
+    journalPrompt: "What have I accomplished in the past six months that I haven't let myself fully celebrate? What am I afraid will happen if I acknowledge my own growth?",
+  },
+  "2026-06-27": {
+    reframe: "Your emotions aren't overwhelming you — they're informing you. The Full Moon in your 8th house, your Soul Urge 9, and your Emotional Authority are all saying the same thing: feeling deeply isn't a problem to solve. It's how you navigate.",
+    reset: "Try a 'brain dump' — set a timer for three minutes and write every single thing you're feeling or thinking, no filter, no punctuation. When the timer goes off, close the notebook. You've externalized the wave; now let it settle.",
+    braveTinyAction: "Text one person you trust and say: 'I'm having a feeling-heavy day. Would you just hold space for that?' No fixing, no advice — just presence. Your Soul Urge 9 needs to practice receiving care as skillfully as you give it.",
+    journalPrompt: "What emotion am I most afraid to sit with right now? If I gave it a voice, what would it say? What does it need me to know?",
+  },
+  "2026-06-28": {
+    reframe: "Your 6/2 Hermit profile and Expression 7 aren't asking you to withdraw from the world — they're inviting you to recharge so you can return to it more fully yourself. Solitude isn't antisocial for you; it's essential maintenance.",
+    reset: "Do one tiny act of order: make your bed, clear one surface, arrange one shelf. Your Moon in Virgo today finds genuine calm in small completions. This isn't busywork — it's grounding.",
+    braveTinyAction: "Say no to one social obligation today — kindly, without over-explaining. 'I need a quiet day — rain check?' is a complete sentence. Your defined Root center will thank you.",
+    journalPrompt: "What would my ideal day alone look like? No guilt, no FOMO, no 'shoulds.' What would I do, eat, read, listen to, make?",
+  },
+  "2026-06-29": {
+    reframe: "Venus in your 10th house and your Life Path 3 are creating a rare window where being fully yourself IS the professional move. You don't need to perform competence — your genuine warmth and creativity are the competence.",
+    reset: "Before any meeting or social interaction today, take 30 seconds to silently name three things you genuinely like about yourself. This primes your Generator sacral to respond from alignment, not from people-pleasing.",
+    braveTinyAction: "Accept one compliment today without deflecting. Just say 'Thank you, that means a lot.' Notice how it feels in your body to receive without diminishing.",
+    journalPrompt: "What would my work look like if I trusted my natural gifts as much as my learned skills? Where am I already succeeding in ways I don't give myself credit for?",
+  },
+  "2026-06-30": {
+    reframe: "The month closes with the Moon in Scorpio inviting you into depth, not performance. Your Personal Day 4 and your Emotional Authority agree: closeness with one person who truly sees you is worth more than a room full of acquaintances.",
+    reset: "Light a candle and sit with it for five minutes. Let your eyes rest on the flame. When your mind wanders, gently bring it back. This simple practice activates your parasympathetic nervous system — exactly what your deeply feeling design needs.",
+    braveTinyAction: "Reach out to one person you've been meaning to connect with more deeply. Suggest a specific, low-pressure plan: 'Would you want to grab tea and just catch up — no agenda?' Your Cancer Sun thrives on this kind of intentional closeness.",
+    journalPrompt: "Who makes me feel most like myself? What is it about their presence that allows me to exhale? How can I bring more of that quality into my relationship with myself?",
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════
+// MOOD CHECK-IN
+// ══════════════════════════════════════════════════════════════════
+
+export type MoodSupport = "Gentle" | "Clear" | "Motivating" | "Reflective" | "Practical";
+
+export interface MoodOption {
+  id: MoodSupport;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+}
+
+export const MOOD_OPTIONS: MoodOption[] = [
+  { id: "Gentle", label: "Gentle", emoji: "🌸", color: "#F2A88D", description: "Soft, reassuring, and kind — like a warm cup of tea for your soul." },
+  { id: "Clear", label: "Clear", emoji: "🔮", color: "#B9A3E3", description: "Straightforward insights — let's cut through the fog together." },
+  { id: "Motivating", label: "Motivating", emoji: "🔥", color: "#E8B86D", description: "Energizing and encouraging — a gentle push toward what's possible." },
+  { id: "Reflective", label: "Reflective", emoji: "🌙", color: "#B9A3E3", description: "Deep and contemplative — let's sit with the questions that matter." },
+  { id: "Practical", label: "Practical", emoji: "🌿", color: "#7BC89C", description: "Grounded and actionable — show me what I can actually do today." },
+];
+
+// ══════════════════════════════════════════════════════════════════
+// PATTERN MEMORY
+// ══════════════════════════════════════════════════════════════════
+
+export interface PatternTheme {
+  id: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export const MOCK_PATTERN_THEMES: PatternTheme[] = [
+  { id: "t1", label: "Working on boundaries", active: true, createdAt: "2026-06-10" },
+  { id: "t2", label: "Career transition", active: true, createdAt: "2026-06-15" },
+  { id: "t3", label: "Dating again", active: false, createdAt: "2026-06-18" },
+  { id: "t4", label: "Reducing anxiety", active: true, createdAt: "2026-05-28" },
+  { id: "t5", label: "Deepening intuition", active: true, createdAt: "2026-06-01" },
+];
+
+// ══════════════════════════════════════════════════════════════════
+// WEEKLY INTEGRATION REPORT
+// ══════════════════════════════════════════════════════════════════
+
+export interface WeeklyReport {
+  startDate: string;
+  endDate: string;
+  repeatingThemes: string[];
+  systemsAgreedMost: string[];
+  savedReadings: number;
+  journalReflections: number;
+  carryForward: string;
+  moodPattern: string;
+}
+
+export const MOCK_WEEKLY_REPORT: WeeklyReport = {
+  startDate: "2026-06-17",
+  endDate: "2026-06-24",
+  repeatingThemes: [
+    "Your need for rest kept surfacing — across astrology (Moon transits through water signs), numerology (Personal Day 7 twice this week), and Human Design (your Generator sacral saying 'no' more than usual).",
+    "Creative expression appeared as a through-line in your tarot cards, your Life Path 3 energy, and your Wood Pig's natural generosity. Something in you wants to be made and shared.",
+  ],
+  systemsAgreedMost: ["Astrology + Numerology", "Numerology + Human Design", "Astrology + Chinese"],
+  savedReadings: 3,
+  journalReflections: 2,
+  carryForward: "Your systems consistently pointed toward trusting your timing rather than forcing outcomes. Next week, notice when you're trying to 'make something happen' versus letting it unfold. The difference is your growth edge right now.",
+  moodPattern: "You leaned toward Reflective and Gentle support most often this week — your internal rhythm is clearly in a quieter, more introspective season. Honor that.",
+};
+
+// ══════════════════════════════════════════════════════════════════
+// BOND RITUAL DATA
+// ══════════════════════════════════════════════════════════════════
+
+export interface BondRitualData {
+  howToSupportToday: string;
+  bestDayForDeepConversation: string;
+  whereYouMayBeMisreading: string;
+  sharedJournalPrompt: string;
+}
+
+export const MOCK_BOND_RITUALS: Record<string, BondRitualData> = {
+  "1": {
+    howToSupportToday: "Leo thrives on recognition — a genuine compliment about something they did this week will mean more than you think. Your Cancer warmth makes your praise especially meaningful to them.",
+    bestDayForDeepConversation: "Thursday — the Moon will be in Scorpio, creating natural depth and emotional honesty for both of you. Plan a quiet evening.",
+    whereYouMayBeMisreading: "Leo's need for external validation might feel like vanity to your more private Cancer heart. But for Leo, being seen IS being loved. Try reframing their need for recognition as their love language, not their ego.",
+    sharedJournalPrompt: "What's one thing I admire about the other person that I've never told them directly? What's holding me back from saying it?",
+  },
+  "2": {
+    howToSupportToday: "Sam's Scorpio intensity comes from a place of deep care, not suspicion. Today, try responding to their probing questions with curiosity instead of defensiveness — they're trying to know you, not test you.",
+    bestDayForDeepConversation: "Saturday afternoon — Venus will be harmonizing with both your Moons, creating a rare window of emotional safety and mutual receptivity.",
+    whereYouMayBeMisreading: "When Sam goes quiet, your Cancer heart might interpret it as withdrawal or rejection. But for Scorpio, silence often means processing, not pulling away. Ask gently: 'Are you processing, or do you need space from me?' The difference matters.",
+    sharedJournalPrompt: "What does safety in a relationship look like to each of us? Are we providing that for each other, or assuming it?",
+  },
+  "3": {
+    howToSupportToday: "Priya's Taurus steadiness is her gift, but also her vulnerability — she feels deeply and rarely shows it. Today, tell her one specific thing you appreciate about her presence. She'll carry it longer than you know.",
+    bestDayForDeepConversation: "Wednesday evening — the Moon will be in your Cancer, opening your emotional expression, while Venus supports Taurus's receptivity. Perfect alignment.",
+    whereYouMayBeMisreading: "Priya's stubbornness isn't resistance to you — it's usually fear wearing a practical mask. When she digs in, try asking 'What are you worried might happen if we change this?' instead of pushing.",
+    sharedJournalPrompt: "What does this friendship give each of us that we don't get anywhere else? How can we protect and nurture that?",
+  },
+  "4": {
+    howToSupportToday: "Jordan processes through ideas, not emotions. Today, instead of asking 'How do you feel about this?', try 'What do you think about this?' — you'll get more connection through their native language.",
+    bestDayForDeepConversation: "Monday — Mercury will be activating both your communication styles, creating a bridge between your emotional approach and their analytical one.",
+    whereYouMayBeMisreading: "Jordan's emotional distance isn't coldness — it's a different operating system. They care as deeply as you do, but they process care through problem-solving and ideas rather than emotional expression. Neither way is wrong.",
+    sharedJournalPrompt: "What's one way the other person sees the world that I genuinely want to understand better? What would it take for me to approach their perspective with radical curiosity?",
+  },
+  "5": {
+    howToSupportToday: "Alex's Aries directness isn't an attack — it's how they show they trust you enough to be unfiltered. Today, try matching their directness with yours: tell them one thing you genuinely appreciate about their honesty.",
+    bestDayForDeepConversation: "Friday evening — Mars will be softening Aries's edges while your Moon creates emotional safety. A rare and valuable window.",
+    whereYouMayBeMisreading: "Alex's impatience can feel like dismissal to your Cancer heart, but it's usually just their tempo, not a judgment. When they rush, try: 'I hear you want to move quickly — can we slow down just enough for me to feel what I'm feeling?'",
+    sharedJournalPrompt: "What's one thing the other person has taught me about myself that I wouldn't have learned alone? How has knowing them changed me?",
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════
+// WIDGET PREVIEWS
+// ══════════════════════════════════════════════════════════════════
+
+export interface WidgetPreview {
+  id: string;
+  title: string;
+  description: string;
+  notificationExample: string;
+  emoji: string;
+}
+
+export const WIDGET_PREVIEWS: WidgetPreview[] = [
+  {
+    id: "daily-reset",
+    title: "Daily Reset",
+    description: "A glanceable card with today's Soluna Shift — your reframe, reset, and brave tiny action — updated each morning. No doom-scrolling, just a warm reminder that you're supported.",
+    notificationExample: "Your 2-minute reset is ready. Today favors repair, not pressure.",
+    emoji: "🌸",
+  },
+  {
+    id: "weekly-pattern",
+    title: "Weekly Pattern",
+    description: "See which themes kept surfacing, which systems agreed most often, and one thing to carry forward. A Sunday morning check-in that actually feels grounding.",
+    notificationExample: "Your systems agree: simplify. This week's pattern is ready.",
+    emoji: "📊",
+  },
+  {
+    id: "bond-ritual",
+    title: "Bond Ritual Reminder",
+    description: "Gentle nudges for your linked Bonds — how to support each other today, when the best day for a deeper conversation is, and a shared journal prompt.",
+    notificationExample: "Today favors repair, not pressure. Your Bond insight is ready.",
+    emoji: "💞",
+  },
+];
+
+// ══════════════════════════════════════════════════════════════════
 // SYNTHESIS
 // ══════════════════════════════════════════════════════════════════
 
