@@ -3,11 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { RITUALS, Fonts } from "@/constants/mockData";
+import { Fonts } from "@/constants/mockData";
+import { useRituals } from "@/lib/hooks";
 import { ChevronLeft, Moon, Sparkles, Check } from "lucide-react-native";
 
 export default function RitualsScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { data: rituals = [] } = useRituals();
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
@@ -30,7 +32,7 @@ export default function RitualsScreen() {
           <Text style={s.calendarNote}>Next Full Moon: June 26, 2026 · Next New Moon: July 11, 2026</Text>
         </View>
 
-        {RITUALS.map((ritual) => (
+        {rituals.map((ritual) => (
           <TouchableOpacity
             key={ritual.id}
             style={s.ritualCard}

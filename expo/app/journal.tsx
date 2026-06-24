@@ -3,13 +3,24 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { JOURNAL_ENTRIES, Fonts } from "@/constants/mockData";
+import { Fonts } from "@/constants/mockData";
+import { useAddJournal, useJournal } from "@/lib/hooks";
 import { ChevronLeft, BookOpen, Sparkles, Calendar, Plus } from "lucide-react-native";
 
 export default function JournalScreen() {
   const [showNewEntry, setShowNewEntry] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
+  const { data: entries = [] } = useJournal();
+  const addJournal = useAddJournal();
+
+  const saveEntry = async () => {
+    if (!newTitle) return;
+    await addJournal.mutateAsync({ title: newTitle, body: newContent || newTitle });
+    setShowNewEntry(false);
+    setNewTitle("");
+    setNewContent("");
+  };
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
@@ -34,7 +45,7 @@ export default function JournalScreen() {
             <TextInput style={s.inputContent} value={newContent} onChangeText={setNewContent} placeholder="What's on your mind? How are you feeling? What's one thing you noticed today?" placeholderTextColor={SolunaColors.creamSubtle} multiline textAlignVertical="top" />
             <View style={s.newEntryBtns}>
               <TouchableOpacity style={s.cancelBtn} onPress={() => setShowNewEntry(false)}><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[s.saveEntryBtn, !newTitle && { opacity: 0.5 }]} disabled={!newTitle}>
+              <TouchableOpacity style={[s.saveEntryBtn, !newTitle && { opacity: 0.5 }]} disabled={!newTitle} onPress={saveEntry}>
                 <BookOpen size={16} color={SolunaColors.deepIndigo} />
                 <Text style={s.saveEntryText}>Save Entry</Text>
               </TouchableOpacity>
@@ -43,7 +54,7 @@ export default function JournalScreen() {
         )}
 
         <Text style={s.sectionTitle}>Your Entries</Text>
-        {JOURNAL_ENTRIES.map((entry) => (
+        {entries.map((entry) => (
           <TouchableOpacity key={entry.id} style={s.entryCard} activeOpacity={0.7}>
             <View style={s.entryHeader}>
               <Calendar size={14} color={SolunaColors.creamMuted} />
