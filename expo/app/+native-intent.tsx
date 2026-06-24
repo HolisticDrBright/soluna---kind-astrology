@@ -1,3 +1,3 @@
-export function redirectSystemPath({ path, initial }: { path: string; initial: boolean }) {
-  return "/";
+export function redirectSystemPath({ path }: { path: string; initial: boolean }) {
+  return path;
 }

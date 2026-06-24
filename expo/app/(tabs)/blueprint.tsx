@@ -5,11 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
-  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Component } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
@@ -33,54 +32,37 @@ import {
 
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
 
-// ─── Error Boundary ───────────────────────────────────────────────
-class BlueprintErrorBoundary extends React.Component<
+// ─── Error Boundary (shows actual error) ──────────────────────────
+class CrashBoundary extends Component<
   { children: React.ReactNode },
-  { hasError: boolean }
+  { hasError: boolean; errorMsg: string }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMsg: "" };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMsg: error?.message ?? String(error) };
   }
   render() {
     if (this.state.hasError) {
       return (
-        <View style={errorStyles.container}>
-          <Text style={errorStyles.title}>Something went wrong</Text>
-          <Text style={errorStyles.sub}>
-            We're having trouble displaying your blueprint. This is a known
-            issue we're working on.
-          </Text>
+        <View style={errS.wrap}>
+          <Text style={errS.title}>Blueprint Error</Text>
+          <Text style={errS.msg}>{this.state.errorMsg}</Text>
         </View>
       );
     }
     return this.props.children;
   }
 }
-
-const errorStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SolunaColors.deepIndigo,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
+const errS = StyleSheet.create({
+  wrap: {
+    flex: 1, backgroundColor: SolunaColors.deepIndigo,
+    alignItems: "center", justifyContent: "center", padding: 32,
   },
-  title: {
-    fontSize: 20,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.cream,
-    marginBottom: 12,
-  },
-  sub: {
-    fontSize: 14,
-    color: SolunaColors.creamMuted,
-    textAlign: "center",
-    lineHeight: 22,
-  },
+  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
+  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
 });
 
 // ─── Safe ordinal ─────────────────────────────────────────────────
@@ -95,7 +77,7 @@ function ordinal(n: number): string {
   return "th";
 }
 
-// ─── Natal Chart Wheel (web-safe) ─────────────────────────────────
+// ─── Natal Chart Wheel ────────────────────────────────────────────
 function NatalChartWheel() {
   const { width: windowW } = useWindowDimensions();
   const chartSize = Math.max(windowW - 64, 100);
@@ -152,10 +134,7 @@ function NatalChartWheel() {
   return (
     <Svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
       {/* Outer glow ring */}
-      <Circle
-        cx={cx} cy={cy} r={ringOuter + 8}
-        fill="none" stroke="rgba(232,184,109,0.08)" strokeWidth={8}
-      />
+      <Circle cx={cx} cy={cy} r={ringOuter + 8} fill="none" stroke="rgba(232,184,109,0.08)" strokeWidth={8} />
       {/* Zodiac segments */}
       {zodiacSegments.map((seg) => (
         <G key={seg.sign}>
@@ -164,21 +143,13 @@ function NatalChartWheel() {
             y1={cy + ringInner * Math.sin(seg.startRad)}
             x2={cx + ringOuter * Math.cos(seg.startRad)}
             y2={cy + ringOuter * Math.sin(seg.startRad)}
-            stroke={
-              seg.isActiveSign
-                ? "rgba(232,184,109,0.3)"
-                : "rgba(255,255,255,0.08)"
-            }
+            stroke={seg.isActiveSign ? "rgba(232,184,109,0.3)" : "rgba(255,255,255,0.08)"}
             strokeWidth={1}
           />
           <SvgText
             x={seg.mx}
             y={seg.my}
-            fill={
-              seg.isActiveSign
-                ? SolunaColors.warmGold
-                : SolunaColors.creamMuted
-            }
+            fill={seg.isActiveSign ? SolunaColors.warmGold : SolunaColors.creamMuted}
             fontSize={11}
             fontWeight={seg.isActiveSign ? "bold" : "normal"}
             textAnchor="middle"
@@ -243,7 +214,7 @@ function NatalChartWheel() {
   );
 }
 
-// ─── Bodygraph (simplified Human Design) ──────────────────────────
+// ─── Bodygraph ────────────────────────────────────────────────────
 const BG_W = 280;
 const BG_H = 280;
 
@@ -290,11 +261,11 @@ function BodyGraph() {
   );
 }
 
-// ─── Simple card wrapper ──────────────────────────────────────────
+// ─── Card wrapper ─────────────────────────────────────────────────
 function Card({ children }: { children: React.ReactNode }) {
-  return <View style={cardStyles.card}>{children}</View>;
+  return <View style={cardS.card}>{children}</View>;
 }
-const cardStyles = StyleSheet.create({
+const cardS = StyleSheet.create({
   card: {
     backgroundColor: SolunaColors.cardBg,
     borderRadius: SolunaRadius.md,
@@ -305,7 +276,7 @@ const cardStyles = StyleSheet.create({
   },
 });
 
-// ─── Lens icon components ─────────────────────────────────────────
+// ─── Lens icon helpers ────────────────────────────────────────────
 function HashIcon({ color, size }: { color: string; size: number }) {
   return <Text style={{ color, fontSize: size, fontWeight: "600" }}>#</Text>;
 }
@@ -316,7 +287,7 @@ function CpuIcon({ color, size }: { color: string; size: number }) {
   return <Text style={{ color, fontSize: size }}>{"\u2699"}</Text>;
 }
 
-// ─── Blueprint Screen ─────────────────────────────────────────────
+// ─── Blueprint Content ────────────────────────────────────────────
 function BlueprintContent() {
   const { user } = useAppState();
   const [lens, setLens] = useState<SystemLens>("astrology");
@@ -338,8 +309,7 @@ function BlueprintContent() {
       >
         <Text style={s.title}>Your Blueprint</Text>
         <Text style={s.sub}>
-          {safeGet(user.preferredName, "You")}'s cosmic design across four
-          lenses
+          {safeGet(user.preferredName, "You")}'s cosmic design across four lenses
         </Text>
 
         {/* "Where it all connects" button */}
@@ -367,17 +337,11 @@ function BlueprintContent() {
               { key: "astrology" as const, label: "Astrology", icon: Star },
               { key: "numerology" as const, label: "Numerology", iconKind: "hash" as const },
               { key: "chinese" as const, label: "Chinese", iconKind: "bird" as const },
-              {
-                key: "humanDesign" as const,
-                label: "Human Design",
-                iconKind: "cpu" as const,
-              },
-            ]
+              { key: "humanDesign" as const, label: "Human Design", iconKind: "cpu" as const },
+            ] as const
           ).map((item) => {
             const isActive = lens === item.key;
-            const iconColor = isActive
-              ? SolunaColors.warmGold
-              : SolunaColors.creamMuted;
+            const iconColor = isActive ? SolunaColors.warmGold : SolunaColors.creamMuted;
 
             let iconEl: React.ReactNode;
             if ("icon" in item && item.icon) {
@@ -398,9 +362,7 @@ function BlueprintContent() {
                 onPress={() => setLens(item.key)}
               >
                 {iconEl}
-                <Text
-                  style={[s.lensText, isActive && s.lensTextActive]}
-                >
+                <Text style={[s.lensText, isActive && s.lensTextActive]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -453,21 +415,14 @@ function BlueprintContent() {
                     })
                   }
                 >
-                  <View
-                    style={[
-                      s.bigThreeIcon,
-                      { backgroundColor: `${item.color}15` },
-                    ]}
-                  >
+                  <View style={[s.bigThreeIcon, { backgroundColor: `${item.color}15` }]}>
                     <item.icon size={18} color={item.color} />
                   </View>
                   <View style={s.bigThreeInfo}>
                     <Text style={s.bigThreeLabel}>{item.planet}</Text>
                     <Text style={s.bigThreeVal}>
                       {symbol} {item.sign}
-                      {hasHouse
-                        ? ` \u00B7 ${item.house}${ordinal(item.house!)} House`
-                        : ""}
+                      {hasHouse ? ` \u00B7 ${item.house}${ordinal(item.house!)} House` : ""}
                     </Text>
                   </View>
                   <ChevronRight size={16} color={SolunaColors.creamSubtle} />
@@ -494,8 +449,7 @@ function BlueprintContent() {
                   <View style={{ flex: 1 }}>
                     <Text style={s.placementName}>{p.planet}</Text>
                     <Text style={s.placementDetail}>
-                      {symbol} {p.sign} \u00B7 {p.degree}\u00B0 \u00B7 House{" "}
-                      {p.house}
+                      {symbol} {p.sign} \u00B7 {p.degree}\u00B0 \u00B7 House {p.house}
                     </Text>
                   </View>
                   <ChevronRight size={14} color={SolunaColors.creamSubtle} />
@@ -510,24 +464,9 @@ function BlueprintContent() {
           <View>
             <Text style={s.sectionLabel}>Core Numbers</Text>
             {[
-              {
-                label: "Life Path",
-                value: user.numerology.lifePath,
-                desc: safeGet(user.numerology.lifePathMeaning, ""),
-                color: SolunaColors.warmGold,
-              },
-              {
-                label: "Expression",
-                value: user.numerology.expression,
-                desc: safeGet(user.numerology.expressionMeaning, ""),
-                color: SolunaColors.gentleLavender,
-              },
-              {
-                label: "Soul Urge",
-                value: user.numerology.soulUrge,
-                desc: safeGet(user.numerology.soulUrgeMeaning, ""),
-                color: SolunaColors.softPeach,
-              },
+              { label: "Life Path", value: user.numerology.lifePath, desc: safeGet(user.numerology.lifePathMeaning, ""), color: SolunaColors.warmGold },
+              { label: "Expression", value: user.numerology.expression, desc: safeGet(user.numerology.expressionMeaning, ""), color: SolunaColors.gentleLavender },
+              { label: "Soul Urge", value: user.numerology.soulUrge, desc: safeGet(user.numerology.soulUrgeMeaning, ""), color: SolunaColors.softPeach },
             ].map((num) => (
               <TouchableOpacity
                 key={num.label}
@@ -539,45 +478,21 @@ function BlueprintContent() {
                   })
                 }
               >
-                <View
-                  style={[
-                    s.numBadge,
-                    {
-                      backgroundColor: `${num.color}15`,
-                      borderColor: `${num.color}30`,
-                    },
-                  ]}
-                >
-                  <Text style={[s.numBadgeText, { color: num.color }]}>
-                    {num.value}
-                  </Text>
+                <View style={[s.numBadge, { backgroundColor: `${num.color}15`, borderColor: `${num.color}30` }]}>
+                  <Text style={[s.numBadgeText, { color: num.color }]}>{num.value}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.numLabel}>{num.label}</Text>
-                  <Text style={s.numDesc} numberOfLines={2}>
-                    {num.desc}
-                  </Text>
+                  <Text style={s.numDesc} numberOfLines={2}>{num.desc}</Text>
                 </View>
                 <ChevronRight size={16} color={SolunaColors.creamSubtle} />
               </TouchableOpacity>
             ))}
             <Text style={s.sectionLabel}>Personal Timing</Text>
             {[
-              {
-                label: "Personal Year",
-                value: safeGet(user.numerology.personalYear, 0),
-                meaning: safeGet(user.numerology.personalYearMeaning, ""),
-              },
-              {
-                label: "Personal Month",
-                value: safeGet(user.numerology.personalMonth, 0),
-                meaning: safeGet(user.numerology.personalMonthMeaning, ""),
-              },
-              {
-                label: "Personal Day",
-                value: safeGet(user.numerology.personalDay, 0),
-                meaning: safeGet(user.numerology.personalDayMeaning, ""),
-              },
+              { label: "Personal Year", value: safeGet(user.numerology.personalYear, 0), meaning: safeGet(user.numerology.personalYearMeaning, "") },
+              { label: "Personal Month", value: safeGet(user.numerology.personalMonth, 0), meaning: safeGet(user.numerology.personalMonthMeaning, "") },
+              { label: "Personal Day", value: safeGet(user.numerology.personalDay, 0), meaning: safeGet(user.numerology.personalDayMeaning, "") },
             ].map((t) => (
               <Card key={t.label}>
                 <View style={s.timingRow}>
@@ -601,18 +516,14 @@ function BlueprintContent() {
                   {safeGet(CHINESE_ANIMAL_EMOJI[user.chinese.animal], "")}
                 </Text>
                 <View>
-                  <Text style={s.chineseTitle}>
-                    {safeGet(user.chinese.elementAnimalLabel, "")}
-                  </Text>
+                  <Text style={s.chineseTitle}>{safeGet(user.chinese.elementAnimalLabel, "")}</Text>
                   <Text style={s.chineseElement}>
                     {safeGet(CHINESE_ELEMENT_EMOJI[user.chinese.element], "")}{" "}
                     {safeGet(user.chinese.element, "")} element
                   </Text>
                 </View>
               </View>
-              <Text style={s.chineseDesc}>
-                {safeGet(user.chinese.description, "")}
-              </Text>
+              <Text style={s.chineseDesc}>{safeGet(user.chinese.description, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>Strengths</Text>
             {(user.chinese.strengths ?? []).map((sx, i) => (
@@ -623,41 +534,24 @@ function BlueprintContent() {
             ))}
             <Text style={s.sectionLabel}>Gentle Growth Edge</Text>
             <Card>
-              <Text style={s.growthText}>
-                {safeGet(user.chinese.growthEdge, "")}
-              </Text>
+              <Text style={s.growthText}>{safeGet(user.chinese.growthEdge, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>BaZi Four Pillars (preview)</Text>
             {(user.chinese.bazi ?? []).map((pillar, i) => (
               <Card key={i}>
                 <View style={s.baziRow}>
-                  <Text style={s.baziStem}>
-                    {safeGet(pillar.heavenlyStem, "")}
-                  </Text>
+                  <Text style={s.baziStem}>{safeGet(pillar.heavenlyStem, "")}</Text>
                   <Text style={s.baziBranch}>
-                    {safeGet(
-                      CHINESE_ANIMAL_EMOJI[pillar.earthlyBranch],
-                      "",
-                    )}{" "}
+                    {safeGet(CHINESE_ANIMAL_EMOJI[pillar.earthlyBranch], "")}{" "}
                     {safeGet(pillar.earthlyBranch, "")}
                   </Text>
-                  <View
-                    style={[
-                      s.baziElemBadge,
-                      { backgroundColor: "rgba(255,255,255,0.05)" },
-                    ]}
-                  >
+                  <View style={[s.baziElemBadge, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
                     <Text style={s.baziElemText}>
-                      {safeGet(
-                        CHINESE_ELEMENT_EMOJI[pillar.element],
-                        "",
-                      )}
+                      {safeGet(CHINESE_ELEMENT_EMOJI[pillar.element], "")}
                     </Text>
                   </View>
                 </View>
-                <Text style={s.baziMeaning}>
-                  {safeGet(pillar.meaning, "")}
-                </Text>
+                <Text style={s.baziMeaning}>{safeGet(pillar.meaning, "")}</Text>
               </Card>
             ))}
           </View>
@@ -670,53 +564,33 @@ function BlueprintContent() {
               <BodyGraph />
             </View>
             <Card>
-              <Text style={s.hdType}>
-                {safeGet(user.humanDesign.type, "")}
-              </Text>
-              <Text style={s.hdDesc}>
-                {safeGet(user.humanDesign.typeDescription, "")}
-              </Text>
+              <Text style={s.hdType}>{safeGet(user.humanDesign.type, "")}</Text>
+              <Text style={s.hdDesc}>{safeGet(user.humanDesign.typeDescription, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>Strategy</Text>
             <Card>
-              <Text style={s.hdLabel}>
-                {safeGet(user.humanDesign.strategy, "")}
-              </Text>
-              <Text style={s.hdDesc}>
-                {safeGet(user.humanDesign.strategyDescription, "")}
-              </Text>
+              <Text style={s.hdLabel}>{safeGet(user.humanDesign.strategy, "")}</Text>
+              <Text style={s.hdDesc}>{safeGet(user.humanDesign.strategyDescription, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>Authority</Text>
             <Card>
-              <Text style={s.hdLabel}>
-                {safeGet(user.humanDesign.authority, "")}
-              </Text>
-              <Text style={s.hdDesc}>
-                {safeGet(user.humanDesign.authorityDescription, "")}
-              </Text>
+              <Text style={s.hdLabel}>{safeGet(user.humanDesign.authority, "")}</Text>
+              <Text style={s.hdDesc}>{safeGet(user.humanDesign.authorityDescription, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>Profile</Text>
             <Card>
-              <Text style={s.hdLabel}>
-                {safeGet(user.humanDesign.profile, "")}
-              </Text>
-              <Text style={s.hdDesc}>
-                {safeGet(user.humanDesign.profileDescription, "")}
-              </Text>
+              <Text style={s.hdLabel}>{safeGet(user.humanDesign.profile, "")}</Text>
+              <Text style={s.hdDesc}>{safeGet(user.humanDesign.profileDescription, "")}</Text>
             </Card>
             <Text style={s.sectionLabel}>Signature / Not-Self</Text>
             <View style={s.sigRow}>
               <Card>
                 <Text style={s.sigLabel}>Signature</Text>
-                <Text style={[s.sigVal, { color: SolunaColors.warmGold }]}>
-                  {safeGet(user.humanDesign.signature, "")}
-                </Text>
+                <Text style={[s.sigVal, { color: SolunaColors.warmGold }]}>{safeGet(user.humanDesign.signature, "")}</Text>
               </Card>
               <Card>
                 <Text style={s.sigLabel}>Not-Self</Text>
-                <Text style={[s.sigVal, { color: SolunaColors.softPeach }]}>
-                  {safeGet(user.humanDesign.notSelf, "")}
-                </Text>
+                <Text style={[s.sigVal, { color: SolunaColors.softPeach }]}>{safeGet(user.humanDesign.notSelf, "")}</Text>
               </Card>
             </View>
             <Text style={s.sectionLabel}>Strengths</Text>
@@ -737,9 +611,9 @@ function BlueprintContent() {
 
 export default function BlueprintScreen() {
   return (
-    <BlueprintErrorBoundary>
+    <CrashBoundary>
       <BlueprintContent />
-    </BlueprintErrorBoundary>
+    </CrashBoundary>
   );
 }
 
@@ -747,304 +621,60 @@ export default function BlueprintScreen() {
 const s = StyleSheet.create({
   gradient: { flex: 1 },
   scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: SolunaSpacing.md,
-    paddingTop: 60,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.cream,
-    marginBottom: 4,
-  },
-  sub: {
-    fontSize: 14,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-    marginBottom: 16,
-  },
+  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
+  title: { fontSize: 28, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 4 },
+  sub: { fontSize: 14, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 16 },
   synthesisBtn: { marginBottom: 16 },
   synthesisInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(232,184,109,0.08)",
-    borderRadius: SolunaRadius.md,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: "rgba(232,184,109,0.15)",
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.md,
+    paddingVertical: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)",
   },
-  synthesisText: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: SolunaColors.warmGold,
-    fontFamily: Fonts.body,
-  },
-  lensWrap: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: SolunaRadius.md,
-    padding: 4,
-    marginBottom: 20,
-  },
-  lensTab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingVertical: 10,
-    borderRadius: SolunaRadius.sm,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  lensTabActive: {
-    backgroundColor: "rgba(232,184,109,0.1)",
-    borderColor: "rgba(232,184,109,0.2)",
-  },
-  lensText: {
-    fontSize: 11,
-    fontWeight: "600" as const,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-  },
+  synthesisText: { fontSize: 14, fontWeight: "600" as const, color: SolunaColors.warmGold, fontFamily: Fonts.body },
+  lensWrap: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 4, marginBottom: 20 },
+  lensTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 10, borderRadius: SolunaRadius.sm, borderWidth: 1, borderColor: "transparent" },
+  lensTabActive: { backgroundColor: "rgba(232,184,109,0.1)", borderColor: "rgba(232,184,109,0.2)" },
+  lensText: { fontSize: 11, fontWeight: "600" as const, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
   lensTextActive: { color: SolunaColors.warmGold },
   chartWrap: { alignItems: "center", marginBottom: 20 },
-  sectionLabel: {
-    fontSize: 12,
-    color: SolunaColors.creamSubtle,
-    textTransform: "uppercase",
-    letterSpacing: 2,
-    fontWeight: "700" as const,
-    fontFamily: Fonts.body,
-    marginBottom: 10,
-    marginTop: 12,
-  },
-  bigThreeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SolunaColors.cardBg,
-    borderRadius: SolunaRadius.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: SolunaColors.cardBorder,
-    gap: 14,
-    marginBottom: 8,
-  },
-  bigThreeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  sectionLabel: { fontSize: 12, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700" as const, fontFamily: Fonts.body, marginBottom: 10, marginTop: 12 },
+  bigThreeRow: { flexDirection: "row", alignItems: "center", backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, gap: 14, marginBottom: 8 },
+  bigThreeIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   bigThreeInfo: { flex: 1 },
-  bigThreeLabel: {
-    fontSize: 11,
-    color: SolunaColors.creamSubtle,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    fontWeight: "700" as const,
-  },
-  bigThreeVal: {
-    fontSize: 15,
-    fontWeight: "600" as const,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-  },
-  placementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SolunaColors.cardBg,
-    borderRadius: SolunaRadius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: SolunaColors.cardBorder,
-    gap: 12,
-    marginBottom: 6,
-  },
-  glyphText: {
-    fontSize: 20,
-    color: SolunaColors.warmGold,
-    width: 36,
-    textAlign: "center",
-  },
-  placementName: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-  },
-  placementDetail: {
-    fontSize: 11,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-  },
-  // Numerology
-  numCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SolunaColors.cardBg,
-    borderRadius: SolunaRadius.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: SolunaColors.cardBorder,
-    gap: 14,
-    marginBottom: 8,
-  },
-  numBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  numBadgeText: {
-    fontSize: 22,
-    fontWeight: "700" as const,
-    fontFamily: Fonts.heading,
-  },
-  numLabel: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-    marginBottom: 2,
-  },
-  numDesc: {
-    fontSize: 12,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-    lineHeight: 17,
-  },
+  bigThreeLabel: { fontSize: 11, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700" as const },
+  bigThreeVal: { fontSize: 15, fontWeight: "600" as const, color: SolunaColors.cream, fontFamily: Fonts.body },
+  placementRow: { flexDirection: "row", alignItems: "center", backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 12, borderWidth: 1, borderColor: SolunaColors.cardBorder, gap: 12, marginBottom: 6 },
+  glyphText: { fontSize: 20, color: SolunaColors.warmGold, width: 36, textAlign: "center" },
+  placementName: { fontSize: 14, fontWeight: "600" as const, color: SolunaColors.cream, fontFamily: Fonts.body },
+  placementDetail: { fontSize: 11, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
+  numCard: { flexDirection: "row", alignItems: "center", backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, gap: 14, marginBottom: 8 },
+  numBadge: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  numBadgeText: { fontSize: 22, fontWeight: "700" as const, fontFamily: Fonts.heading },
+  numLabel: { fontSize: 14, fontWeight: "600" as const, color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 2 },
+  numDesc: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body, lineHeight: 17 },
   timingRow: { flexDirection: "row", gap: 14, alignItems: "center" },
-  timingBadge: {
-    fontSize: 28,
-    fontWeight: "700" as const,
-    color: SolunaColors.warmGold,
-    fontFamily: Fonts.heading,
-    width: 48,
-    textAlign: "center",
-  },
-  timingLabel: {
-    fontSize: 13,
-    fontWeight: "600" as const,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-    marginBottom: 3,
-  },
-  timingMeaning: {
-    fontSize: 12,
-    color: SolunaColors.creamMuted,
-    fontFamily: Fonts.body,
-    lineHeight: 17,
-  },
-  // Chinese
-  chineseHeader: {
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "center",
-    marginBottom: 12,
-  },
+  timingBadge: { fontSize: 28, fontWeight: "700" as const, color: SolunaColors.warmGold, fontFamily: Fonts.heading, width: 48, textAlign: "center" },
+  timingLabel: { fontSize: 13, fontWeight: "600" as const, color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 3 },
+  timingMeaning: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body, lineHeight: 17 },
+  chineseHeader: { flexDirection: "row", gap: 14, alignItems: "center", marginBottom: 12 },
   chineseEmoji: { fontSize: 40 },
-  chineseTitle: {
-    fontSize: 20,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.cream,
-    marginBottom: 2,
-  },
+  chineseTitle: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 2 },
   chineseElement: { fontSize: 14, color: SolunaColors.creamMuted },
-  chineseDesc: {
-    fontSize: 14,
-    color: SolunaColors.creamMuted,
-    lineHeight: 22,
-    fontFamily: Fonts.body,
-  },
-  strengthRow: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "flex-start",
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  strengthText: {
-    flex: 1,
-    fontSize: 13,
-    color: SolunaColors.cream,
-    lineHeight: 19,
-    fontFamily: Fonts.body,
-  },
-  growthText: {
-    fontSize: 14,
-    color: SolunaColors.softPeach,
-    lineHeight: 22,
-    fontFamily: Fonts.body,
-    fontStyle: "italic",
-  },
-  baziRow: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  baziStem: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: SolunaColors.warmGold,
-    fontFamily: Fonts.body,
-  },
-  baziBranch: {
-    fontSize: 14,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-  },
-  baziElemBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
+  chineseDesc: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
+  strengthRow: { flexDirection: "row", gap: 10, alignItems: "flex-start", marginBottom: 8, paddingHorizontal: 4 },
+  strengthText: { flex: 1, fontSize: 13, color: SolunaColors.cream, lineHeight: 19, fontFamily: Fonts.body },
+  growthText: { fontSize: 14, color: SolunaColors.softPeach, lineHeight: 22, fontFamily: Fonts.body, fontStyle: "italic" },
+  baziRow: { flexDirection: "row", gap: 10, alignItems: "center", marginBottom: 8 },
+  baziStem: { fontSize: 16, fontWeight: "700" as const, color: SolunaColors.warmGold, fontFamily: Fonts.body },
+  baziBranch: { fontSize: 14, color: SolunaColors.cream, fontFamily: Fonts.body },
+  baziElemBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   baziElemText: { fontSize: 14 },
-  baziMeaning: {
-    fontSize: 12,
-    color: SolunaColors.creamMuted,
-    lineHeight: 18,
-    fontFamily: Fonts.body,
-  },
-  // Human Design
+  baziMeaning: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18, fontFamily: Fonts.body },
   bgWrap: { alignItems: "center", marginBottom: 16 },
-  hdType: {
-    fontSize: 22,
-    fontFamily: Fonts.heading,
-    color: SolunaColors.warmGold,
-    marginBottom: 6,
-  },
-  hdDesc: {
-    fontSize: 14,
-    color: SolunaColors.creamMuted,
-    lineHeight: 22,
-    fontFamily: Fonts.body,
-  },
-  hdLabel: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: SolunaColors.cream,
-    fontFamily: Fonts.body,
-    marginBottom: 6,
-  },
+  hdType: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 6 },
+  hdDesc: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
+  hdLabel: { fontSize: 16, fontWeight: "700" as const, color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 6 },
   sigRow: { flexDirection: "row", gap: 10 },
-  sigLabel: {
-    fontSize: 11,
-    color: SolunaColors.creamSubtle,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    fontWeight: "700" as const,
-    marginBottom: 4,
-  },
-  sigVal: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    fontFamily: Fonts.body,
-  },
+  sigLabel: { fontSize: 11, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1, fontWeight: "700" as const, marginBottom: 4 },
+  sigVal: { fontSize: 16, fontWeight: "700" as const, fontFamily: Fonts.body },
 });

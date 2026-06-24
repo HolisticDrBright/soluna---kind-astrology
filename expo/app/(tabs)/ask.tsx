@@ -3,11 +3,38 @@ import {
   KeyboardAvoidingView, Platform, Animated as RNAnimated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, Component } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { MOCK_CHAT_HISTORY, Fonts, type ChatMessage } from "@/constants/mockData";
 import { Sparkles, Send, ArrowUp, Hash, Cpu } from "lucide-react-native";
+
+// ─── Error Boundary ──────────────────────────────────────────
+class CrashBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; errorMsg: string }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMsg: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMsg: error?.message ?? String(error) };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errS.wrap}>
+          <Text style={errS.title}>Ask Soluna Error</Text>
+          <Text style={errS.msg}>{this.state.errorMsg}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+const errS = StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: SolunaColors.deepIndigo, alignItems: "center", justifyContent: "center", padding: 32 },
+  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
+  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
+});
 
 const SUGGESTED_PROMPTS = [
   "What should I focus on today?",
@@ -83,7 +110,15 @@ const bS = StyleSheet.create({
   userTime: { color: SolunaColors.creamSubtle, textAlign: "right" }, solunaTime: { color: SolunaColors.creamSubtle },
 });
 
-export default function AskSolunaScreen() {
+const mockResponses: Record<string, string> = {
+  "what should i focus on today": "Based on your full blueprint, Maya, today's a beautiful day to focus on what feels nurturing — for yourself and for the people you care about. Your Cancer Sun (astrology) thrives when you're creating warmth, your Personal Day 7 (numerology) says this is a day for reflection not pushing, and your Generator design (Human Design) says wait to respond rather than initiate. Three systems, same message: softness is strength today.",
+  "explain my life path": "Your Life Path 3, Maya, is the Creative Communicator. You're here to express, to uplift, and to bring joy through your words and your art. This aligns beautifully with your Cancer Sun (astrology) — you lead with heart — and your Generator design (Human Design), which gives you sustainable creative energy when you're doing what you love. Your Wood Pig (Chinese astrology) adds generosity to the mix: you don't just create for yourself, you create to warm others. Your voice literally matters — don't underestimate it.",
+  "how's my week looking in love": "Your systems have a lot to say about love this week, Maya. Venus in Gemini is lighting up your 10th house (astrology) — connection might arrive through work or creative projects. Your Personal Month 3 (numerology) makes you especially magnetic and expressive. And your Emotional Authority (Human Design) reminds you: don't decide in the moment. Let the wave rise and fall before you know what's real. If you're in a relationship, share one thing you've been quietly thinking. If you're single, stay open — Mercury supports warm, honest conversations.",
+  "why do i feel restless": "I can see why across your systems, Maya. Mars in Virgo is activating your 3rd house (astrology) — a hum of 'something needs to change' without being clear about what. Your Personal Year 7 (numerology) is a year of inner reflection, not external action, which can feel restless when your soul is shifting beneath the surface. Your Generator design (Human Design) adds: frustration is the signal that you're trying to force rather than respond. The restlessness isn't wrong — it's your systems asking you to pause and listen before acting. Try 15 minutes of writing without judgment — you might be surprised what surfaces.",
+  fallback: "That's a beautiful question. Looking across your systems — your Cancer Sun (astrology), your Life Path 3 (numerology), your Wood Pig's generosity (Chinese), and your Generator design (Human Design) — I'd say this is something worth sitting with gently. Your intuition is sharper than you give it credit for. What does your first instinct tell you? I'm here to explore it together, across all four lenses.",
+};
+
+function AskContent() {
   const { user } = useAppState();
   const [messages, setMessages] = useState<ChatMessage[]>(MOCK_CHAT_HISTORY);
   const [input, setInput] = useState("");
@@ -163,13 +198,13 @@ export default function AskSolunaScreen() {
   );
 }
 
-const mockResponses: Record<string, string> = {
-  "what should i focus on today": "Based on your full blueprint, Maya, today's a beautiful day to focus on what feels nurturing — for yourself and for the people you care about. Your Cancer Sun (astrology) thrives when you're creating warmth, your Personal Day 7 (numerology) says this is a day for reflection not pushing, and your Generator design (Human Design) says wait to respond rather than initiate. Three systems, same message: softness is strength today.",
-  "explain my life path": "Your Life Path 3, Maya, is the Creative Communicator. You're here to express, to uplift, and to bring joy through your words and your art. This aligns beautifully with your Cancer Sun (astrology) — you lead with heart — and your Generator design (Human Design), which gives you sustainable creative energy when you're doing what you love. Your Wood Pig (Chinese astrology) adds generosity to the mix: you don't just create for yourself, you create to warm others. Your voice literally matters — don't underestimate it.",
-  "how's my week looking in love": "Your systems have a lot to say about love this week, Maya. Venus in Gemini is lighting up your 10th house (astrology) — connection might arrive through work or creative projects. Your Personal Month 3 (numerology) makes you especially magnetic and expressive. And your Emotional Authority (Human Design) reminds you: don't decide in the moment. Let the wave rise and fall before you know what's real. If you're in a relationship, share one thing you've been quietly thinking. If you're single, stay open — Mercury supports warm, honest conversations.",
-  "why do i feel restless": "I can see why across your systems, Maya. Mars in Virgo is activating your 3rd house (astrology) — a hum of 'something needs to change' without being clear about what. Your Personal Year 7 (numerology) is a year of inner reflection, not external action, which can feel restless when your soul is shifting beneath the surface. Your Generator design (Human Design) adds: frustration is the signal that you're trying to force rather than respond. The restlessness isn't wrong — it's your systems asking you to pause and listen before acting. Try 15 minutes of writing without judgment — you might be surprised what surfaces.",
-  fallback: "That's a beautiful question. Looking across your systems — your Cancer Sun (astrology), your Life Path 3 (numerology), your Wood Pig's generosity (Chinese), and your Generator design (Human Design) — I'd say this is something worth sitting with gently. Your intuition is sharper than you give it credit for. What does your first instinct tell you? I'm here to explore it together, across all four lenses.",
-};
+export default function AskSolunaScreen() {
+  return (
+    <CrashBoundary>
+      <AskContent />
+    </CrashBoundary>
+  );
+}
 
 const st = StyleSheet.create({
   gradient: { flex: 1 },

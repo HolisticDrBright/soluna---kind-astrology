@@ -3,11 +3,38 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, Component } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts } from "@/constants/mockData";
 import { Heart, Plus, ChevronRight, Sparkles, Hash, Bird } from "lucide-react-native";
+
+// ─── Error Boundary ──────────────────────────────────────────
+class CrashBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; errorMsg: string }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMsg: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMsg: error?.message ?? String(error) };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errS.wrap}>
+          <Text style={errS.title}>Connections Error</Text>
+          <Text style={errS.msg}>{this.state.errorMsg}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+const errS = StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: SolunaColors.deepIndigo, alignItems: "center", justifyContent: "center", padding: 32 },
+  title: { fontSize: 20, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 12 },
+  msg: { fontSize: 14, color: SolunaColors.creamMuted, textAlign: "center", lineHeight: 22 },
+});
 
 function ScoreRing({ score, label }: { score: number; label: string }) {
   const color = score >= 80 ? SolunaColors.warmGold : score >= 60 ? SolunaColors.gentleLavender : SolunaColors.softPeach;
@@ -60,7 +87,7 @@ const fS = StyleSheet.create({
   addText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });
 
-export default function ConnectionsScreen() {
+function ConnectionsContent() {
   const { user } = useAppState();
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -119,6 +146,14 @@ export default function ConnectionsScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
     </LinearGradient>
+  );
+}
+
+export default function ConnectionsScreen() {
+  return (
+    <CrashBoundary>
+      <ConnectionsContent />
+    </CrashBoundary>
   );
 }
 
