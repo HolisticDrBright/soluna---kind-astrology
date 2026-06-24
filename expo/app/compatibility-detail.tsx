@@ -5,9 +5,9 @@ import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { useAuth } from "@/state/useAuth";
-import { useCompatibility, useConnections } from "@/lib/hooks";
+import { useCompatibility, useConnections, useToggleSaved } from "@/lib/hooks";
 import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens, type ZodiacSign } from "@/constants/mockData";
-import { ChevronLeft, Heart, Star, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
+import { ChevronLeft, Heart, Star, Sparkles, Share2, Hash, Bird, Bookmark } from "lucide-react-native";
 
 interface CompatView {
   name: string;
@@ -35,6 +35,8 @@ export default function CompatibilityDetailScreen() {
 
   const { data: rawConnections } = useConnections();
   const { data: liveCompat, isLoading: compatLoading } = useCompatibility(live ? id : undefined, lens.toLowerCase());
+  const toggleSaved = useToggleSaved();
+  const [saved, setSaved] = useState(false);
 
   if (!user || !id) return null;
 
@@ -162,11 +164,24 @@ export default function CompatibilityDetailScreen() {
           <Text style={st.lensInsightText}>{person.lensTip}</Text>
         </View>
 
-        {/* Share button */}
-        <TouchableOpacity style={st.shareBtn} activeOpacity={0.8} onPress={onShare}>
-          <Share2 size={16} color={SolunaColors.warmGold} />
-          <Text style={st.shareBtnText}>Share this result</Text>
-        </TouchableOpacity>
+        {/* Share + Save */}
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TouchableOpacity style={[st.shareBtn, { flex: 1 }]} activeOpacity={0.8} onPress={onShare}>
+            <Share2 size={16} color={SolunaColors.warmGold} />
+            <Text style={st.shareBtnText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[st.shareBtn, { flex: 1 }]}
+            activeOpacity={0.8}
+            onPress={() => {
+              setSaved(true);
+              toggleSaved.mutate({ kind: "compatibility", refId: `${id}:${lens.toLowerCase()}`, payload: { name: person.name, label: person.label, score: person.score } });
+            }}
+          >
+            <Bookmark size={16} color={saved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={saved ? SolunaColors.warmGold : "none"} />
+            <Text style={st.shareBtnText}>{saved ? "Saved" : "Save"}</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 60 }} />
       </ScrollView>

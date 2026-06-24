@@ -120,6 +120,7 @@ function RootNavigator() {
         <Stack.Screen name="tarot" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="rituals" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="journal" options={{ presentation: "card", animation: "slide_from_right" }} />
+        <Stack.Screen name="saved" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="paywall" options={{ presentation: "modal", animation: "fade" }} />
       </Stack>
     </GestureHandlerRootView>

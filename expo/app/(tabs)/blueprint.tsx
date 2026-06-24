@@ -23,6 +23,8 @@ import {
   Fonts,
   type ZodiacSign,
   type Planet,
+  type Placement,
+  type HDCenter,
 } from "@/constants/mockData";
 import {
   Sun,
@@ -45,7 +47,7 @@ const CY = CHART_SIZE / 2;
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
 
 // ─── Natal Chart Wheel ────────────────────────────────────────────
-function NatalChartWheel() {
+function NatalChartWheel({ placements, activeSigns }: { placements: Placement[]; activeSigns: ZodiacSign[] }) {
   const ringOuter = CHART_RADIUS - 4;
   const ringInner = ringOuter - 40;
   const houseRing = ringInner - 2;
@@ -59,7 +61,7 @@ function NatalChartWheel() {
     const endRad = endAngleDeg * (Math.PI / 180);
     const mx = CX + (ringOuter - 20) * Math.cos((startRad + endRad) / 2);
     const my = CY + (ringOuter - 20) * Math.sin((startRad + endRad) / 2);
-    const isActiveSign = sign === "Cancer" || sign === "Pisces" || sign === "Libra";
+    const isActiveSign = activeSigns.includes(sign);
     return { sign, startRad, endRad, mx, my, isActiveSign };
   });
 
@@ -69,18 +71,15 @@ function NatalChartWheel() {
     return { house: i + 1, rad };
   });
 
-  const planetPositions = [
-    { label: "☉", angle: 0, dist: innerRing - 6, big: true },
-    { label: "☽", angle: 60, dist: innerRing - 18, big: true },
-    { label: "☿", angle: 85, dist: innerRing - 6, big: true },
-    { label: "♀", angle: 135, dist: innerRing - 10, big: false },
-    { label: "♂", angle: 170, dist: innerRing - 18, big: false },
-    { label: "♃", angle: 220, dist: innerRing - 6, big: false },
-    { label: "♄", angle: 260, dist: innerRing - 12, big: false },
-    { label: "♅", angle: 290, dist: innerRing - 18, big: false },
-    { label: "♆", angle: 320, dist: innerRing - 6, big: false },
-    { label: "♇", angle: 350, dist: innerRing - 14, big: false },
-  ];
+  // Plot each planet at its true ecliptic longitude (signIndex*30 + degree).
+  // The zodiac ring places 0° Aries at angle -105°, so angle = longitude - 105.
+  const planetPositions = placements.map((p, i) => {
+    const lon = ZODIAC.indexOf(p.sign) * 30 + (p.degree ?? 0);
+    const rad = (lon - 105) * (Math.PI / 180);
+    const big = p.planet === "Sun" || p.planet === "Moon";
+    const dist = innerRing - 6 - (i % 3) * 9; // gentle stagger to reduce overlap
+    return { label: PLANET_SYMBOLS[p.planet], x: CX + dist * Math.cos(rad), y: CY + dist * Math.sin(rad), big };
+  });
 
   return (
     <Svg width={CHART_SIZE} height={CHART_SIZE}>
@@ -125,17 +124,12 @@ function NatalChartWheel() {
       <Circle cx={CX} cy={CY} r={innerRing} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
       <Circle cx={CX} cy={CY} r={22} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />
       <SvgText x={CX} y={CY} fill={SolunaColors.warmGold} fontSize={10} textAnchor="middle" alignmentBaseline="middle" fontWeight="700">☉</SvgText>
-      {planetPositions.map((p, i) => {
-        const rad = (p.angle - 90) * (Math.PI / 180);
-        const x = CX + p.dist * Math.cos(rad);
-        const y = CY + p.dist * Math.sin(rad);
-        return (
-          <G key={i}>
-            {p.big && <Circle cx={x} cy={y} r={14} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.25)" strokeWidth={1} />}
-            <SvgText x={x} y={y} fill={p.big ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={p.big ? 16 : 13} textAnchor="middle" alignmentBaseline="middle" fontWeight={p.big ? "700" : "400"}>{p.label}</SvgText>
-          </G>
-        );
-      })}
+      {planetPositions.map((p, i) => (
+        <G key={i}>
+          {p.big && <Circle cx={p.x} cy={p.y} r={14} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.25)" strokeWidth={1} />}
+          <SvgText x={p.x} y={p.y} fill={p.big ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={p.big ? 16 : 13} textAnchor="middle" alignmentBaseline="middle" fontWeight={p.big ? "700" : "400"}>{p.label}</SvgText>
+        </G>
+      ))}
     </Svg>
   );
 }
@@ -144,18 +138,22 @@ function NatalChartWheel() {
 const BG_W = 280;
 const BG_H = 280;
 
-function BodyGraph() {
+function BodyGraph({ centers }: { centers: HDCenter[] }) {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+  const definedByName = new Map(centers.map((c) => [norm(c.name), c.defined]));
+  const isDefined = (name: string) => definedByName.get(norm(name)) ?? false;
+
   const centerPositions = [
-    { name: "Head", x: BG_W / 2, y: 30, defined: false },
-    { name: "Ajna", x: BG_W / 2, y: 75, defined: false },
-    { name: "Throat", x: BG_W / 2, y: 125, defined: true },
-    { name: "G", x: BG_W / 2, y: 180, defined: true },
-    { name: "Heart", x: BG_W / 2 - 50, y: 145, defined: false },
-    { name: "Sacral", x: BG_W / 2, y: 210, defined: true },
-    { name: "Solar Plexus", x: BG_W / 2 + 50, y: 165, defined: true },
-    { name: "Spleen", x: BG_W / 2 - 50, y: 200, defined: false },
-    { name: "Root", x: BG_W / 2, y: 250, defined: true },
-  ];
+    { name: "Head", x: BG_W / 2, y: 30 },
+    { name: "Ajna", x: BG_W / 2, y: 75 },
+    { name: "Throat", x: BG_W / 2, y: 125 },
+    { name: "G", x: BG_W / 2, y: 180 },
+    { name: "Heart", x: BG_W / 2 - 50, y: 145 },
+    { name: "Sacral", x: BG_W / 2, y: 210 },
+    { name: "Solar Plexus", x: BG_W / 2 + 50, y: 165 },
+    { name: "Spleen", x: BG_W / 2 - 50, y: 200 },
+    { name: "Root", x: BG_W / 2, y: 250 },
+  ].map((c) => ({ ...c, defined: isDefined(c.name) }));
 
   return (
     <Svg width={BG_W} height={BG_H}>
@@ -250,7 +248,12 @@ export default function BlueprintScreen() {
         {/* Astrology lens */}
         {lens === "astrology" && (
           <View>
-            <View style={s.chartWrap}><NatalChartWheel /></View>
+            <View style={s.chartWrap}>
+              <NatalChartWheel
+                placements={user.chart.placements}
+                activeSigns={[user.chart.sun.sign, user.chart.moon.sign, user.chart.rising]}
+              />
+            </View>
             <Text style={s.sectionLabel}>Big Three</Text>
             {[
               { planet: "Sun", sign: user.chart.sun.sign, house: user.chart.sun.house, icon: Sun, color: SolunaColors.warmGold },
@@ -374,7 +377,7 @@ export default function BlueprintScreen() {
         {/* Human Design lens */}
         {lens === "humanDesign" && (
           <View>
-            <View style={s.bgWrap}><BodyGraph /></View>
+            <View style={s.bgWrap}><BodyGraph centers={user.humanDesign.centers} /></View>
             <Card>
               <Text style={s.hdType}>{user.humanDesign.type}</Text>
               <Text style={s.hdDesc}>{user.humanDesign.typeDescription}</Text>

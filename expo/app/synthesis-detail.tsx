@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
+import { useToggleSaved } from "@/lib/hooks";
 import { SYNTHESIS_THEMES, Fonts } from "@/constants/mockData";
-import { ChevronLeft, Sparkles, Star, Moon, Hash, Bird, Cpu, Heart } from "lucide-react-native";
+import { ChevronLeft, Sparkles, Star, Moon, Hash, Bird, Cpu, Heart, Bookmark } from "lucide-react-native";
 
 const systemIcons: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   astrology: Star,
@@ -22,6 +23,8 @@ const systemColors: Record<string, string> = {
 
 export default function SynthesisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const toggleSaved = useToggleSaved();
+  const [saved, setSaved] = useState(false);
   const theme = SYNTHESIS_THEMES.find((t) => t.id === id);
   if (!theme) return null;
 
@@ -72,6 +75,15 @@ export default function SynthesisDetailScreen() {
           <Text style={s.combinedText}>{theme.combinedTakeaway}</Text>
         </View>
 
+        <TouchableOpacity
+          style={s.saveBtn}
+          activeOpacity={0.8}
+          onPress={() => { setSaved(true); toggleSaved.mutate({ kind: "synthesis", refId: theme.id, payload: { title: theme.title } }); }}
+        >
+          <Bookmark size={16} color={saved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={saved ? SolunaColors.warmGold : "none"} />
+          <Text style={s.saveBtnText}>{saved ? "Saved" : "Save this synthesis"}</Text>
+        </TouchableOpacity>
+
         <Text style={s.footerNote}>When independent systems converge like this, it's not coincidence — it's your blueprint speaking clearly. The more lenses agree, the more you can trust the signal.</Text>
 
         <View style={{ height: 60 }} />
@@ -102,4 +114,6 @@ const s = StyleSheet.create({
   combinedTitle: { fontSize: 17, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
   combinedText: { fontSize: 15, color: SolunaColors.cream, lineHeight: 24, fontFamily: Fonts.body },
   footerNote: { fontSize: 12, color: SolunaColors.creamSubtle, textAlign: "center", lineHeight: 19, fontFamily: Fonts.body, fontStyle: "italic", paddingHorizontal: 20 },
+  saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.lg, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)", marginBottom: 16 },
+  saveBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
 });

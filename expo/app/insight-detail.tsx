@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
+import { useToggleSaved } from "@/lib/hooks";
 import {
   PLANET_SYMBOLS, ZODIAC_SYMBOLS, HOUSE_NAMES,
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
@@ -45,6 +46,8 @@ function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: numbe
 export default function InsightDetailScreen() {
   const { type, planet, number } = useLocalSearchParams<{ type: string; planet: string; number: string }>();
   const { user } = useAppState();
+  const toggleSaved = useToggleSaved();
+  const [saved, setSaved] = useState(false);
   if (!user || !type) return null;
 
   // Numeric insight
@@ -67,6 +70,9 @@ export default function InsightDetailScreen() {
           <View style={s.section}><Text style={s.interpretationTitle}>What This Gives You</Text>{info.strengths.map((sx, i) => (<View key={i} style={s.strengthRow}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>))}</View>
           <View style={s.section}><Text style={s.interpretationTitle}>Gentle Growth Edge</Text><Text style={s.growthText}>{info.growthEdge}</Text></View>
           <View style={s.section}><Text style={s.interpretationTitle}>Why You're Seeing This</Text><Text style={s.whyText}>In numerology, each number carries an archetypal vibration. Your {num} emerges from calculations based on your full birth name and birth date — it's not random, it's mathematical. This number describes a core thread in your life's pattern.</Text></View>
+          <TouchableOpacity style={[s.askBtn, { marginBottom: 10 }]} onPress={() => { setSaved(true); toggleSaved.mutate({ kind: "insight", refId: `number:${num}`, payload: { title: info.title } }); }}>
+            <Bookmark size={18} color={saved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={saved ? SolunaColors.warmGold : "none"} /><Text style={s.askBtnText}>{saved ? "Saved" : "Save this insight"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={s.askBtn} onPress={() => router.push("/(tabs)/ask")}><MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about your number {num}</Text></TouchableOpacity>
           <View style={{ height: 60 }} />
         </ScrollView>
@@ -117,6 +123,9 @@ export default function InsightDetailScreen() {
           <View style={s.section}><Text style={s.interpretationTitle}>What This Gives You</Text>{interp.strengths.map((sx, i) => (<View key={i} style={s.strengthRow}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>))}</View>
           <View style={s.section}><Text style={s.interpretationTitle}>Gentle Growth Edge</Text><Text style={s.growthText}>{interp.growthEdge}</Text></View>
           <View style={s.section}><Text style={s.interpretationTitle}>Why You're Seeing This</Text><Text style={s.whyText}>This placement comes from the exact position of {placement.planet} at the moment of your birth — {placement.degree}° into {placement.sign}, falling in your {placement.house}{["th","st","nd","rd"][placement.house%10>3?0:placement.house%10]||"th"} house. Your birth time and location determine which house each planet falls into.</Text></View>
+          <TouchableOpacity style={[s.askBtn, { marginBottom: 10 }]} onPress={() => { setSaved(true); toggleSaved.mutate({ kind: "insight", refId: `placement:${placement.planet}`, payload: { title: `${placement.planet} in ${placement.sign}` } }); }}>
+            <Bookmark size={18} color={saved ? SolunaColors.warmGold : SolunaColors.creamMuted} fill={saved ? SolunaColors.warmGold : "none"} /><Text style={s.askBtnText}>{saved ? "Saved" : "Save this insight"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={s.askBtn} onPress={() => router.push("/(tabs)/ask")}><MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about your {placement.planet} in {placement.sign}</Text></TouchableOpacity>
           <View style={{ height: 60 }} />
         </ScrollView>

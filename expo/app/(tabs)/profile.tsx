@@ -9,7 +9,7 @@ import { useEntitlements, useMe } from "@/lib/hooks";
 import { api } from "@/lib/apiClient";
 import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts } from "@/constants/mockData";
 import { getBlueprintSummary } from "@/constants/mockData";
-import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Bird, Cpu, Heart } from "lucide-react-native";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Bird, Cpu, Heart, Bookmark } from "lucide-react-native";
 
 function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
   return (
@@ -129,6 +129,11 @@ export default function ProfileScreen() {
         </View>
 
         {!isPremium && <PremiumBanner />}
+
+        <Text style={st.sectionTitle}>Library</Text>
+        <View style={st.card}>
+          <SettingRow icon={<Bookmark size={18} color={SolunaColors.warmGold} />} label="Saved items" onPress={() => router.push("/saved")} isLast />
+        </View>
 
         <Text style={st.sectionTitle}>Your Birth Details</Text>
         <View style={st.card}>
