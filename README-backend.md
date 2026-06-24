@@ -115,7 +115,20 @@ select vault.create_secret('<the same value as CRON_SECRET>', 'cron_secret');
 
 The migrations already register the schedules (`soluna-drain-queue` every minute,
 `soluna-daily-readings` hourly, `soluna-refresh-transits` daily,
-`soluna-reconcile` nightly). Confirm with `select * from cron.job;`.
+`soluna-bond-readings` daily, `soluna-reconcile` nightly). Confirm with
+`select * from cron.job;`.
+
+### Partner / Bond system
+
+Two users can link into a **Bond**: one sends a `partner/invite` (shareable
+code), the other opens the public `partner/invite/:code` preview and POSTs to
+`.../accept`, which links the accounts (`partner_links`), records a `referral`,
+and grants both a free Bond reading — all idempotent. `partner/bonds/:id` returns
+blended compatibility plus a daily two-person `bond_reading` (cached per link/day,
+generated on demand and by the `soluna-bond-readings` cron, which also pushes both
+partners). RLS lets **both** linked users read the shared `partner_links` and
+`bond_readings` rows; each side's `share_prefs` control which facets appear in the
+shared reading. The mock-user seed creates one linked Bond (Maya ❤ Sam).
 
 ### RevenueCat webhook
 
@@ -138,6 +151,8 @@ zod-validated, RLS-scoped. Call via `supabase.functions.invoke("<name>/...")`.
 | GET | `synthesis?theme=` | Expanded "where your systems agree" |
 | POST/GET | `ask` · `ask/history` | Ask Soluna — **streams SSE** + persists memory |
 | GET/POST | `connections` · `connections/:id/compatibility?lens=` | People + blended compatibility |
+| POST/GET | `partner/invite` · `partner/invite/:code` (public preview) · `.../accept` | Create invite, preview, link accounts (referral + free-Bond reward, idempotent) |
+| GET/PATCH/DELETE | `partner/bonds` · `partner/bonds/:id` | Bonds list + Bond Space (compatibility + daily two-person reading), share prefs, unlink |
 | POST/GET | `tarot/draw` · `tarot` | Draw (spreads beyond daily are Premium) |
 | POST/GET | `journal` | Journal entries |
 | GET | `rituals?phase=` | Moon-phase rituals |

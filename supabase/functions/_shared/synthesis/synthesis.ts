@@ -285,4 +285,101 @@ export async function extractMemoryFacts(userMessage: string): Promise<string[]>
   }
 }
 
+// ─── bond (two-person daily) reading ───────────────────────────────
+export interface SharePrefs {
+  shareSun?: boolean;
+  shareMoon?: boolean;
+  shareNumbers?: boolean;
+  shareChinese?: boolean;
+  shareHumanDesign?: boolean;
+}
+
+export interface SharedFacets {
+  name: string;
+  sun?: string;
+  moon?: string;
+  lifePath?: number;
+  chinese?: string;
+  hdType?: string;
+}
+
+interface BondSummary {
+  sunSign: string;
+  moonSign: string;
+  lifePath: number;
+  element: string;
+  animal: string;
+  hdType: string | null;
+}
+
+/** Reduce a blueprint summary to only the facets a user agreed to share. */
+export function shareFacets(name: string, summary: BondSummary, prefs: SharePrefs): SharedFacets {
+  return {
+    name,
+    sun: prefs.shareSun !== false ? summary.sunSign : undefined,
+    moon: prefs.shareMoon !== false ? summary.moonSign : undefined,
+    lifePath: prefs.shareNumbers !== false ? summary.lifePath : undefined,
+    chinese: prefs.shareChinese !== false ? `${summary.element} ${summary.animal}` : undefined,
+    hdType: prefs.shareHumanDesign !== false ? (summary.hdType ?? undefined) : undefined,
+  };
+}
+
+const bondSchema = z.object({
+  togetherText: z.string().min(20),
+  flowGrow: z.object({ flow: z.string(), grow: z.string() }),
+  sharedWeather: z.string(),
+});
+export type BondReading = z.infer<typeof bondSchema>;
+
+function facetLine(f: SharedFacets): string {
+  const parts: string[] = [];
+  if (f.sun) parts.push(`Sun ${f.sun}`);
+  if (f.moon) parts.push(`Moon ${f.moon}`);
+  if (f.lifePath) parts.push(`Life Path ${f.lifePath}`);
+  if (f.chinese) parts.push(f.chinese);
+  if (f.hdType) parts.push(f.hdType);
+  return parts.length ? parts.join(", ") : "(details kept private)";
+}
+
+export async function generateBondReading(
+  a: SharedFacets,
+  b: SharedFacets,
+  lens: string,
+  weather: { moonPhase: string; moonSign: string },
+): Promise<{ reading: BondReading; usedFallback: boolean }> {
+  const prompt = [
+    `Write today's two-person Bond reading for ${a.name} and ${b.name} (${lens} bond).`,
+    `${a.name}: ${facetLine(a)}.`,
+    `${b.name}: ${facetLine(b)}.`,
+    `Today's shared sky: Moon in ${weather.moonSign} (${weather.moonPhase}).`,
+    "",
+    "Return JSON {togetherText (2-3 warm sentences on how to support each other TODAY, " +
+    "ending with ONE concrete shared nudge), flowGrow {flow (where you naturally flow " +
+    "together), grow (a gentle shared growth edge, framed kindly as an invitation)}, " +
+    "sharedWeather (one warm line about today's shared energy)}.",
+  ].join("\n");
+  try {
+    const reading = await llm.completeJSON([{ role: "user", content: prompt }], bondSchema, {
+      temperature: 0.7,
+      maxTokens: 600,
+    });
+    return { reading, usedFallback: false };
+  } catch (_e) {
+    return {
+      reading: {
+        togetherText:
+          `Today is a lovely day for ${a.name} and ${b.name} to check in with each other. ` +
+          `Lead with curiosity and warmth — a small, genuine gesture goes a long way. ` +
+          `One nudge: ask each other one honest question today, and really listen.`,
+        flowGrow: {
+          flow: "You share real common ground that makes connecting feel easy and natural.",
+          grow: "Your differences are gentle invitations to understand each other more deeply.",
+        },
+        sharedWeather: `The Moon in ${weather.moonSign} softly colors the mood you share today.`,
+      },
+      usedFallback: true,
+    };
+  }
+}
+
 export { LLMUnavailableError };

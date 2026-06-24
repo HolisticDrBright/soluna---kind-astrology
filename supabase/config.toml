@@ -79,6 +79,11 @@ verify_jwt = true
 [functions.connections]
 verify_jwt = true
 
+[functions.partner]
+# Mixed auth: GET /partner/invite/:code is a public preview, the rest require a
+# JWT (enforced in-handler). So JWT verification is off at the gateway.
+verify_jwt = false
+
 [functions.tarot]
 verify_jwt = true
 
@@ -101,6 +106,9 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.cron-daily-readings]
+verify_jwt = false
+
+[functions.cron-bond-readings]
 verify_jwt = false
 
 [functions.cron-drain-queue]

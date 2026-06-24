@@ -44,6 +44,21 @@ export type ConnectionInput = z.infer<typeof connectionInput>;
 
 export const lensSchema = z.enum(["romance", "friendship", "work", "family"]);
 
+export const partnerInviteInput = z.object({
+  lens: lensSchema.default("romance"),
+  inviteeEmail: z.string().email().max(200).optional(),
+});
+export type PartnerInviteInput = z.infer<typeof partnerInviteInput>;
+
+export const sharePrefsInput = z.object({
+  shareSun: z.boolean().optional(),
+  shareMoon: z.boolean().optional(),
+  shareNumbers: z.boolean().optional(),
+  shareChinese: z.boolean().optional(),
+  shareHumanDesign: z.boolean().optional(),
+});
+export type SharePrefsInput = z.infer<typeof sharePrefsInput>;
+
 export const journalInput = z.object({
   entryDate: dateStr.optional(),
   title: z.string().max(200).optional(),
