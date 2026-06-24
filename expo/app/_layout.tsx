@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, router } from "expo-router";
+import { Stack, router, useRootNavigationState } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,12 +12,13 @@ const queryClient = new QueryClient();
 
 function RootStack() {
   const { hasOnboarded } = useAppState();
+  const rootNavState = useRootNavigationState();
 
   useEffect(() => {
-    if (!hasOnboarded) {
+    if (rootNavState?.key && !hasOnboarded) {
       router.replace("/onboarding");
     }
-  }, [hasOnboarded]);
+  }, [rootNavState?.key, hasOnboarded]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
