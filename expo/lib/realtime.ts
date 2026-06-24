@@ -24,6 +24,17 @@ export function useRealtimeSync(): void {
         { event: "UPDATE", schema: "public", table: "subscriptions", filter: `user_id=eq.${user.id}` },
         () => qc.invalidateQueries({ queryKey: ["entitlements"] }),
       )
+      // Bond readings: RLS restricts delivery to the user's own links. We can't
+      // express "link_id in (my links)" as a realtime filter, so subscribe
+      // broadly and refetch the user's bonds on any insert.
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "bond_readings" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["bonds"] });
+          qc.invalidateQueries({ queryKey: ["bondSpace"] });
+        },
+      )
       .subscribe();
 
     return () => {

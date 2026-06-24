@@ -11,6 +11,7 @@ import { backendBlueprintToUserData } from "@/lib/mappers";
 import { useRealtimeSync } from "@/lib/realtime";
 import { useRegisterPush } from "@/lib/push";
 import { configurePurchases } from "@/lib/purchases";
+import { takePendingInvite } from "@/lib/pendingInvite";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -63,8 +64,18 @@ function AuthGate() {
 
   useEffect(() => {
     if (!authActive || loading || !bootstrapped) return;
-    const inAuth = segments[0] === "auth";
-    if (!isAuthenticated && !inAuth) {
+    const top = segments[0];
+    const inAuth = top === "auth";
+    const onInvite = top === "invite";
+    // Resume a deep-linked invite once the user is signed in + set up.
+    if (isAuthenticated && hasOnboarded && !onInvite) {
+      const pending = takePendingInvite();
+      if (pending) {
+        router.replace(`/invite/${pending}`);
+        return;
+      }
+    }
+    if (!isAuthenticated && !inAuth && !onInvite) {
       router.replace("/auth");
     } else if (isAuthenticated && inAuth) {
       router.replace(hasOnboarded ? "/(tabs)" : "/onboarding");
@@ -99,6 +110,8 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth" options={{ animation: "fade" }} />
         <Stack.Screen name="onboarding" options={{ presentation: "fullScreenModal", animation: "fade" }} />
+        <Stack.Screen name="invite/[code]" options={{ presentation: "fullScreenModal", animation: "fade" }} />
+        <Stack.Screen name="bond-space" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="placement-detail" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="transit-detail" options={{ presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="compatibility-detail" options={{ presentation: "card", animation: "slide_from_right" }} />

@@ -1,23 +1,95 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
+import { useAuth } from "@/state/useAuth";
+import { useCompatibility, useConnections } from "@/lib/hooks";
+import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens, type ZodiacSign } from "@/constants/mockData";
 import { ChevronLeft, Heart, Star, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
 
+interface CompatView {
+  name: string;
+  initial: string;
+  sunSign?: ZodiacSign;
+  score: number;
+  label: string;
+  astrologyScore: number;
+  numerologyScore: number;
+  chineseScore: number;
+  blendedSummary: string;
+  whereYouFlow: string;
+  whereYouGrow: string;
+  howToLove: string[];
+  lensTip: string;
+}
+
 export default function CompatibilityDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, lens: lensParam } = useLocalSearchParams<{ id: string; lens?: string }>();
   const { user } = useAppState();
-  const [lens, setLens] = useState<RelationshipLens>("Romance");
+  const { authActive, isAuthenticated } = useAuth();
+  const live = authActive && isAuthenticated;
+  const initialLens = (lensParam ? lensParam.charAt(0).toUpperCase() + lensParam.slice(1) : "Romance") as RelationshipLens;
+  const [lens, setLens] = useState<RelationshipLens>(["Romance", "Friendship", "Work", "Family"].includes(initialLens) ? initialLens : "Romance");
+
+  const { data: rawConnections } = useConnections();
+  const { data: liveCompat, isLoading: compatLoading } = useCompatibility(live ? id : undefined, lens.toLowerCase());
 
   if (!user || !id) return null;
-  const person = CONNECTIONS.find((c) => c.id === id);
-  if (!person) return null;
 
-  const color = person.compatibilityScore >= 80 ? SolunaColors.warmGold : person.compatibilityScore >= 60 ? SolunaColors.gentleLavender : SolunaColors.softPeach;
-  const lensTips: Record<RelationshipLens, string> = { Romance: person.romanceTip, Friendship: person.friendshipTip, Work: person.workTip, Family: person.familyTip };
+  // Build a unified view from either the backend or the mock connection.
+  let view: CompatView | null = null;
+  if (live) {
+    const conn = ((rawConnections ?? []) as any[]).find((c) => c.id === id);
+    if (liveCompat) {
+      view = {
+        name: conn?.name ?? "Your connection",
+        initial: (conn?.name ?? "?").charAt(0).toUpperCase(),
+        sunSign: conn?.blueprint?.summary?.sunSign,
+        score: liveCompat.score ?? liveCompat.overall,
+        label: liveCompat.label,
+        astrologyScore: liveCompat.astrologyScore,
+        numerologyScore: liveCompat.numerologyScore,
+        chineseScore: liveCompat.chineseScore,
+        blendedSummary: liveCompat.blendedSummary,
+        whereYouFlow: liveCompat.whereYouFlow,
+        whereYouGrow: liveCompat.whereYouGrow,
+        howToLove: liveCompat.howToLove ?? [],
+        lensTip: liveCompat.tip,
+      };
+    }
+  } else {
+    const person = CONNECTIONS.find((c) => c.id === id);
+    if (person) {
+      const lensTips: Record<RelationshipLens, string> = { Romance: person.romanceTip, Friendship: person.friendshipTip, Work: person.workTip, Family: person.familyTip };
+      view = {
+        name: person.name, initial: person.avatarInitial, sunSign: person.sunSign,
+        score: person.compatibilityScore, label: person.compatibilityLabel,
+        astrologyScore: person.compatibilityScore, numerologyScore: person.numerologyScore, chineseScore: person.chineseScore,
+        blendedSummary: person.blendedSummary, whereYouFlow: person.whereYouFlow, whereYouGrow: person.whereYouGrow,
+        howToLove: person.howToLove, lensTip: lensTips[lens],
+      };
+    }
+  }
+
+  if (!view) {
+    return (
+      <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={[st.gradient, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={SolunaColors.warmGold} />
+        <Text style={{ color: SolunaColors.creamMuted, marginTop: 12, fontFamily: Fonts.body }}>
+          {compatLoading ? "Reading your connection…" : "Connection not found."}
+        </Text>
+      </LinearGradient>
+    );
+  }
+  const person = view;
+
+  const color = person.score >= 80 ? SolunaColors.warmGold : person.score >= 60 ? SolunaColors.gentleLavender : SolunaColors.softPeach;
+
+  const onShare = () => {
+    Share.share({ message: `${user.preferredName} & ${person.name} — ${person.score}% ${lens} compatibility on Soluna ✨` });
+  };
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.gradient}>
@@ -33,19 +105,19 @@ export default function CompatibilityDetailScreen() {
             </View>
             <View style={st.avatarsConnector}>
               <Heart size={20} color={color} fill={color} opacity={0.6} />
-              <View style={[st.scoreCircle, { borderColor: color }]}><Text style={[st.scoreText, { color }]}>{person.compatibilityScore}%</Text></View>
+              <View style={[st.scoreCircle, { borderColor: color }]}><Text style={[st.scoreText, { color }]}>{person.score}%</Text></View>
             </View>
             <View style={[st.avatar, { borderColor: color }]}>
-              <Text style={st.avatarText}>{person.avatarInitial}</Text>
-              <Text style={st.avatarSign}>{ZODIAC_SYMBOLS[person.sunSign]}</Text>
+              <Text style={st.avatarText}>{person.initial}</Text>
+              <Text style={st.avatarSign}>{person.sunSign ? ZODIAC_SYMBOLS[person.sunSign] : "✶"}</Text>
             </View>
           </View>
           <Text style={st.heroTitle}>{user.preferredName} & {person.name}</Text>
-          <View style={[st.labelBadge, { backgroundColor: `${color}15` }]}><Text style={[st.labelText, { color }]}>{person.compatibilityLabel}</Text></View>
+          <View style={[st.labelBadge, { backgroundColor: `${color}15` }]}><Text style={[st.labelText, { color }]}>{person.label}</Text></View>
 
           {/* Blended scores */}
           <View style={st.blendedRow}>
-            <View style={st.blendedItem}><Text style={st.blendedEmoji}>♋</Text><Text style={st.blendedScore}>{person.compatibilityScore}%</Text><Text style={st.blendedSys}>Astro</Text></View>
+            <View style={st.blendedItem}><Text style={st.blendedEmoji}>♋</Text><Text style={st.blendedScore}>{person.astrologyScore}%</Text><Text style={st.blendedSys}>Astro</Text></View>
             <View style={st.blendedDivider} />
             <View style={st.blendedItem}><Hash size={14} color={SolunaColors.gentleLavender} /><Text style={st.blendedScore}>{person.numerologyScore}%</Text><Text style={st.blendedSys}>Nums</Text></View>
             <View style={st.blendedDivider} />
@@ -87,11 +159,11 @@ export default function CompatibilityDetailScreen() {
         {/* Lens insight */}
         <View style={st.lensInsightCard}>
           <Text style={st.lensInsightLabel}>{lens} insight</Text>
-          <Text style={st.lensInsightText}>{lensTips[lens]}</Text>
+          <Text style={st.lensInsightText}>{person.lensTip}</Text>
         </View>
 
         {/* Share button */}
-        <TouchableOpacity style={st.shareBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={st.shareBtn} activeOpacity={0.8} onPress={onShare}>
           <Share2 size={16} color={SolunaColors.warmGold} />
           <Text style={st.shareBtnText}>Share this result</Text>
         </TouchableOpacity>

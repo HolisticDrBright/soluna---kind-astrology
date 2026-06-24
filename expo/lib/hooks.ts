@@ -3,6 +3,7 @@
 // shapes — otherwise. Screens consume `data` and don't care which source it is.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { USE_MOCK_DATA } from "@/constants/flags";
+import { BACKEND_CONFIGURED } from "@/config/api";
 import { useAuth } from "@/state/useAuth";
 import { api } from "@/lib/apiClient";
 import { backendReadingToDailyReading } from "@/lib/mappers";
@@ -184,6 +185,65 @@ export function useAddConnection() {
       return await api.addConnection(input);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["connections"] }),
+  });
+}
+
+// ─── Partner / Bonds ───────────────────────────────────────────────
+export function useBonds() {
+  const live = useLive();
+  return useQuery({
+    queryKey: ["bonds"],
+    enabled: live,
+    queryFn: async () => (await api.bonds()).bonds,
+    initialData: live ? undefined : [],
+  });
+}
+
+export function useBondSpace(linkId: string | undefined) {
+  const live = useLive();
+  return useQuery({
+    queryKey: ["bondSpace", linkId],
+    enabled: live && !!linkId,
+    queryFn: () => api.bondSpace(linkId!),
+  });
+}
+
+export function useCreateInvite() {
+  return useMutation({
+    mutationFn: (input: { lens: string; inviteeEmail?: string }) => api.createInvite(input),
+  });
+}
+
+// Invite preview works even before sign-in (the backend route is public).
+export function useInvitePreview(code: string | undefined) {
+  return useQuery({
+    queryKey: ["invitePreview", code],
+    enabled: !USE_MOCK_DATA && BACKEND_CONFIGURED && !!code,
+    queryFn: () => api.invitePreview(code!),
+  });
+}
+
+export function useAcceptInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => api.acceptInvite(code),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bonds"] }),
+  });
+}
+
+export function useUpdateBondPrefs(linkId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (prefs: Record<string, boolean>) => api.updateBondPrefs(linkId, prefs),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bondSpace", linkId] }),
+  });
+}
+
+export function useUnlinkBond() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) => api.unlinkBond(linkId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bonds"] }),
   });
 }
 

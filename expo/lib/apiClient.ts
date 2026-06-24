@@ -72,6 +72,15 @@ export const api = {
   compatibility: (id: string, lens: string) =>
     invoke<BackendCompatibility>(`connections/${id}/compatibility${qs({ lens })}`),
 
+  // ── Partner / Bonds ──
+  createInvite: (body: unknown) => invoke<InviteResponse>("partner/invite", { method: "POST", body }),
+  invitePreview: (code: string) => invoke<InvitePreview>(`partner/invite/${code}`),
+  acceptInvite: (code: string) => invoke<{ linkId: string; lens: string }>(`partner/invite/${code}/accept`, { method: "POST" }),
+  bonds: () => invoke<{ bonds: BackendBond[] }>("partner/bonds"),
+  bondSpace: (linkId: string) => invoke<BackendBondSpace>(`partner/bonds/${linkId}`),
+  updateBondPrefs: (linkId: string, body: unknown) => invoke<{ ok: boolean; sharePrefs: Record<string, boolean> }>(`partner/bonds/${linkId}`, { method: "PATCH", body }),
+  unlinkBond: (linkId: string) => invoke<{ ok: boolean }>(`partner/bonds/${linkId}`, { method: "DELETE" }),
+
   drawTarot: (body: unknown) => invoke<{ reading: BackendTarotReading }>("tarot/draw", { method: "POST", body }),
   tarotHistory: () => invoke<{ readings: BackendTarotReading[] }>("tarot"),
 
@@ -190,6 +199,16 @@ export interface BackendCompatibility {
   lens: string; score: number; overall: number; label: string; blendedSummary: string;
   whereYouFlow: string; whereYouGrow: string; howToLove: string[]; tip: string;
   astrologyScore: number; numerologyScore: number; chineseScore: number;
+}
+export interface InviteResponse { inviteCode: string; link: string; lens: string; rewardTeaser: string }
+export interface InvitePreview { valid: boolean; inviterName?: string; lens?: string; status?: string }
+export interface BackendBond { linkId: string; partnerName: string; lens: string; status: string; score: number | null }
+export interface BackendBondSpace {
+  link: { id: string; lens: string; status: string };
+  partner: { name: string };
+  sharePrefs: Record<string, boolean>;
+  compatibility: BackendCompatibility & { score: number };
+  bond: { togetherText: string; flowGrow: { flow: string; grow: string }; sharedWeather: string };
 }
 export interface BackendTarotReading {
   id: string; spread: string; cards: any[]; question: string | null;
