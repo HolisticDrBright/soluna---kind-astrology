@@ -1,0 +1,26 @@
+{
+  "imports": {
+    "supabase": "npm:@supabase/supabase-js@^2.47.10",
+    "zod": "npm:zod@^3.24.1",
+    "lunar-typescript": "npm:lunar-typescript@1.7.4",
+    "circular-natal-horoscope-js": "npm:circular-natal-horoscope-js@^1.1.0",
+    "@/": "./",
+    "@shared/": "./_shared/",
+    "@engines/": "./_shared/engines/",
+    "@synthesis/": "./_shared/synthesis/"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "tasks": {
+    "test": "deno test --allow-net --allow-env --allow-read _shared/",
+    "check": "deno check _shared/ onboarding/ blueprint/ today/ insight/ synthesis/ ask/ connections/ tarot/ journal/ rituals/ saved/ me/ entitlements/ billing-webhook/ cron-daily-readings/ cron-drain-queue/ cron-refresh-transits/"
+  }
+}

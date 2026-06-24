@@ -2,3 +2,10 @@ node_modules
 .env
 .expo
 .rork
+
+# Supabase
+supabase/.branches
+supabase/.temp
+supabase/functions/.env
+supabase/functions/.env.local
+**/.DS_Store

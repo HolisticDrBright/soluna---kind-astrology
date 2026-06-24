@@ -1,0 +1,176 @@
+// POST /ask            -> Ask Soluna, STREAMS tokens as SSE; persists messages + memory
+// GET  /ask/history     -> conversations or a conversation's messages
+//
+// Wellbeing: a deterministic crisis pre-screen short-circuits BEFORE any LLM call
+// and returns a supportive message with resources instead of a "prediction".
+import { getUser } from "../_shared/auth.ts";
+import { CORS_HEADERS, json, parse, serve, subPath } from "../_shared/http.ts";
+import { askInput, type AskInput } from "../_shared/schemas.ts";
+import { loadBlueprint } from "../_shared/repo.ts";
+import { serviceClient } from "../_shared/supabase.ts";
+import { logEvent } from "../_shared/log.ts";
+import { llm, LLMUnavailableError } from "../_shared/llm.ts";
+import { CRISIS_RESPONSE, detectCrisis } from "../_shared/voice.ts";
+import { buildChatSystem, extractMemoryFacts } from "../_shared/synthesis/synthesis.ts";
+
+const SYSTEM_KEYWORDS: Array<[string, RegExp]> = [
+  ["astrology", /\b(astrolog|moon|sun sign|rising|transit|venus|mars|mercury|saturn|jupiter|house)\b/i],
+  ["numerology", /\b(numerolog|life path|personal (year|month|day)|expression|soul urge)\b/i],
+  ["chinese", /\b(chinese|bazi|pillar|wood|metal|water pig|zodiac animal|rat|ox|tiger|dragon)\b/i],
+  ["human_design", /\b(human design|generator|projector|manifestor|reflector|sacral|authority|profile|gate)\b/i],
+  ["tarot", /\b(tarot|card|arcana)\b/i],
+];
+
+function referencedSystems(text: string): string[] {
+  return SYSTEM_KEYWORDS.filter(([, re]) => re.test(text)).map(([s]) => s);
+}
+
+function sse(data: string): Uint8Array {
+  return new TextEncoder().encode(`data: ${data}\n\n`);
+}
+
+Deno.serve(serve(async (req) => {
+  const user = await getUser(req);
+  const segs = subPath(req, "ask");
+
+  if (req.method === "GET" && segs[0] === "history") {
+    return await history(req, user.id);
+  }
+  if (req.method !== "POST") {
+    return json({ error: "Use POST /ask or GET /ask/history" }, 405);
+  }
+
+  const body = parse<AskInput>(askInput, await req.json());
+  const svc = serviceClient();
+
+  // Resolve / create the conversation.
+  let conversationId = body.conversationId;
+  if (conversationId) {
+    const { data } = await svc.from("ask_conversations").select("id")
+      .eq("id", conversationId).eq("user_id", user.id).maybeSingle();
+    if (!data) conversationId = undefined;
+  }
+  if (!conversationId) {
+    const { data } = await svc.from("ask_conversations")
+      .insert({ user_id: user.id, title: body.message.slice(0, 60) }).select("id").single();
+    conversationId = data!.id;
+  }
+  const convId: string = conversationId!;
+
+  // Persist the user message immediately.
+  await svc.from("ask_messages").insert({
+    conversation_id: convId,
+    role: "user",
+    content: body.message,
+  });
+
+  // Crisis short-circuit — no LLM, supportive resources instead.
+  if (detectCrisis(body.message)) {
+    await logEvent("guardrail_trip", { kind: "crisis_prescreen", conversationId: convId }, user.id);
+    await svc.from("ask_messages").insert({
+      conversation_id: convId,
+      role: "assistant",
+      content: CRISIS_RESPONSE,
+    });
+    return streamOnce(CRISIS_RESPONSE, convId);
+  }
+
+  const bp = await loadBlueprint(user.id);
+  if (!bp) return json({ error: "Complete onboarding first." }, 409);
+
+  // Memory + recent history.
+  const { data: mem } = await svc.from("ask_memory").select("fact")
+    .eq("user_id", user.id).order("salience", { ascending: false }).limit(12);
+  const memory = (mem ?? []).map((m) => m.fact);
+  const { data: hist } = await svc.from("ask_messages").select("role, content")
+    .eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(20);
+  const priorMessages = (hist ?? [])
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const system = buildChatSystem(bp, memory);
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let full = "";
+      try {
+        for await (const delta of llm.stream(priorMessages, { system, temperature: 0.7, maxTokens: 900 })) {
+          full += delta;
+          controller.enqueue(sse(JSON.stringify({ token: delta })));
+        }
+      } catch (e) {
+        if (e instanceof LLMUnavailableError && full.length === 0) {
+          full = "I'm having a little trouble reaching the stars right now — but I'm still here. " +
+            "Could you try asking me again in a moment?";
+          controller.enqueue(sse(JSON.stringify({ token: full })));
+        }
+      }
+      controller.enqueue(sse("[DONE]"));
+      controller.close();
+
+      // Persist + learn in the background (don't delay stream close).
+      const finalize = (async () => {
+        await svc.from("ask_messages").insert({
+          conversation_id: convId,
+          role: "assistant",
+          content: full,
+          systems_referenced: referencedSystems(full),
+        });
+        await logEvent("llm_call", { kind: "ask", conversationId: convId }, user.id);
+        const facts = await extractMemoryFacts(body.message);
+        if (facts.length) {
+          await svc.from("ask_memory").insert(facts.map((f) => ({ user_id: user.id, fact: f })));
+        }
+      })();
+      // deno-lint-ignore no-explicit-any
+      const rt = (globalThis as any).EdgeRuntime;
+      if (rt?.waitUntil) rt.waitUntil(finalize);
+      else await finalize;
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...CORS_HEADERS,
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      "x-conversation-id": convId,
+    },
+  });
+}));
+
+function streamOnce(text: string, conversationId: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(sse(JSON.stringify({ token: text })));
+      controller.enqueue(sse("[DONE]"));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      ...CORS_HEADERS,
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      "x-conversation-id": conversationId,
+    },
+  });
+}
+
+async function history(req: Request, userId: string): Promise<Response> {
+  const url = new URL(req.url);
+  const conversationId = url.searchParams.get("conversationId");
+  const svc = serviceClient();
+  if (conversationId) {
+    const { data: conv } = await svc.from("ask_conversations").select("id")
+      .eq("id", conversationId).eq("user_id", userId).maybeSingle();
+    if (!conv) return json({ messages: [] });
+    const { data } = await svc.from("ask_messages")
+      .select("id, role, content, systems_referenced, created_at")
+      .eq("conversation_id", conversationId).order("created_at", { ascending: true });
+    return json({ conversationId, messages: data ?? [] });
+  }
+  const { data } = await svc.from("ask_conversations")
+    .select("id, title, created_at").eq("user_id", userId).order("created_at", { ascending: false });
+  return json({ conversations: data ?? [] });
+}
