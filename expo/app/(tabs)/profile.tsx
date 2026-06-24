@@ -1,10 +1,13 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts, type BlueprintSummary } from "@/constants/mockData";
+import { useAuth } from "@/state/useAuth";
+import { useEntitlements, useMe } from "@/lib/hooks";
+import { api } from "@/lib/apiClient";
+import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts } from "@/constants/mockData";
 import { getBlueprintSummary } from "@/constants/mockData";
 import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Bird, Cpu, Heart } from "lucide-react-native";
 
@@ -78,10 +81,28 @@ const pS = StyleSheet.create({
 
 export default function ProfileScreen() {
   const { user, resetOnboarding } = useAppState();
+  const { authActive, isAuthenticated, signOut } = useAuth();
+  const live = authActive && isAuthenticated;
+  const { data: ent } = useEntitlements();
+  const { data: me } = useMe();
+  const isPremium = !!ent?.isPremium;
   const [dailyReading, setDailyReading] = useState(true);
   const [moonAlerts, setMoonAlerts] = useState(true);
   const [transitAlerts, setTransitAlerts] = useState(false);
   const [personalDayAlert, setPersonalDayAlert] = useState(true);
+
+  useEffect(() => {
+    const p = me?.notificationPrefs;
+    if (!p) return;
+    setDailyReading(p.daily_reading !== false);
+    setMoonAlerts(p.moon_alerts !== false);
+    setTransitAlerts(!!p.transit_alerts);
+    setPersonalDayAlert(!!p.personal_day);
+  }, [me]);
+
+  const savePref = (patch: Record<string, boolean>) => {
+    if (live) api.patchMe({ notificationPrefs: patch }).catch(() => {});
+  };
 
   if (!user) return null;
   const bp = getBlueprintSummary(user);
@@ -107,7 +128,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <PremiumBanner />
+        {!isPremium && <PremiumBanner />}
 
         <Text style={st.sectionTitle}>Your Birth Details</Text>
         <View style={st.card}>
@@ -120,11 +141,11 @@ export default function ProfileScreen() {
 
         <Text style={st.sectionTitle}>Notifications</Text>
         <View style={st.card}>
-          <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={setDailyReading} />
+          <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={(v) => { setDailyReading(v); savePref({ dailyReading: v }); }} />
           <SettingRow icon={<Clock size={18} color={SolunaColors.creamMuted} />} label="Reading time" value="8:00 AM" />
-          <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={setPersonalDayAlert} />
-          <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={setMoonAlerts} />
-          <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={setTransitAlerts} />
+          <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={(v) => { setPersonalDayAlert(v); savePref({ personalDay: v }); }} />
+          <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={(v) => { setMoonAlerts(v); savePref({ moonAlerts: v }); }} />
+          <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={(v) => { setTransitAlerts(v); savePref({ transitAlerts: v }); }} />
         </View>
 
         <Text style={st.sectionTitle}>Home Screen Widget</Text>
@@ -145,9 +166,15 @@ export default function ProfileScreen() {
           <Text style={st.privacyText}>Your birth data stays private. We never sell it, never share it, and never train AI on your chats. This is a sacred promise.</Text>
         </View>
 
-        <TouchableOpacity style={st.resetBtn} onPress={resetOnboarding}>
+        <TouchableOpacity
+          style={st.resetBtn}
+          onPress={async () => {
+            if (live) await signOut();
+            resetOnboarding();
+          }}
+        >
           <LogOut size={16} color={SolunaColors.creamSubtle} />
-          <Text style={st.resetText}>Reset onboarding</Text>
+          <Text style={st.resetText}>{live ? "Sign out" : "Reset onboarding"}</Text>
         </TouchableOpacity>
 
         <Text style={st.version}>Soluna v1.0 · Made with care</Text>

@@ -6,6 +6,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
+import { useAuth } from "@/state/useAuth";
+import { streamAsk } from "@/lib/apiClient";
 import { MOCK_CHAT_HISTORY, Fonts, type ChatMessage } from "@/constants/mockData";
 import { Sparkles, Send, ArrowUp, Hash, Cpu } from "lucide-react-native";
 
@@ -85,31 +87,63 @@ const bS = StyleSheet.create({
 
 export default function AskSolunaScreen() {
   const { user } = useAppState();
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_CHAT_HISTORY);
+  const { authActive, isAuthenticated } = useAuth();
+  const live = authActive && isAuthenticated;
+  const [messages, setMessages] = useState<ChatMessage[]>(live ? [] : MOCK_CHAT_HISTORY);
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const streamIdRef = useRef<string | null>(null);
 
-  const sendMessage = useCallback(() => {
+  const now = () =>
+    new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  const sendMessage = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
-    const userMsg: ChatMessage = {
-      id: `u${Date.now()}`, sender: "user", text: trimmed,
-      timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput(""); setIsTyping(true);
+    if (!trimmed || isTyping) return;
+    const ts = now();
+    setMessages((prev) => [...prev, { id: `u${Date.now()}`, sender: "user", text: trimmed, timestamp: ts }]);
+    setInput("");
+    setIsTyping(true);
+
+    if (live) {
+      streamIdRef.current = null;
+      await streamAsk(trimmed, conversationId, {
+        onToken: (tok) => {
+          setMessages((prev) => {
+            if (streamIdRef.current === null) {
+              const id = `s${Date.now()}`;
+              streamIdRef.current = id;
+              return [...prev, { id, sender: "soluna", text: tok, timestamp: ts }];
+            }
+            return prev.map((m) => (m.id === streamIdRef.current ? { ...m, text: m.text + tok } : m));
+          });
+          setIsTyping(false);
+        },
+        onDone: (cid) => {
+          setIsTyping(false);
+          if (cid) setConversationId(cid);
+        },
+        onError: () => {
+          setIsTyping(false);
+          setMessages((prev) => [...prev, {
+            id: `s${Date.now()}`, sender: "soluna",
+            text: "I had trouble reaching the stars just now — please try again in a moment.",
+            timestamp: ts,
+          }]);
+        },
+      });
+      return;
+    }
+
     setTimeout(() => {
       const key = Object.keys(mockResponses).find((k) => trimmed.toLowerCase().includes(k));
       const replyText = mockResponses[key ?? ""] ?? mockResponses.fallback;
-      const solunaMsg: ChatMessage = {
-        id: `s${Date.now()}`, sender: "soluna", text: replyText,
-        timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-      };
-      setMessages((prev) => [...prev, solunaMsg]);
+      setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: replyText, timestamp: now() }]);
       setIsTyping(false);
     }, 2000 + Math.random() * 1500);
-  }, [input]);
+  }, [input, isTyping, live, conversationId]);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -138,7 +172,7 @@ export default function AskSolunaScreen() {
           {messages.map((msg) => <ChatBubble key={msg.id} message={msg} />)}
           {isTyping && <TypingIndicator />}
         </ScrollView>
-        {messages.length <= MOCK_CHAT_HISTORY.length && !isTyping && (
+        {(live ? messages.length === 0 : messages.length <= MOCK_CHAT_HISTORY.length) && !isTyping && (
           <View style={st.promptsWrap}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.promptsContent}>
               {SUGGESTED_PROMPTS.map((prompt) => (

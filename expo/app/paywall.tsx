@@ -1,11 +1,13 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, Alert, ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
+import { getCurrentOffering, purchase, restore, type PurchasesOffering, type PurchasesPackage } from "@/lib/purchases";
 import { Crown, Sparkles, X, Check, ShieldCheck, Star, Hash, Bird, Cpu } from "lucide-react-native";
 
 function Benefit({ text }: { text: string }) {
@@ -42,6 +44,53 @@ const pS = StyleSheet.create({
 
 export default function PaywallScreen() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly");
+  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
+  const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    getCurrentOffering().then(setOffering);
+  }, []);
+
+  const pickPackage = (): PurchasesPackage | undefined => {
+    const pkgs = offering?.availablePackages ?? [];
+    const want = selectedPlan === "yearly" ? "ANNUAL" : "MONTHLY";
+    return pkgs.find((p) => p.packageType === want) ?? pkgs[0];
+  };
+
+  const onSubscribe = async () => {
+    const pkg = pickPackage();
+    if (!pkg) {
+      Alert.alert(
+        "Almost there",
+        "In-app purchases need a development build with RevenueCat configured. They aren't available in this preview.",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await purchase(pkg);
+      if (ok) {
+        await qc.invalidateQueries({ queryKey: ["entitlements"] });
+        router.back();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRestore = async () => {
+    setBusy(true);
+    try {
+      const ok = await restore();
+      await qc.invalidateQueries({ queryKey: ["entitlements"] });
+      if (ok) router.back();
+      else Alert.alert("No purchases found", "We couldn't find an active subscription to restore.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <View style={st.overlay}>
       <Pressable style={st.dismissArea} onPress={() => router.back()} />
@@ -83,12 +132,17 @@ export default function PaywallScreen() {
           <PricingCard title="Monthly" price="$6.99" period="/ month" selected={selectedPlan === "monthly"} onSelect={() => setSelectedPlan("monthly")} />
           <PricingCard title="Yearly" price="$4.99" period="/ month" savings="Save $24/yr" selected={selectedPlan === "yearly"} onSelect={() => setSelectedPlan("yearly")} />
 
-          <TouchableOpacity style={st.ctaBtn} activeOpacity={0.8}>
+          <TouchableOpacity style={st.ctaBtn} activeOpacity={0.8} onPress={onSubscribe} disabled={busy}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.ctaGradient}>
-              <Text style={st.ctaText}>Start Your Free Trial</Text>
+              {busy
+                ? <ActivityIndicator color={SolunaColors.deepIndigo} />
+                : <Text style={st.ctaText}>Start Your Free Trial</Text>}
             </LinearGradient>
           </TouchableOpacity>
           <Text style={st.ctaSub}>7-day free trial, then {selectedPlan === "yearly" ? "$4.99/month" : "$6.99/month"}</Text>
+          <TouchableOpacity onPress={onRestore} disabled={busy} style={{ paddingVertical: 8 }}>
+            <Text style={[st.ctaSub, { color: SolunaColors.gentleLavender, marginBottom: 14 }]}>Restore purchases</Text>
+          </TouchableOpacity>
 
           <View style={st.extraOption}>
             <Text style={st.extraLabel}>Extra tarot spreads:</Text>

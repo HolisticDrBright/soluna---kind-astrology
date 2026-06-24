@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   Animated as RNAnimated,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useRef, useEffect } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
+import { useTodayReading } from "@/lib/hooks";
 import {
-  getReadingForDate,
   ZODIAC_SYMBOLS,
   CHINESE_ANIMAL_EMOJI,
   Fonts,
@@ -125,7 +127,7 @@ const cardS = StyleSheet.create({ card: { backgroundColor: SolunaColors.cardBg, 
 // ─── Today Screen ─────────────────────────────────────────────────
 export default function TodayScreen() {
   const { user } = useAppState();
-  const reading = getReadingForDate("2026-06-24");
+  const { data: reading, isLoading, refetch, isRefetching } = useTodayReading();
   const fadeIn = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
@@ -134,9 +136,27 @@ export default function TodayScreen() {
 
   if (!user) return null;
 
+  if (!reading) {
+    return (
+      <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={[st.gradient, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={SolunaColors.warmGold} size="large" />
+        <Text style={{ color: SolunaColors.creamMuted, marginTop: 16, fontFamily: Fonts.body }}>
+          {isLoading ? "Reading today's sky…" : "Preparing your day…"}
+        </Text>
+      </LinearGradient>
+    );
+  }
+
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.gradient}>
-      <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={st.scroll}
+        contentContainerStyle={st.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={!!isRefetching} onRefresh={refetch} tintColor={SolunaColors.warmGold} />
+        }
+      >
         <RNAnimated.View style={{ opacity: fadeIn }}>
           {/* Header */}
           <View style={st.header}>

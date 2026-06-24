@@ -4,7 +4,11 @@ import { router } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
+import { useAuth } from "@/state/useAuth";
+import { api } from "@/lib/apiClient";
+import { backendBlueprintToUserData } from "@/lib/mappers";
+import { CITY_COORDS } from "@/constants/cityCoords";
+import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, type UserData, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, ChevronRight, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu } from "lucide-react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -27,6 +31,10 @@ const siS = StyleSheet.create({
 
 export default function OnboardingScreen() {
   const { onboardingStep, setOnboardingStep, completeOnboarding } = useAppState();
+  const { authActive, isAuthenticated } = useAuth();
+  const live = authActive && isAuthenticated;
+  const [liveUserData, setLiveUserData] = useState<UserData | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [fullName, setFullName] = useState("Maya Elizabeth Chen");
   const [preferredName, setPreferredName] = useState("Maya");
   const [birthDate, setBirthDate] = useState(new Date(1995, 5, 22));
@@ -53,15 +61,50 @@ export default function OnboardingScreen() {
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
   useEffect(() => {
-    if (onboardingStep === "calculating") {
-      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: true }).start(() => {
-        setTimeout(() => {
-          setShowCalculating(false); setRevealReady(true);
-          RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-        }, 500);
-      });
-    }
-  }, [onboardingStep, calculatingAnim, revealFade]);
+    if (onboardingStep !== "calculating") return;
+    let cancelled = false;
+    RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: true }).start();
+    const isoDate = birthDate.toISOString().split("T")[0];
+    (async () => {
+      let userData: UserData | null = null;
+      if (live) {
+        try {
+          const coords = CITY_COORDS[birthPlace];
+          await api.onboarding({
+            fullBirthName: fullName,
+            preferredName: preferredName || fullName.split(" ")[0],
+            birthDate: isoDate,
+            birthTime: birthTimeKnown ? birthTime : null,
+            timeKnown: birthTimeKnown,
+            birthPlaceLabel: birthPlace,
+            lat: coords?.lat,
+            lng: coords?.lng,
+            timezone: coords?.timezone,
+          });
+          const { blueprint } = await api.blueprint();
+          userData = backendBlueprintToUserData(blueprint, {
+            fullName,
+            preferredName: preferredName || fullName.split(" ")[0],
+            birthDate: isoDate,
+            birthTime,
+            birthTimeKnown,
+            birthPlace,
+          });
+        } catch (e) {
+          if (!cancelled) setLiveError(e instanceof Error ? e.message : "We couldn't weave your blueprint. Please try again.");
+        }
+      }
+      // Keep the calculating animation on screen for at least its duration.
+      await new Promise((r) => setTimeout(r, 2200));
+      if (cancelled) return;
+      if (userData) setLiveUserData(userData);
+      setShowCalculating(false);
+      setRevealReady(true);
+      RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingStep]);
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
@@ -85,7 +128,7 @@ export default function OnboardingScreen() {
   };
 
   const handleFinish = () => {
-    completeOnboarding({
+    const userData: UserData = liveUserData ?? {
       fullName,
       preferredName: preferredName || fullName.split(" ")[0],
       birthDate: birthDate.toISOString().split("T")[0],
@@ -96,7 +139,8 @@ export default function OnboardingScreen() {
       numerology: MOCK_USER.numerology,
       chinese: MOCK_USER.chinese,
       humanDesign: MOCK_USER.humanDesign,
-    });
+    };
+    completeOnboarding(userData);
     router.replace("/(tabs)");
   };
 
@@ -129,11 +173,14 @@ export default function OnboardingScreen() {
 
   // Reveal screen
   if (revealReady) {
-    const chart = MOCK_USER.chart;
-    const num = MOCK_USER.numerology;
-    const ch = MOCK_USER.chinese;
-    const hd = MOCK_USER.humanDesign;
+    const src = liveUserData ?? MOCK_USER;
+    const chart = src.chart;
+    const num = src.numerology;
+    const ch = src.chinese;
+    const hd = src.humanDesign;
     const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+    const bigThree = (planet: string, sign: string) =>
+      BIG_THREE_DESCRIPTIONS[`${planet}-${sign}`] ?? `Your ${planet} in ${sign} is a core part of who you are.`;
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
         <RNAnimated.View style={[os.content, { opacity: revealFade }]}>
@@ -150,9 +197,9 @@ export default function OnboardingScreen() {
                 <Text style={os.revealCardTitle}>Astrology</Text>
               </View>
               <View style={os.bigThreeRow}>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Sun</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Sun-Cancer"]}</Text></View>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Moon</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Moon-Pisces"]}</Text></View>
-                <View style={os.bigThreeItem}><Text style={os.btLabel}>Rising</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text><Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Rising-Libra"]}</Text></View>
+                <View style={os.bigThreeItem}><Text style={os.btLabel}>Sun</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text><Text style={os.btDesc}>{bigThree("Sun", chart.sun.sign)}</Text></View>
+                <View style={os.bigThreeItem}><Text style={os.btLabel}>Moon</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text><Text style={os.btDesc}>{bigThree("Moon", chart.moon.sign)}</Text></View>
+                <View style={os.bigThreeItem}><Text style={os.btLabel}>Rising</Text><Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text><Text style={os.btDesc}>{bigThree("Rising", chart.rising)}</Text></View>
               </View>
             </View>
             {/* Numerology */}
