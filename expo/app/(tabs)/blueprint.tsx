@@ -5,11 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useMemo } from "react";
-import Svg, { Circle, Line, Text as SvgText, G, Rect } from "react-native-svg";
+import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import {
@@ -20,83 +21,142 @@ import {
   CHINESE_ELEMENT_EMOJI,
   Fonts,
 } from "@/constants/mockData";
+import type { ZodiacSign } from "@/constants/mockData";
 import {
   Sun,
   Moon,
   Star,
   ChevronRight,
-  Hash,
-  Bird,
-  Cpu,
   Sparkles,
   ArrowRight,
 } from "lucide-react-native";
 
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
 
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] ?? s[v] ?? s[0];
+// ─── Error Boundary ───────────────────────────────────────────────
+class BlueprintErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorStyles.container}>
+          <Text style={errorStyles.title}>Something went wrong</Text>
+          <Text style={errorStyles.sub}>
+            We're having trouble displaying your blueprint. This is a known
+            issue we're working on.
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
 }
 
-// ─── Natal Chart Wheel ────────────────────────────────────────────
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: SolunaColors.deepIndigo,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: Fonts.heading,
+    color: SolunaColors.cream,
+    marginBottom: 12,
+  },
+  sub: {
+    fontSize: 14,
+    color: SolunaColors.creamMuted,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+});
+
+// ─── Safe ordinal ─────────────────────────────────────────────────
+function ordinal(n: number): string {
+  if (!Number.isFinite(n)) return "th";
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  const d = n % 10;
+  if (d === 1) return "st";
+  if (d === 2) return "nd";
+  if (d === 3) return "rd";
+  return "th";
+}
+
+// ─── Natal Chart Wheel (web-safe) ─────────────────────────────────
 function NatalChartWheel() {
   const { width: windowW } = useWindowDimensions();
   const chartSize = Math.max(windowW - 64, 100);
   const chartRadius = chartSize / 2;
-  const cx = chartSize / 2;
-  const cy = chartSize / 2;
+  const cx = Math.round(chartSize / 2);
+  const cy = Math.round(chartSize / 2);
 
-  const ringOuter = chartRadius - 4;
-  const ringInner = ringOuter - 40;
-  const houseRing = ringInner - 2;
-  const houseInner = houseRing - 32;
-  const innerRing = houseInner - 6;
+  const ringOuter = Math.max(chartRadius - 4, 2);
+  const ringInner = Math.max(ringOuter - 40, 2);
+  const houseRing = Math.max(ringInner - 2, 2);
+  const houseInner = Math.max(houseRing - 32, 2);
+  const innerRing = Math.max(houseInner - 6, 2);
 
-  const zodiacSegments = ZODIAC.map((sign, i) => {
-    const startAngleDeg = i * 30 - 105;
-    const endAngleDeg = startAngleDeg + 30;
-    const startRad = startAngleDeg * (Math.PI / 180);
-    const endRad = endAngleDeg * (Math.PI / 180);
-    const mx = cx + (ringOuter - 20) * Math.cos((startRad + endRad) / 2);
-    const my = cy + (ringOuter - 20) * Math.sin((startRad + endRad) / 2);
-    const isActiveSign =
-      sign === "Cancer" || sign === "Pisces" || sign === "Libra";
-    return { sign, startRad, endRad, mx, my, isActiveSign };
-  });
+  const zodiacSegments = useMemo(
+    () =>
+      ZODIAC.map((sign, i) => {
+        const startAngleDeg = i * 30 - 105;
+        const midRad = (startAngleDeg + 15) * (Math.PI / 180);
+        const mx = cx + (ringOuter - 20) * Math.cos(midRad);
+        const my = cy + (ringOuter - 20) * Math.sin(midRad);
+        const isActiveSign =
+          sign === "Cancer" || sign === "Pisces" || sign === "Libra";
+        const startRad = startAngleDeg * (Math.PI / 180);
+        const endRad = (startAngleDeg + 30) * (Math.PI / 180);
+        return { sign, startRad, endRad, mx, my, isActiveSign };
+      }),
+    [cx, cy, ringOuter],
+  );
 
   const houseCusps = useMemo(
     () =>
       Array.from({ length: 12 }, (_, i) => {
-        const angleDeg = i * 30 - 105;
-        const rad = angleDeg * (Math.PI / 180);
+        const rad = (i * 30 - 105) * (Math.PI / 180);
         return { house: i + 1, rad };
       }),
     [],
   );
 
   const planetPositions = [
-    { label: "☉", angle: 0, dist: innerRing - 6, big: true },
-    { label: "☽", angle: 60, dist: innerRing - 18, big: true },
-    { label: "☿", angle: 85, dist: innerRing - 6, big: true },
-    { label: "♀", angle: 135, dist: innerRing - 10, big: false },
-    { label: "♂", angle: 170, dist: innerRing - 18, big: false },
-    { label: "♃", angle: 220, dist: innerRing - 6, big: false },
-    { label: "♄", angle: 260, dist: innerRing - 12, big: false },
-    { label: "♅", angle: 290, dist: innerRing - 18, big: false },
-    { label: "♆", angle: 320, dist: innerRing - 6, big: false },
-    { label: "♇", angle: 350, dist: innerRing - 14, big: false },
+    { label: "\u2609", angle: 0, dist: Math.max(innerRing - 6, 2), big: true },
+    { label: "\u263D", angle: 60, dist: Math.max(innerRing - 18, 2), big: true },
+    { label: "\u263F", angle: 85, dist: Math.max(innerRing - 6, 2), big: true },
+    { label: "\u2640", angle: 135, dist: Math.max(innerRing - 10, 2), big: false },
+    { label: "\u2642", angle: 170, dist: Math.max(innerRing - 18, 2), big: false },
+    { label: "\u2643", angle: 220, dist: Math.max(innerRing - 6, 2), big: false },
+    { label: "\u2644", angle: 260, dist: Math.max(innerRing - 12, 2), big: false },
+    { label: "\u2645", angle: 290, dist: Math.max(innerRing - 18, 2), big: false },
+    { label: "\u2646", angle: 320, dist: Math.max(innerRing - 6, 2), big: false },
+    { label: "\u2647", angle: 350, dist: Math.max(innerRing - 14, 2), big: false },
   ];
 
-  if (chartSize <= 100) return null;
+  if (chartSize <= 0 || chartRadius <= 0) return null;
 
   return (
-    <Svg width={chartSize} height={chartSize}>
+    <Svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+      {/* Outer glow ring */}
       <Circle
         cx={cx} cy={cy} r={ringOuter + 8}
         fill="none" stroke="rgba(232,184,109,0.08)" strokeWidth={8}
       />
+      {/* Zodiac segments */}
       {zodiacSegments.map((seg) => (
         <G key={seg.sign}>
           <Line
@@ -112,24 +172,27 @@ function NatalChartWheel() {
             strokeWidth={1}
           />
           <SvgText
-            x={seg.mx} y={seg.my} dy={4}
+            x={seg.mx}
+            y={seg.my}
             fill={
               seg.isActiveSign
                 ? SolunaColors.warmGold
                 : SolunaColors.creamMuted
             }
             fontSize={11}
-            fontWeight={seg.isActiveSign ? "700" : "400"}
+            fontWeight={seg.isActiveSign ? "bold" : "normal"}
             textAnchor="middle"
           >
-            {ZODIAC_SYMBOLS[seg.sign]}
+            {ZODIAC_SYMBOLS[seg.sign as ZodiacSign]}
           </SvgText>
         </G>
       ))}
+      {/* Concentric rings */}
       <Circle cx={cx} cy={cy} r={ringOuter} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1.5} />
       <Circle cx={cx} cy={cy} r={ringInner} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={houseRing} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={houseInner} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+      {/* House cusps */}
       {houseCusps.map((h) => (
         <G key={`h${h.house}`}>
           <Line
@@ -142,18 +205,19 @@ function NatalChartWheel() {
           <SvgText
             x={cx + (houseInner + 14) * Math.cos(h.rad)}
             y={cy + (houseInner + 14) * Math.sin(h.rad)}
-            dy={3}
             fill={SolunaColors.creamSubtle} fontSize={7} textAnchor="middle"
           >
             {h.house}
           </SvgText>
         </G>
       ))}
+      {/* Inner ring + center sun */}
       <Circle cx={cx} cy={cy} r={innerRing} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={22} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />
-      <SvgText x={cx} y={cy} dy={4} fill={SolunaColors.warmGold} fontSize={10} textAnchor="middle" fontWeight="700">
-        ☉
+      <SvgText x={cx} y={cy} fill={SolunaColors.warmGold} fontSize={10} textAnchor="middle" fontWeight="bold">
+        {"\u2609"}
       </SvgText>
+      {/* Planet glyphs */}
       {planetPositions.map((p, i) => {
         const rad = (p.angle - 90) * (Math.PI / 180);
         const x = cx + p.dist * Math.cos(rad);
@@ -164,10 +228,11 @@ function NatalChartWheel() {
               <Circle cx={x} cy={y} r={14} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.25)" strokeWidth={1} />
             )}
             <SvgText
-              x={x} y={y} dy={p.big ? 5 : 4}
+              x={x} y={y}
               fill={p.big ? SolunaColors.warmGold : SolunaColors.creamMuted}
-              fontSize={p.big ? 16 : 13} textAnchor="middle"
-              fontWeight={p.big ? "700" : "400"}
+              fontSize={p.big ? 16 : 13}
+              textAnchor="middle"
+              fontWeight={p.big ? "bold" : "normal"}
             >
               {p.label}
             </SvgText>
@@ -190,23 +255,23 @@ function BodyGraph() {
     { name: "G", x: BG_W / 2, y: 180, defined: true },
     { name: "Heart", x: BG_W / 2 - 50, y: 145, defined: false },
     { name: "Sacral", x: BG_W / 2, y: 210, defined: true },
-    { name: "Solar Plexus", x: BG_W / 2 + 50, y: 165, defined: true },
+    { name: "Solar Plex", x: BG_W / 2 + 50, y: 165, defined: true },
     { name: "Spleen", x: BG_W / 2 - 50, y: 200, defined: false },
     { name: "Root", x: BG_W / 2, y: 250, defined: true },
   ];
 
   return (
-    <Svg width={BG_W} height={BG_H}>
+    <Svg width={BG_W} height={BG_H} viewBox={`0 0 ${BG_W} ${BG_H}`}>
       {centerPositions.map((c) => (
         <G key={c.name}>
-          <Rect
-            x={c.x - 18} y={c.y - 12} width={36} height={24} rx={6}
+          <Circle
+            cx={c.x} cy={c.y} r={16}
             fill={c.defined ? "rgba(232,184,109,0.12)" : "rgba(255,255,255,0.03)"}
             stroke={c.defined ? "rgba(232,184,109,0.3)" : "rgba(255,255,255,0.08)"}
             strokeWidth={1}
           />
           <SvgText
-            x={c.x} y={c.y + 1} dy={3}
+            x={c.x} y={c.y}
             fill={c.defined ? SolunaColors.warmGold : SolunaColors.creamSubtle}
             fontSize={7} textAnchor="middle"
           >
@@ -214,25 +279,20 @@ function BodyGraph() {
           </SvgText>
         </G>
       ))}
-      <Line x1={BG_W / 2} y1={54} x2={BG_W / 2} y2={113} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-      <Line x1={BG_W / 2} y1={137} x2={BG_W / 2} y2={168} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-      <Line x1={BG_W / 2} y1={192} x2={BG_W / 2} y2={198} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-      <Line x1={BG_W / 2 - 32} y1={152} x2={BG_W / 2 - 18} y2={170} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-      <Line x1={BG_W / 2} y1={210} x2={BG_W / 2} y2={238} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-      <Line x1={BG_W / 2 + 32} y1={175} x2={BG_W / 2 + 20} y2={195} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+      {/* Channels */}
+      <Line x1={BG_W / 2} y1={46} x2={BG_W / 2} y2={109} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      <Line x1={BG_W / 2} y1={141} x2={BG_W / 2} y2={164} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      <Line x1={BG_W / 2} y1={196} x2={BG_W / 2} y2={194} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      <Line x1={BG_W / 2 - 34} y1={155} x2={BG_W / 2 - 16} y2={175} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+      <Line x1={BG_W / 2} y1={210} x2={BG_W / 2} y2={234} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      <Line x1={BG_W / 2 + 34} y1={175} x2={BG_W / 2 + 16} y2={195} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
     </Svg>
   );
 }
 
-// ─── Card wrapper ─────────────────────────────────────────────────
-function Card({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: object;
-}) {
-  return <View style={[cardStyles.card, style]}>{children}</View>;
+// ─── Simple card wrapper ──────────────────────────────────────────
+function Card({ children }: { children: React.ReactNode }) {
+  return <View style={cardStyles.card}>{children}</View>;
 }
 const cardStyles = StyleSheet.create({
   card: {
@@ -245,12 +305,26 @@ const cardStyles = StyleSheet.create({
   },
 });
 
+// ─── Lens icon components ─────────────────────────────────────────
+function HashIcon({ color, size }: { color: string; size: number }) {
+  return <Text style={{ color, fontSize: size, fontWeight: "600" }}>#</Text>;
+}
+function BirdIcon({ color, size }: { color: string; size: number }) {
+  return <Text style={{ color, fontSize: size }}>{"\uD83D\uDC26"}</Text>;
+}
+function CpuIcon({ color, size }: { color: string; size: number }) {
+  return <Text style={{ color, fontSize: size }}>{"\u2699"}</Text>;
+}
+
 // ─── Blueprint Screen ─────────────────────────────────────────────
-export default function BlueprintScreen() {
+function BlueprintContent() {
   const { user } = useAppState();
   const [lens, setLens] = useState<SystemLens>("astrology");
 
   if (!user) return null;
+
+  const safeGet = <T,>(val: T | undefined | null, fallback: T): T =>
+    val != null ? val : fallback;
 
   return (
     <LinearGradient
@@ -264,7 +338,8 @@ export default function BlueprintScreen() {
       >
         <Text style={s.title}>Your Blueprint</Text>
         <Text style={s.sub}>
-          {user.preferredName}'s cosmic design across four lenses
+          {safeGet(user.preferredName, "You")}'s cosmic design across four
+          lenses
         </Text>
 
         {/* "Where it all connects" button */}
@@ -289,36 +364,52 @@ export default function BlueprintScreen() {
         <View style={s.lensWrap}>
           {(
             [
-              { key: "astrology", label: "Astrology", icon: Star },
-              { key: "numerology", label: "Numerology", icon: Hash },
-              { key: "chinese", label: "Chinese", icon: Bird },
-              { key: "humanDesign", label: "Human Design", icon: Cpu },
-            ] as const
-          ).map(({ key, label, icon: Icon }) => (
-            <TouchableOpacity
-              key={key}
-              style={[s.lensTab, lens === key && s.lensTabActive]}
-              onPress={() => setLens(key)}
-            >
-              <Icon
-                size={14}
-                color={
-                  lens === key
-                    ? SolunaColors.warmGold
-                    : SolunaColors.creamMuted
-                }
-              />
-              <Text
-                style={[s.lensText, lens === key && s.lensTextActive]}
+              { key: "astrology" as const, label: "Astrology", icon: Star },
+              { key: "numerology" as const, label: "Numerology", iconKind: "hash" as const },
+              { key: "chinese" as const, label: "Chinese", iconKind: "bird" as const },
+              {
+                key: "humanDesign" as const,
+                label: "Human Design",
+                iconKind: "cpu" as const,
+              },
+            ]
+          ).map((item) => {
+            const isActive = lens === item.key;
+            const iconColor = isActive
+              ? SolunaColors.warmGold
+              : SolunaColors.creamMuted;
+
+            let iconEl: React.ReactNode;
+            if ("icon" in item && item.icon) {
+              const IconComp = item.icon;
+              iconEl = <IconComp size={14} color={iconColor} />;
+            } else if ("iconKind" in item && item.iconKind === "hash") {
+              iconEl = <HashIcon color={iconColor} size={14} />;
+            } else if ("iconKind" in item && item.iconKind === "bird") {
+              iconEl = <BirdIcon color={iconColor} size={14} />;
+            } else {
+              iconEl = <CpuIcon color={iconColor} size={14} />;
+            }
+
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[s.lensTab, isActive && s.lensTabActive]}
+                onPress={() => setLens(item.key)}
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                {iconEl}
+                <Text
+                  style={[s.lensText, isActive && s.lensTextActive]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Astrology lens */}
-        {lens === "astrology" && (
+        {/* ── Astrology lens ── */}
+        {lens === "astrology" && user.chart && (
           <View>
             <View style={s.chartWrap}>
               <NatalChartWheel />
@@ -328,104 +419,113 @@ export default function BlueprintScreen() {
               [
                 {
                   planet: "Sun",
-                  sign: user.chart.sun.sign,
-                  house: user.chart.sun.house,
+                  sign: user.chart.sun?.sign ?? "Unknown",
+                  house: user.chart.sun?.house,
                   icon: Sun,
                   color: SolunaColors.warmGold,
                 },
                 {
                   planet: "Moon",
-                  sign: user.chart.moon.sign,
-                  house: user.chart.moon.house,
+                  sign: user.chart.moon?.sign ?? "Unknown",
+                  house: user.chart.moon?.house,
                   icon: Moon,
                   color: SolunaColors.gentleLavender,
                 },
                 {
                   planet: "Rising",
-                  sign: user.chart.rising,
+                  sign: user.chart.rising ?? "Unknown",
                   icon: Star,
                   color: SolunaColors.softPeach,
                 },
               ] as const
-            ).map((item) => (
-              <TouchableOpacity
-                key={item.planet}
-                style={s.bigThreeRow}
-                onPress={() =>
-                  router.push({
-                    pathname: "/insight-detail",
-                    params: { type: "placement", planet: item.planet },
-                  })
-                }
-              >
-                <View
-                  style={[
-                    s.bigThreeIcon,
-                    { backgroundColor: `${item.color}15` },
-                  ]}
+            ).map((item) => {
+              const signKey = item.sign as ZodiacSign;
+              const symbol = ZODIAC_SYMBOLS[signKey] ?? "";
+              const hasHouse = "house" in item && item.house != null;
+              return (
+                <TouchableOpacity
+                  key={item.planet}
+                  style={s.bigThreeRow}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/insight-detail",
+                      params: { type: "placement", planet: item.planet },
+                    })
+                  }
                 >
-                  <item.icon size={18} color={item.color} />
-                </View>
-                <View style={s.bigThreeInfo}>
-                  <Text style={s.bigThreeLabel}>{item.planet}</Text>
-                  <Text style={s.bigThreeVal}>
-                    {ZODIAC_SYMBOLS[item.sign]} {item.sign}
-                    {"house" in item
-                      ? ` · ${item.house}${ordinal(item.house)} House`
-                      : ""}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={SolunaColors.creamSubtle} />
-              </TouchableOpacity>
-            ))}
+                  <View
+                    style={[
+                      s.bigThreeIcon,
+                      { backgroundColor: `${item.color}15` },
+                    ]}
+                  >
+                    <item.icon size={18} color={item.color} />
+                  </View>
+                  <View style={s.bigThreeInfo}>
+                    <Text style={s.bigThreeLabel}>{item.planet}</Text>
+                    <Text style={s.bigThreeVal}>
+                      {symbol} {item.sign}
+                      {hasHouse
+                        ? ` \u00B7 ${item.house}${ordinal(item.house!)} House`
+                        : ""}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+                </TouchableOpacity>
+              );
+            })}
             <Text style={s.sectionLabel}>All Placements</Text>
-            {user.chart.placements.map((p) => (
-              <TouchableOpacity
-                key={p.planet}
-                style={s.placementRow}
-                onPress={() =>
-                  router.push({
-                    pathname: "/insight-detail",
-                    params: { type: "placement", planet: p.planet },
-                  })
-                }
-              >
-                <Text style={s.glyphText}>
-                  {PLANET_SYMBOLS[p.planet]}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.placementName}>{p.planet}</Text>
-                  <Text style={s.placementDetail}>
-                    {ZODIAC_SYMBOLS[p.sign]} {p.sign} · {p.degree}° · House {p.house}
-                  </Text>
-                </View>
-                <ChevronRight size={14} color={SolunaColors.creamSubtle} />
-              </TouchableOpacity>
-            ))}
+            {(user.chart.placements ?? []).map((p) => {
+              const signKey = p.sign as ZodiacSign;
+              const symbol = ZODIAC_SYMBOLS[signKey] ?? "";
+              const glyph = PLANET_SYMBOLS[p.planet] ?? "";
+              return (
+                <TouchableOpacity
+                  key={p.planet}
+                  style={s.placementRow}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/insight-detail",
+                      params: { type: "placement", planet: p.planet },
+                    })
+                  }
+                >
+                  <Text style={s.glyphText}>{glyph}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.placementName}>{p.planet}</Text>
+                    <Text style={s.placementDetail}>
+                      {symbol} {p.sign} \u00B7 {p.degree}\u00B0 \u00B7 House{" "}
+                      {p.house}
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={SolunaColors.creamSubtle} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
-        {/* Numerology lens */}
-        {lens === "numerology" && (
+        {/* ── Numerology lens ── */}
+        {lens === "numerology" && user.numerology && (
           <View>
             <Text style={s.sectionLabel}>Core Numbers</Text>
             {[
               {
                 label: "Life Path",
                 value: user.numerology.lifePath,
-                desc: user.numerology.lifePathMeaning,
+                desc: safeGet(user.numerology.lifePathMeaning, ""),
                 color: SolunaColors.warmGold,
               },
               {
                 label: "Expression",
                 value: user.numerology.expression,
-                desc: user.numerology.expressionMeaning,
+                desc: safeGet(user.numerology.expressionMeaning, ""),
                 color: SolunaColors.gentleLavender,
               },
               {
                 label: "Soul Urge",
                 value: user.numerology.soulUrge,
-                desc: user.numerology.soulUrgeMeaning,
+                desc: safeGet(user.numerology.soulUrgeMeaning, ""),
                 color: SolunaColors.softPeach,
               },
             ].map((num) => (
@@ -465,18 +565,18 @@ export default function BlueprintScreen() {
             {[
               {
                 label: "Personal Year",
-                value: user.numerology.personalYear,
-                meaning: user.numerology.personalYearMeaning,
+                value: safeGet(user.numerology.personalYear, 0),
+                meaning: safeGet(user.numerology.personalYearMeaning, ""),
               },
               {
                 label: "Personal Month",
-                value: user.numerology.personalMonth,
-                meaning: user.numerology.personalMonthMeaning,
+                value: safeGet(user.numerology.personalMonth, 0),
+                meaning: safeGet(user.numerology.personalMonthMeaning, ""),
               },
               {
                 label: "Personal Day",
-                value: user.numerology.personalDay,
-                meaning: user.numerology.personalDayMeaning,
+                value: safeGet(user.numerology.personalDay, 0),
+                meaning: safeGet(user.numerology.personalDayMeaning, ""),
               },
             ].map((t) => (
               <Card key={t.label}>
@@ -492,28 +592,30 @@ export default function BlueprintScreen() {
           </View>
         )}
 
-        {/* Chinese lens */}
-        {lens === "chinese" && (
+        {/* ── Chinese lens ── */}
+        {lens === "chinese" && user.chinese && (
           <View>
             <Card>
               <View style={s.chineseHeader}>
                 <Text style={s.chineseEmoji}>
-                  {CHINESE_ANIMAL_EMOJI[user.chinese.animal]}
+                  {safeGet(CHINESE_ANIMAL_EMOJI[user.chinese.animal], "")}
                 </Text>
                 <View>
                   <Text style={s.chineseTitle}>
-                    {user.chinese.elementAnimalLabel}
+                    {safeGet(user.chinese.elementAnimalLabel, "")}
                   </Text>
                   <Text style={s.chineseElement}>
-                    {CHINESE_ELEMENT_EMOJI[user.chinese.element]}{" "}
-                    {user.chinese.element} element
+                    {safeGet(CHINESE_ELEMENT_EMOJI[user.chinese.element], "")}{" "}
+                    {safeGet(user.chinese.element, "")} element
                   </Text>
                 </View>
               </View>
-              <Text style={s.chineseDesc}>{user.chinese.description}</Text>
+              <Text style={s.chineseDesc}>
+                {safeGet(user.chinese.description, "")}
+              </Text>
             </Card>
             <Text style={s.sectionLabel}>Strengths</Text>
-            {user.chinese.strengths.map((sx, i) => (
+            {(user.chinese.strengths ?? []).map((sx, i) => (
               <View key={i} style={s.strengthRow}>
                 <Sparkles size={12} color={SolunaColors.warmGold} />
                 <Text style={s.strengthText}>{sx}</Text>
@@ -521,16 +623,23 @@ export default function BlueprintScreen() {
             ))}
             <Text style={s.sectionLabel}>Gentle Growth Edge</Text>
             <Card>
-              <Text style={s.growthText}>{user.chinese.growthEdge}</Text>
+              <Text style={s.growthText}>
+                {safeGet(user.chinese.growthEdge, "")}
+              </Text>
             </Card>
             <Text style={s.sectionLabel}>BaZi Four Pillars (preview)</Text>
-            {user.chinese.bazi.map((pillar, i) => (
+            {(user.chinese.bazi ?? []).map((pillar, i) => (
               <Card key={i}>
                 <View style={s.baziRow}>
-                  <Text style={s.baziStem}>{pillar.heavenlyStem}</Text>
+                  <Text style={s.baziStem}>
+                    {safeGet(pillar.heavenlyStem, "")}
+                  </Text>
                   <Text style={s.baziBranch}>
-                    {CHINESE_ANIMAL_EMOJI[pillar.earthlyBranch]}{" "}
-                    {pillar.earthlyBranch}
+                    {safeGet(
+                      CHINESE_ANIMAL_EMOJI[pillar.earthlyBranch],
+                      "",
+                    )}{" "}
+                    {safeGet(pillar.earthlyBranch, "")}
                   </Text>
                   <View
                     style={[
@@ -539,66 +648,79 @@ export default function BlueprintScreen() {
                     ]}
                   >
                     <Text style={s.baziElemText}>
-                      {CHINESE_ELEMENT_EMOJI[pillar.element]}
+                      {safeGet(
+                        CHINESE_ELEMENT_EMOJI[pillar.element],
+                        "",
+                      )}
                     </Text>
                   </View>
                 </View>
-                <Text style={s.baziMeaning}>{pillar.meaning}</Text>
+                <Text style={s.baziMeaning}>
+                  {safeGet(pillar.meaning, "")}
+                </Text>
               </Card>
             ))}
           </View>
         )}
 
-        {/* Human Design lens */}
-        {lens === "humanDesign" && (
+        {/* ── Human Design lens ── */}
+        {lens === "humanDesign" && user.humanDesign && (
           <View>
             <View style={s.bgWrap}>
               <BodyGraph />
             </View>
             <Card>
-              <Text style={s.hdType}>{user.humanDesign.type}</Text>
+              <Text style={s.hdType}>
+                {safeGet(user.humanDesign.type, "")}
+              </Text>
               <Text style={s.hdDesc}>
-                {user.humanDesign.typeDescription}
+                {safeGet(user.humanDesign.typeDescription, "")}
               </Text>
             </Card>
             <Text style={s.sectionLabel}>Strategy</Text>
             <Card>
-              <Text style={s.hdLabel}>{user.humanDesign.strategy}</Text>
+              <Text style={s.hdLabel}>
+                {safeGet(user.humanDesign.strategy, "")}
+              </Text>
               <Text style={s.hdDesc}>
-                {user.humanDesign.strategyDescription}
+                {safeGet(user.humanDesign.strategyDescription, "")}
               </Text>
             </Card>
             <Text style={s.sectionLabel}>Authority</Text>
             <Card>
-              <Text style={s.hdLabel}>{user.humanDesign.authority}</Text>
+              <Text style={s.hdLabel}>
+                {safeGet(user.humanDesign.authority, "")}
+              </Text>
               <Text style={s.hdDesc}>
-                {user.humanDesign.authorityDescription}
+                {safeGet(user.humanDesign.authorityDescription, "")}
               </Text>
             </Card>
             <Text style={s.sectionLabel}>Profile</Text>
             <Card>
-              <Text style={s.hdLabel}>{user.humanDesign.profile}</Text>
+              <Text style={s.hdLabel}>
+                {safeGet(user.humanDesign.profile, "")}
+              </Text>
               <Text style={s.hdDesc}>
-                {user.humanDesign.profileDescription}
+                {safeGet(user.humanDesign.profileDescription, "")}
               </Text>
             </Card>
             <Text style={s.sectionLabel}>Signature / Not-Self</Text>
             <View style={s.sigRow}>
-              <Card style={{ flex: 1 }}>
+              <Card>
                 <Text style={s.sigLabel}>Signature</Text>
                 <Text style={[s.sigVal, { color: SolunaColors.warmGold }]}>
-                  {user.humanDesign.signature}
+                  {safeGet(user.humanDesign.signature, "")}
                 </Text>
               </Card>
-              <Card style={{ flex: 1 }}>
+              <Card>
                 <Text style={s.sigLabel}>Not-Self</Text>
                 <Text style={[s.sigVal, { color: SolunaColors.softPeach }]}>
-                  {user.humanDesign.notSelf}
+                  {safeGet(user.humanDesign.notSelf, "")}
                 </Text>
               </Card>
             </View>
             <Text style={s.sectionLabel}>Strengths</Text>
-            {user.humanDesign.strengths.map((sx, i) => (
+            {(user.humanDesign.strengths ?? []).map((sx, i) => (
               <View key={i} style={s.strengthRow}>
                 <Sparkles size={12} color={SolunaColors.warmGold} />
                 <Text style={s.strengthText}>{sx}</Text>
@@ -610,6 +732,14 @@ export default function BlueprintScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
     </LinearGradient>
+  );
+}
+
+export default function BlueprintScreen() {
+  return (
+    <BlueprintErrorBoundary>
+      <BlueprintContent />
+    </BlueprintErrorBoundary>
   );
 }
 
