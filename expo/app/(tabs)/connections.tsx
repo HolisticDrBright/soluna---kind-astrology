@@ -7,7 +7,7 @@ import { useAppState } from "@/state/useAppState";
 import { CONNECTIONS, ZODIAC_SYMBOLS, MOCK_BOND_RITUALS, Fonts, type RelationshipLens, type BondRitualData } from "@/constants/mockData";
 import EmptyState from "@/components/EmptyState";
 import ConfidencePill from "@/components/ConfidencePill";
-import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle } from "lucide-react-native";
+import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle, Target } from "lucide-react-native";
 
 // ─── Lens config ───────────────────────────────────────────
 const LENSES: { key: RelationshipLens; label: string; icon: typeof Heart; color: string }[] = [
@@ -324,6 +324,26 @@ function ConnectionsContent() {
                   <TouchableOpacity style={pcS.fullBtn} onPress={() => router.push({ pathname: "/compatibility-detail", params: { id: person.id } })}>
                     <Text style={pcS.fullBtnText}>Full Compatibility Report</Text><ChevronRight size={14} color={SolunaColors.warmGold} />
                   </TouchableOpacity>
+
+                  {/* Focus on this relationship */}
+                  <TouchableOpacity
+                    style={pcS.focusBtn}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/focus/setup",
+                        params: {
+                          preselectedCategory: "Relationship",
+                          preselectedBondId: person.id,
+                          preselectedBondName: person.name,
+                        },
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <Target size={14} color={SolunaColors.gentleLavender} />
+                    <Text style={pcS.focusBtnText}>Focus on this relationship</Text>
+                    <ChevronRight size={14} color={SolunaColors.gentleLavender} />
+                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
@@ -403,4 +423,17 @@ const pcS = StyleSheet.create({
   confWrap: { marginBottom: 8 },
   fullBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(232,184,109,0.08)", paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)" },
   fullBtnText: { fontSize: 13, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  focusBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(185,163,227,0.06)",
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.12)",
+    marginTop: 8,
+  },
+  focusBtnText: { fontSize: 13, color: SolunaColors.gentleLavender, fontWeight: "600", fontFamily: Fonts.body },
 });

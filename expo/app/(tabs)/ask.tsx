@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { MOCK_CHAT_HISTORY, Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@/constants/mockData";
-import { useLocalSearchParams } from "expo-router";
-import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle } from "lucide-react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
 
 type ChatError = { message: string; retryable: boolean } | null;
 
@@ -288,6 +288,26 @@ function AskContent() {
           </View>
         )}
 
+        {/* Focus entry */}
+        {showPrompts && (
+          <TouchableOpacity
+            style={st.focusEntry}
+            onPress={() => router.push("/focus/setup")}
+            activeOpacity={0.7}
+          >
+            <View style={st.focusEntryIcon}>
+              <Target size={16} color={SolunaColors.gentleLavender} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={st.focusEntryTitle}>Start a Focus</Text>
+              <Text style={st.focusEntrySub}>
+                Tell Soluna what you're navigating — receive guidance across your systems.
+              </Text>
+            </View>
+            <ArrowUp size={14} color={SolunaColors.creamSubtle} style={{ transform: [{ rotate: "45deg" }] }} />
+          </TouchableOpacity>
+        )}
+
         {/* Free tier note */}
         {showPrompts && (
           <View style={st.freeNote}>
@@ -339,5 +359,40 @@ const st = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: SolunaColors.cream, fontFamily: Fonts.body, maxHeight: 100, paddingVertical: 10 },
   sendBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: SolunaColors.warmGold, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   sendBtnDisabled: { backgroundColor: "rgba(255,255,255,0.1)" },
+  // Focus entry
+  focusEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(185,163,227,0.06)",
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: SolunaSpacing.md,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.1)",
+  },
+  focusEntryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(185,163,227,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  focusEntryTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+    marginBottom: 2,
+  },
+  focusEntrySub: {
+    fontSize: 10,
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+    lineHeight: 14,
+  },
+
   disclaimer: { fontSize: 10, color: SolunaColors.creamSubtle, textAlign: "center", marginTop: 6, fontFamily: Fonts.body },
 });

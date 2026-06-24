@@ -21,8 +21,9 @@ import type { DailyReading } from "@/constants/mockData";
 import InsightActionBar from "@/components/InsightActionBar";
 import ConfidencePill from "@/components/ConfidencePill";
 import SolunaShiftCard from "@/components/SolunaShiftCard";
+import { router } from "expo-router";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
+import { ChevronDown, ChevronUp, ChevronRight, Target } from "lucide-react-native";
 
 // ─── Section IDs for accordion ──────────────────────────────────
 type SectionKey = "cosmic" | "tarot" | "energy" | "affirm" | "dwell";
@@ -247,6 +248,24 @@ export default function TodayScreen() {
 
         {/* ─── Soluna Shift ─── */}
         <SolunaShiftCard date={todayStr} />
+
+        {/* ─── Soluna Focus Entry ─── */}
+        <TouchableOpacity
+          style={st.focusEntry}
+          onPress={() => router.push("/focus/setup")}
+          activeOpacity={0.7}
+        >
+          <View style={st.focusEntryIcon}>
+            <Target size={18} color={SolunaColors.gentleLavender} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={st.focusEntryTitle}>Focus on something</Text>
+            <Text style={st.focusEntrySub}>
+              Tell Soluna what you're navigating and receive warm, practical guidance across your systems.
+            </Text>
+          </View>
+          <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+        </TouchableOpacity>
 
         {/* ─── Your Big Three ─── */}
         {bigThree && (
@@ -1016,6 +1035,40 @@ const st = StyleSheet.create({
     fontFamily: Fonts.body,
     color: SolunaColors.creamMuted,
     lineHeight: 19,
+  },
+
+  // Focus entry
+  focusEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(185,163,227,0.06)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.1)",
+    marginBottom: 20,
+  },
+  focusEntryIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(185,163,227,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  focusEntryTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: SolunaColors.cream,
+    fontFamily: Fonts.body,
+    marginBottom: 3,
+  },
+  focusEntrySub: {
+    fontSize: 11,
+    color: SolunaColors.creamMuted,
+    fontFamily: Fonts.body,
+    lineHeight: 16,
   },
 
   bottomPad: {

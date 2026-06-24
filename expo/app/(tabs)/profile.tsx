@@ -4,9 +4,9 @@ import { router } from "expo-router";
 import React, { useState, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, Fonts, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
+import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, MOCK_ACTIVE_FOCUSES, Fonts, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
 import { getBlueprintSummary } from "@/constants/mockData";
-import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing } from "lucide-react-native";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target } from "lucide-react-native";
 
 // ─── Setting Row / Toggle ───────────────────────────────
 function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
@@ -385,6 +385,39 @@ function ProfileContent() {
 
         <PremiumBanner />
 
+        {/* ── Your Active Focuses ── */}
+        <Text style={st.sectionTitle}>Your Active Focuses</Text>
+        <View style={st.card}>
+          {MOCK_ACTIVE_FOCUSES.filter(f => f.status === "active").slice(0, 2).map((focus) => (
+            <TouchableOpacity
+              key={focus.id}
+              style={[rS.row, rS.border]}
+              onPress={() => router.push({ pathname: "/focus/check-in", params: { focusId: focus.id, category: focus.category, title: focus.title } })}
+              activeOpacity={0.7}
+            >
+              <View style={rS.icon}>
+                <Target size={16} color={SolunaColors.gentleLavender} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={rS.label} numberOfLines={1}>{focus.title}</Text>
+                <Text style={st.focusMeta}>{focus.category} · {focus.supportMode}</Text>
+              </View>
+              <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[rS.row, { borderBottomWidth: 0 }]}
+            onPress={() => router.push("/focus/active")}
+            activeOpacity={0.7}
+          >
+            <View style={rS.icon}>
+              <Plus size={16} color={SolunaColors.warmGold} />
+            </View>
+            <Text style={[rS.label, { color: SolunaColors.warmGold }]}>View all & start new</Text>
+            <ChevronRight size={16} color={SolunaColors.warmGold} />
+          </TouchableOpacity>
+        </View>
+
         {/* ── Weekly Integration Report ── */}
         <Text style={st.sectionTitle}>Weekly Integration</Text>
         <WeeklyReportCard report={MOCK_WEEKLY_REPORT} />
@@ -465,6 +498,7 @@ const st = StyleSheet.create({
   card: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, paddingHorizontal: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 20 },
   privacyCard: { flexDirection: "row", gap: 12, backgroundColor: "rgba(232,184,109,0.05)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.1)", marginBottom: 20, alignItems: "flex-start" },
   privacyText: { flex: 1, fontSize: 13, color: SolunaColors.creamMuted, lineHeight: 19, fontFamily: Fonts.body },
+  focusMeta: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginTop: 1 },
   resetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8 },
   resetText: { fontSize: 13, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
   version: { fontSize: 11, color: SolunaColors.creamSubtle, textAlign: "center", fontFamily: Fonts.body, marginTop: 4 },

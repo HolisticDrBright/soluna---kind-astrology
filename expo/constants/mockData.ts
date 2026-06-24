@@ -1176,6 +1176,205 @@ export const JOURNAL_ENTRIES: JournalEntry[] = [
 ];
 
 // ══════════════════════════════════════════════════════════════════
+// SOLUNA FOCUS
+// ══════════════════════════════════════════════════════════════════
+
+export type FocusCategory =
+  | "Relationship"
+  | "Work"
+  | "School"
+  | "Big Decision"
+  | "Family"
+  | "Friendship"
+  | "Money"
+  | "Self-Worth"
+  | "Creativity"
+  | "Spiritual Growth"
+  | "Something Personal";
+
+export type FocusSupport = "Gentle" | "Clear" | "Motivating" | "Practical" | "Reflective";
+
+export type FocusContext =
+  | "journal"
+  | "savedReadings"
+  | "mood"
+  | "memoryThemes"
+  | "recentAsk"
+  | "bondDynamics";
+
+export type FocusStatus = "active" | "paused" | "resolved";
+
+export type CheckInResult =
+  | "Better"
+  | "Still unclear"
+  | "Harder than expected"
+  | "I took the step"
+  | "I didn't take the step yet";
+
+export interface FocusData {
+  id: string;
+  title: string;
+  category: FocusCategory;
+  supportMode: FocusSupport;
+  connectedPersonId?: string;
+  connectedPersonName?: string;
+  contextUsed: FocusContext[];
+  freeText: string;
+  status: FocusStatus;
+  createdAt: string;
+  lastUpdated: string;
+  nextCheckIn?: string;
+}
+
+export interface FocusResult {
+  whatSolunaNotices: string;
+  deeperPattern: string;
+  watchFor: string;
+  tryThisNext: string;
+  ifInvolvesOther?: string;
+  reflectionPrompt: string;
+  systemsReferenced: string[];
+}
+
+export interface FocusCheckIn {
+  result: CheckInResult;
+  whatChanged: string;
+  updatedGuidance: {
+    whatShifted: string;
+    recommendedNext: string;
+    suggestion: "keep" | "pause" | "resolve";
+  };
+}
+
+export interface FocusCategoryConfig {
+  id: FocusCategory;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+}
+
+export const FOCUS_CATEGORIES: FocusCategoryConfig[] = [
+  { id: "Relationship", label: "Relationship", emoji: "💞", color: "#F2A88D", description: "Navigating a romantic partnership or dating life." },
+  { id: "Work", label: "Work", emoji: "💼", color: "#B9A3E3", description: "Career direction, a job decision, or workplace dynamics." },
+  { id: "School", label: "School", emoji: "📚", color: "#7BC89C", description: "Studies, academic pressure, or choosing a path." },
+  { id: "Big Decision", label: "Big Decision", emoji: "⚖️", color: "#E8B86D", description: "A choice that feels weighty and you want clarity." },
+  { id: "Family", label: "Family", emoji: "🏡", color: "#7BC89C", description: "Family dynamics, a conversation, or home life." },
+  { id: "Friendship", label: "Friendship", emoji: "🌟", color: "#E8B86D", description: "A friendship that's shifting, growing, or needing attention." },
+  { id: "Money", label: "Money", emoji: "💰", color: "#7BC89C", description: "Financial decisions, security, or scarcity feelings." },
+  { id: "Self-Worth", label: "Self-Worth", emoji: "🪞", color: "#F2A88D", description: "How you see yourself, your value, your enoughness." },
+  { id: "Creativity", label: "Creativity", emoji: "🎨", color: "#B9A3E3", description: "A creative block, a project, or trusting your ideas." },
+  { id: "Spiritual Growth", label: "Spiritual Growth", emoji: "🌱", color: "#B9A3E3", description: "Deepening your inner life, practice, or belief." },
+  { id: "Something Personal", label: "Something Personal", emoji: "💭", color: "#E8B86D", description: "Something tender you want to explore privately." },
+];
+
+export const FOCUS_SUPPORT_OPTIONS: { id: FocusSupport; label: string; emoji: string; color: string; description: string }[] = [
+  { id: "Gentle", label: "Gentle", emoji: "🌸", color: "#F2A88D", description: "Soft, reassuring guidance — like a warm hand on your shoulder." },
+  { id: "Clear", label: "Clear", emoji: "🔮", color: "#B9A3E3", description: "Direct, honest insight — let's cut through the fog together." },
+  { id: "Motivating", label: "Motivating", emoji: "🔥", color: "#E8B86D", description: "Energizing encouragement — a gentle push toward what's possible." },
+  { id: "Practical", label: "Practical", emoji: "🌿", color: "#7BC89C", description: "Grounded, actionable steps — show me what I can actually do." },
+  { id: "Reflective", label: "Reflective", emoji: "🌙", color: "#B9A3E3", description: "Deep, contemplative — let's sit with the questions that matter." },
+];
+
+export const FOCUS_CONTEXT_OPTIONS: { id: FocusContext; label: string; emoji: string; description: string }[] = [
+  { id: "journal", label: "Recent journal themes", emoji: "📖", description: "Patterns and feelings you've written about recently." },
+  { id: "savedReadings", label: "Saved readings", emoji: "💾", description: "Insights you've bookmarked and wanted to return to." },
+  { id: "mood", label: "Current mood", emoji: "💫", description: "The support mode and emotional tone you're carrying today." },
+  { id: "memoryThemes", label: "Memory themes I approved", emoji: "🧠", description: "Themes you've told Soluna it's okay to remember." },
+  { id: "recentAsk", label: "Recent Ask conversations", emoji: "💬", description: "What you've been exploring with Soluna lately." },
+  { id: "bondDynamics", label: "Selected Bond dynamics", emoji: "💞", description: "The relationship patterns Soluna has noticed in your Bond." },
+];
+
+export const MOCK_ACTIVE_FOCUSES: FocusData[] = [
+  {
+    id: "f1",
+    title: "Career transition",
+    category: "Work",
+    supportMode: "Practical",
+    contextUsed: ["journal", "savedReadings", "mood"],
+    freeText: "I'm deciding whether to leave my job. I've been here for 6 years and it feels safe, but I'm restless and unfulfilled. I keep second-guessing whether I'm being impulsive or whether this is real. I want to make a move that's wise, not reactive.",
+    status: "active",
+    createdAt: "2026-06-18",
+    lastUpdated: "2026-06-22",
+    nextCheckIn: "2026-06-25",
+  },
+  {
+    id: "f2",
+    title: "Tough conversation with mom",
+    category: "Family",
+    supportMode: "Gentle",
+    connectedPersonId: undefined,
+    connectedPersonName: "Mom",
+    contextUsed: ["journal", "memoryThemes"],
+    freeText: "I need to have an honest conversation with my mom about boundaries. She doesn't mean harm but her comments about my life choices are wearing me down. I want to be kind but clear — I don't want to hurt her, but I can't keep absorbing this either.",
+    status: "active",
+    createdAt: "2026-06-20",
+    lastUpdated: "2026-06-21",
+    nextCheckIn: "2026-06-26",
+  },
+  {
+    id: "f3",
+    title: "Stopping people-pleasing",
+    category: "Self-Worth",
+    supportMode: "Motivating",
+    contextUsed: ["memoryThemes", "recentAsk"],
+    freeText: "I'm trying to stop people-pleasing. I say yes when I mean no, I apologize for things that aren't my fault, and I shape myself to fit what others want. I'm tired of it but I don't know who I am without it.",
+    status: "paused",
+    createdAt: "2026-06-12",
+    lastUpdated: "2026-06-19",
+    nextCheckIn: undefined,
+  },
+];
+
+export const MOCK_FOCUS_RESULTS: Record<string, FocusResult> = {
+  "Work": {
+    whatSolunaNotices: "You've been carrying this question for a while — and your systems all show the same thing: the restlessness isn't impulsive. It's your Generator Sacral saying 'this isn't it anymore.' Your Personal Year 7 (numerology) is literally designed for inner reflection before outer change, and your Venus in Gemini transit (astrology) is opening a rare window for career exploration. You're not being reckless — you're being honest with yourself, and that takes real courage.",
+    deeperPattern: "Your Expression 7 and your 6/2 Hermit profile both point to someone who needs depth, meaning, and autonomy in their work. Surface-level productivity drains you. Your Soul Urge 9 (numerology) needs to feel like your work contributes to something bigger. When these aren't met, your Generator design produces frustration — and frustration is your signal, not your enemy. It's telling you: this isn't where you're meant to stay.",
+    watchFor: "Be gentle with yourself about timing. Your Cancer Sun values security deeply, and that's not a weakness — it's wisdom. The danger isn't staying too long; the danger is letting fear of the unknown convince you that the known is good enough when it's genuinely not. Also, be careful not to seek certainty where there can only be clarity. You won't know every detail of the next chapter before you turn the page — and that's okay.",
+    tryThisNext: "Take one small step that honors BOTH your need for security AND your need for change. This week: update your resume, have one informational coffee with someone in a field you're curious about, or spend 30 minutes researching what lights you up. These aren't commitments — they're information-gathering. Your Cancer Sun can handle that. Your Generator will give you a clear yes or no from your gut — trust it.",
+    ifInvolvesOther: undefined,
+    reflectionPrompt: "If I knew, without any doubt, that I would be okay no matter what I choose — what would I do next? What would my life look like in one year if I trusted my gut instead of my fear?",
+    systemsReferenced: ["Astrology", "Numerology", "Human Design"],
+  },
+  "Family": {
+    whatSolunaNotices: "This conversation has been building inside you, and your systems agree: the discomfort you feel is not a sign that you're doing something wrong — it's the natural friction of growth. Your Cancer Sun wants harmony and warmth in family, but your Libra Rising also needs fairness and balance. When someone's comments keep tilting the scale, your design says: speak. Not to wound, but to restore equilibrium.",
+    deeperPattern: "Your Moon in Pisces 8th house absorbs other people's emotions deeply — you might be feeling your mom's potential hurt before she's even felt it. Your Emotional Authority in Human Design means clarity comes through riding the wave, not avoiding it. And your Wood Pig's natural generosity wants to give her the benefit of the doubt. All beautiful instincts. But your defined Root center also needs healthy boundaries to function — without them, pressure builds. This isn't about blaming her. It's about loving yourself enough to say what's true.",
+    watchFor: "Try not to rehearse the conversation so much that you exhaust yourself before it happens. Also, be careful not to pre-manage her emotions — you can be kind AND clear. The goal isn't to control how she receives it; the goal is to express your truth with love and let her process it in her own time. You're not responsible for her feelings about your boundaries.",
+    tryThisNext: "Write down the ONE sentence you most need her to understand. Then write a warm framing around it: 'Mom, I love you and I'm telling you this because I want our relationship to feel good for both of us. Here's what I need...' Practice saying it out loud once. You don't have to have the conversation today — just make the sentence real.",
+    ifInvolvesOther: "Since this involves your mom, remember: your systems show that your relationship is fundamentally loving, even when it's challenging. Your Wood Pig loyalty and her [sign] create a bond that can absolutely hold honesty. The key is timing and tone — your Emotional Authority says wait for a calm moment, not a charged one. And your defined Throat center means your words will land with unusual clarity when you speak from alignment rather than reactivity.",
+    reflectionPrompt: "What's the kindest way I can tell the truth? If I knew she would ultimately understand and our relationship would be stronger for it, what would I say?",
+    systemsReferenced: ["Astrology", "Numerology", "Human Design", "Chinese"],
+  },
+  "Self-Worth": {
+    whatSolunaNotices: "People-pleasing isn't a character flaw — it's often a survival strategy that once kept you safe. Your Cancer Sun in the 12th house makes you exquisitely attuned to others' feelings, and your Libra Rising wants harmony at almost any cost. Together, they created a pattern: if I make everyone comfortable, I'll be safe. But your systems are showing you something important now: that strategy is costing you more than it's protecting you.",
+    deeperPattern: "Your Human Design Generator signature is Satisfaction — and you can't feel satisfied when you're living everyone else's design instead of your own. Your Life Path 3 is about authentic self-expression, not curated performance. Your Wood Pig's generosity is genuine, but it needs boundaries to stay healthy. People-pleasing isn't generosity — it's self-abandonment wearing a kind mask.",
+    watchFor: "Be careful not to swing from people-pleasing to harsh self-criticism. The growth edge here isn't 'stop caring what others think' — it's 'start caring what YOU think, too.' Also, watch for the guilt that comes when you start setting boundaries. That guilt isn't a sign you're doing something wrong — it's the soreness of using a muscle you haven't used before.",
+    tryThisNext: "This week, say no to ONE small thing — something low-stakes where the other person will be fine. Notice how it feels in your body. Do you feel guilty? Free? Both? Just observe. Your Generator Sacral knows the difference between a genuine yes and a reluctant one — start listening for that buzz of energy (yes) versus the flatness (no).",
+    ifInvolvesOther: undefined,
+    reflectionPrompt: "Who would I be if I stopped performing likability? What parts of myself have I hidden to make others comfortable — and what would it feel like to let them be seen?",
+    systemsReferenced: ["Astrology", "Numerology", "Human Design", "Chinese"],
+  },
+  "Big Decision": {
+    whatSolunaNotices: "You're standing at a crossroads, and your systems all show that the uncertainty you feel isn't confusion — it's thoroughness. Your Expression 7 needs to analyze deeply before moving, your Emotional Authority needs to ride the full wave of feeling, and your Cancer Sun needs to feel emotionally safe with the choice. You're not indecisive — you're thorough. That's a strength, not a weakness.",
+    deeperPattern: "Big decisions activate multiple systems for you: your 6/2 Hermit profile needs alone time to hear your own voice, your Generator Sacral needs to respond to options (not generate them from your mind), and your Life Path 3 needs the choice to feel creatively aligned, not just practically sound. When all three agree, you'll know. Until then, gathering information IS the right move.",
+    watchFor: "Be careful not to outsource the decision to logic alone. Your design is emotional — you need to FEEL the right answer, not just think it. Also, be wary of seeking too many outside opinions. Your defined G Center means your direction comes from within — too much input from others can drown out your own compass.",
+    tryThisNext: "Create two columns: 'What my gut says (in 3 words)' and 'What my fear says (in 3 words).' Don't analyze — just write. Your Generator Sacral will give you a clear energetic response to each column. The one that feels expansive and warm (even if scary) is pointing toward alignment.",
+    ifInvolvesOther: undefined,
+    reflectionPrompt: "If I made this decision purely for my own growth — not for anyone else's approval, comfort, or expectations — what would I choose? What am I afraid will happen if I trust myself?",
+    systemsReferenced: ["Astrology", "Numerology", "Human Design"],
+  },
+  fallback: {
+    whatSolunaNotices: "You're carrying something real — and your systems take that seriously. Even without knowing every detail, your blueprint shows someone who feels deeply (Cancer Sun, Pisces Moon), thinks thoroughly (Expression 7), and needs to respond from alignment rather than pressure (Generator design). Whatever this is, you're approaching it with more wisdom than you give yourself credit for.",
+    deeperPattern: "Your current transits and personal numbers suggest this is a season of inner reflection rather than outer action — and that's not a delay. It's preparation. Your Personal Year 7 is designed for deep understanding before big moves. Your Generator strategy says wait to respond rather than initiate from anxiety. Trust the rhythm.",
+    watchFor: "Be careful not to convince yourself you need perfect clarity before taking any step. Clarity often comes THROUGH action, not before it. Also, be gentle with yourself about how long processing takes — your Emotional Authority means your timeline is naturally longer than someone with a different design, and that's not a flaw.",
+    tryThisNext: "Name this situation in one sentence — just for yourself. Write it down. Sometimes the simple act of naming what we're carrying makes it feel more manageable and less like a fog. Then ask: what's ONE small thing I could do today to feel even 5% clearer? Start there.",
+    ifInvolvesOther: undefined,
+    reflectionPrompt: "What am I not saying out loud about this situation — even to myself? If I gave that unspoken truth a voice, what would it tell me?",
+    systemsReferenced: ["Astrology", "Numerology", "Human Design"],
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════
 // CITIES
 // ══════════════════════════════════════════════════════════════════
 
