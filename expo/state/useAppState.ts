@@ -222,13 +222,24 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
 
   const signUp = useCallback(async (email: string, password: string) => {
     setState((s) => ({ ...s, authLoading: true, authError: null }));
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setState((s) => ({ ...s, authLoading: false, authError: error.message }));
-      return { error: error.message };
+      return { error: error.message, needsConfirmation: false };
     }
     setState((s) => ({ ...s, authLoading: false }));
-    return { error: null };
+    // When confirmations are on, signUp returns a user but no session.
+    return { error: null, needsConfirmation: !data.session && !!data.user };
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    return { error: error?.message ?? null };
+  }, []);
+
+  const resendConfirmation = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+    return { error: error?.message ?? null };
   }, []);
 
   const signOut = useCallback(async () => {
@@ -259,6 +270,18 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     }));
   }, []);
 
+  const updatePreferredName = useCallback(async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return { error: "Please enter a name." };
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData.session?.user?.id;
+    if (!uid) return { error: "You're not signed in." };
+    const { error } = await supabase.from("profiles").update({ preferred_name: trimmed }).eq("id", uid);
+    if (error) return { error: error.message };
+    setState((s) => ({ ...s, user: s.user ? { ...s.user, preferredName: trimmed } : s.user }));
+    return { error: null };
+  }, []);
+
   const resetOnboarding = useCallback(() => {
     setState((s) => ({ ...s, hasOnboarded: false, user: null, onboardingStep: "welcome" }));
   }, []);
@@ -284,6 +307,9 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    resendConfirmation,
+    updatePreferredName,
   };
 });
 

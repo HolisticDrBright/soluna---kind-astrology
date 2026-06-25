@@ -7,6 +7,7 @@ import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
 import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
+import { deriveReadingAccuracy } from "../_shared/accuracy.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -37,6 +38,9 @@ Deno.serve(async (req: Request) => {
     // Tarot card is already in context
     const tarotCard = ctx.tarotCard;
 
+    // Honest accuracy from the blueprint's astrology provenance (no fake precision)
+    const accuracy = deriveReadingAccuracy(ctx.astrology);
+
     // Persist to database
     const sbAdmin = getSupabaseAdmin();
     const { data: saved, error: saveErr } = await sbAdmin.from("daily_readings")
@@ -58,6 +62,9 @@ Deno.serve(async (req: Request) => {
           meaning: tarotCard.meaning,
           arcana: tarotCard.arcana,
         } : null,
+        accuracy_level: accuracy.accuracy_level,
+        missing_inputs: accuracy.missing_inputs,
+        confidence_notes: accuracy.confidence_notes,
         generated_at: new Date().toISOString(),
       }, { onConflict: "user_id, reading_date" })
       .select()

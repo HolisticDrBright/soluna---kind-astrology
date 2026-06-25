@@ -6,6 +6,7 @@
 
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
+import { deriveReadingAccuracy } from "../_shared/accuracy.ts";
 import { requireInternalSecret } from "../_shared/internal-auth.ts";
 
 Deno.serve(async (req: Request) => {
@@ -47,6 +48,7 @@ Deno.serve(async (req: Request) => {
         const ctx = await buildContext(user_id, today);
         const agreements = detectAgreement(ctx);
         const reading = await generateDailyReading(ctx, agreements);
+        const accuracy = deriveReadingAccuracy(ctx.astrology);
 
         await sb.from("daily_readings").upsert({
           user_id,
@@ -64,6 +66,9 @@ Deno.serve(async (req: Request) => {
             name: ctx.tarotCard.name,
             meaning: ctx.tarotCard.meaning,
           } : null,
+          accuracy_level: accuracy.accuracy_level,
+          missing_inputs: accuracy.missing_inputs,
+          confidence_notes: accuracy.confidence_notes,
           generated_at: new Date().toISOString(),
         }, { onConflict: "user_id, reading_date" });
 

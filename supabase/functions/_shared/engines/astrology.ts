@@ -6,6 +6,8 @@
  * If time is null: return planets + sun sign only, flag houses/Ascendant unavailable.
  */
 
+import { fetchFromProvider, getConfiguredProvider } from "./astrology-providers.ts";
+
 export interface AstrologyInput {
   date: string;       // ISO date YYYY-MM-DD
   time: string | null; // HH:MM or null
@@ -44,6 +46,13 @@ export interface AstrologyOutput {
   aspects: Aspect[];
   timeRequired: boolean;
   timeMissingNote?: string;
+  /**
+   * Provenance — "provider" = a real ephemeris API; "approximation" = the
+   * in-app estimate. Consumers MUST use this to label accuracy honestly and
+   * never present an approximation as exact.
+   */
+  source: "provider" | "approximation";
+  provider?: string;
 }
 
 const SIGNS = [
@@ -169,6 +178,7 @@ function computeFallbackChart(input: AstrologyInput): AstrologyOutput {
     timeRequired: !hasTime,
     timeMissingNote: hasTime ? undefined
       : "Your birth time is needed for your Rising sign, house placements, and Ascendant. These are what make your chart truly personal. You can add your birth time anytime in Settings.",
+    source: "approximation",
   };
 }
 
@@ -189,74 +199,27 @@ function lngHash(lng: number): number {
 }
 
 /**
- * Compute full astrology chart. Falls back to deterministic mock when API is unavailable.
+ * Compute the full natal chart.
+ *
+ * 1. If a real provider (ASTROLOGY_PROVIDER: prokerala | custom) is configured
+ *    AND we have real coordinates, use it → `source: "provider"`.
+ * 2. On any provider error, or when no provider is configured, fall back to the
+ *    in-app approximation → `source: "approximation"`.
+ *
+ * We never silently present the approximation as exact: the `source` flag flows
+ * into the stored blueprint so daily readings label their accuracy honestly.
  */
 export async function computeAstrology(input: AstrologyInput): Promise<AstrologyOutput> {
-  const apiBase = Deno.env.get("ASTROLOGY_API_BASE_URL");
-  const apiKey = Deno.env.get("ASTROLOGY_API_KEY");
+  const provider = getConfiguredProvider();
+  const hasCoords = Number.isFinite(input.lat) && Number.isFinite(input.lng);
 
-  if (apiBase && apiKey) {
+  if (provider && hasCoords) {
     try {
-      const resp = await fetch(`${apiBase}/natal-chart`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          date: input.date,
-          time: input.time,
-          lat: input.lat,
-          lng: input.lng,
-          timezone: input.timezone,
-          house_system: input.houseSystem ?? "placidus",
-        }),
-      });
-
-      if (resp.ok) {
-        const data = await resp.json();
-        return mapApiResponse(data, input.time === null);
-      }
-      console.warn("Astrology API unavailable, using fallback");
+      return await fetchFromProvider(provider, input);
     } catch (err) {
-      console.warn("Astrology API error, using fallback:", err);
+      console.warn(`Astrology provider (${provider}) failed, using approximation:`, err);
     }
   }
 
   return computeFallbackChart(input);
-}
-
-function mapApiResponse(data: Record<string, unknown>, timeMissing: boolean): AstrologyOutput {
-  // Map from external API format to our internal format
-  // This is a simplified mapper — real implementation depends on the actual API shape
-  return {
-    planets: (data.planets as Array<Record<string, unknown>>)?.map((p) => ({
-      planet: p.name as string ?? "",
-      sign: p.sign as string ?? "",
-      degree: p.degree as number ?? 0,
-      house: p.house as number | null ?? null,
-      retrograde: p.retrograde as boolean ?? false,
-    })) ?? [],
-    ascendant: data.ascendant
-      ? { sign: (data.ascendant as Record<string, unknown>).sign as string, degree: (data.ascendant as Record<string, unknown>).degree as number }
-      : null,
-    mc: data.mc
-      ? { sign: (data.mc as Record<string, unknown>).sign as string, degree: (data.mc as Record<string, unknown>).degree as number }
-      : null,
-    houses: (data.houses as Array<Record<string, unknown>>)?.map((h, i) => ({
-      house: i + 1,
-      sign: h.sign as string ?? "",
-      degree: h.degree as number ?? 0,
-    })) ?? [],
-    aspects: (data.aspects as Array<Record<string, unknown>>)?.map((a) => ({
-      planetA: a.planetA as string ?? "",
-      planetB: a.planetB as string ?? "",
-      type: a.type as string ?? "",
-      orb: a.orb as number ?? 0,
-    })) ?? [],
-    timeRequired: timeMissing,
-    timeMissingNote: timeMissing
-      ? "Your birth time is needed for your Rising sign, house placements, and Ascendant."
-      : undefined,
-  };
 }

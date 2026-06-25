@@ -353,8 +353,94 @@ const wpS = StyleSheet.create({
   notifyText: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body, fontStyle: "italic", lineHeight: 17 },
 });
 
+// ─── Account section (real auth controls) ───────────────
+function AccountSection() {
+  const { authUser, user, signOut, resetPassword, updatePreferredName, resetOnboarding } = useAppState();
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(user?.preferredName ?? "");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Demo/mock mode has no real account — keep the onboarding reset only.
+  if (!authUser) {
+    return (
+      <TouchableOpacity style={st.resetBtn} onPress={resetOnboarding}>
+        <LogOut size={16} color={SolunaColors.creamSubtle} />
+        <Text style={st.resetText}>Reset onboarding</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  const saveName = async () => {
+    setBusy(true);
+    const { error } = await updatePreferredName(nameDraft);
+    setBusy(false);
+    setMsg(error ?? "Your preferred name was updated. 💛");
+    if (!error) setEditing(false);
+  };
+  const onResetPassword = async () => {
+    if (!authUser.email) return;
+    setBusy(true);
+    const { error } = await resetPassword(authUser.email);
+    setBusy(false);
+    setMsg(error ?? "A password reset link is on its way to your email.");
+  };
+  const onSignOut = async () => {
+    await signOut();
+    router.replace("/auth");
+  };
+
+  return (
+    <>
+      <Text style={st.sectionTitle}>Account</Text>
+      <View style={st.card}>
+        <View style={[rS.row, rS.border]}>
+          <View style={rS.icon}><Star size={18} color={SolunaColors.gentleLavender} /></View>
+          <Text style={rS.label}>Email</Text>
+          <Text style={rS.value} numberOfLines={1}>{authUser.email}</Text>
+        </View>
+
+        {editing ? (
+          <View style={[rS.row, rS.border]}>
+            <View style={rS.icon}><Pencil size={18} color={SolunaColors.warmGold} /></View>
+            <TextInput
+              style={pmS.editInput}
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              placeholder="Preferred name"
+              placeholderTextColor={SolunaColors.creamSubtle}
+              autoFocus
+              onSubmitEditing={saveName}
+            />
+            <TouchableOpacity onPress={saveName} disabled={busy}><Text style={pmS.saveBtn}>Save</Text></TouchableOpacity>
+          </View>
+        ) : (
+          <SettingRow
+            icon={<Pencil size={18} color={SolunaColors.warmGold} />}
+            label="Preferred name"
+            value={user?.preferredName}
+            onPress={() => { setNameDraft(user?.preferredName ?? ""); setEditing(true); setMsg(""); }}
+          />
+        )}
+
+        <SettingRow
+          icon={<Lock size={18} color={SolunaColors.softPeach} />}
+          label="Send password reset email"
+          onPress={onResetPassword}
+        />
+
+        <TouchableOpacity style={rS.row} onPress={onSignOut} activeOpacity={0.6}>
+          <View style={rS.icon}><LogOut size={18} color={SolunaColors.softPeach} /></View>
+          <Text style={[rS.label, { color: SolunaColors.softPeach }]}>Sign out</Text>
+        </TouchableOpacity>
+      </View>
+      {msg ? <Text style={st.accountMsg}>{msg}</Text> : null}
+    </>
+  );
+}
+
 function ProfileContent() {
-  const { user, resetOnboarding } = useAppState();
+  const { user } = useAppState();
   const [dailyReading, setDailyReading] = useState(true);
   const [moonAlerts, setMoonAlerts] = useState(true);
   const [transitAlerts, setTransitAlerts] = useState(false);
@@ -468,10 +554,7 @@ function ProfileContent() {
           <Text style={st.privacyText}>Your birth data stays private. We never sell it, never share it, and never train AI on your chats. This is a sacred promise.</Text>
         </View>
 
-        <TouchableOpacity style={st.resetBtn} onPress={resetOnboarding}>
-          <LogOut size={16} color={SolunaColors.creamSubtle} />
-          <Text style={st.resetText}>Reset onboarding</Text>
-        </TouchableOpacity>
+        <AccountSection />
 
         <Text style={st.version}>Soluna v1.0 · Made with care</Text>
         <View style={{ height: 100 }} />
@@ -501,5 +584,6 @@ const st = StyleSheet.create({
   focusMeta: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginTop: 1 },
   resetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8 },
   resetText: { fontSize: 13, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
+  accountMsg: { fontSize: 13, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, textAlign: "center", marginBottom: 16, lineHeight: 19 },
   version: { fontSize: 11, color: SolunaColors.creamSubtle, textAlign: "center", fontFamily: Fonts.body, marginTop: 4 },
 });
