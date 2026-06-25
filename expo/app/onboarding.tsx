@@ -6,9 +6,13 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { MOCK_USER, CITIES, CITY_COORDS, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
-import { submitOnboarding } from "@/lib/api";
+import { submitOnboarding, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 
 const TOTAL_STEPS = 8;
+
+// Real Google place resolution is used for the live (paid) journey; the static
+// CITY_COORDS table is only a convenience for mock/demo mode.
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
@@ -41,6 +45,10 @@ export default function OnboardingScreen() {
   const [birthPlace, setBirthPlace] = useState("");
   const [placeSearch, setPlaceSearch] = useState("");
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
+  // Live geo (Google) autocomplete + resolved coordinates/timezone.
+  const [geoSuggestions, setGeoSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [showCalculating, setShowCalculating] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,13 +91,45 @@ export default function OnboardingScreen() {
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
-    setFilteredCities(text.length >= 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+    setSubmitError("");
+    if (USE_MOCK_DATA) {
+      setFilteredCities(text.length >= 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+      return;
+    }
+    // Live: real Google Places autocomplete (server-proxied). Changing the text
+    // invalidates any previously resolved place.
+    setResolvedPlace(null);
+    if (text.trim().length >= 2) {
+      geoAutocomplete(text)
+        .then(({ data }) => setGeoSuggestions(data?.suggestions ?? []))
+        .catch(() => setGeoSuggestions([]));
+    } else {
+      setGeoSuggestions([]);
+    }
   };
+  // Mock mode: pick a static city (coords come from CITY_COORDS).
   const selectCity = (city: string) => {
     setBirthPlace(city);
     setPlaceSearch("");
     setFilteredCities([]);
     setSubmitError("");
+  };
+  // Live mode: resolve the chosen place to real lat/lng + a date-aware timezone.
+  const selectResolvedPlace = async (s: PlaceSuggestion) => {
+    setBirthPlace(s.label);
+    setPlaceSearch("");
+    setGeoSuggestions([]);
+    setResolvedPlace(null);
+    setSubmitError("");
+    const dateForTz = birthDate ? birthDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+    setResolvingPlace(true);
+    const { data, error } = await geoResolve(s.id, dateForTz);
+    setResolvingPlace(false);
+    if (error || !data?.place) {
+      setSubmitError(error ?? "We couldn't resolve that place. Please try another.");
+      return;
+    }
+    setResolvedPlace(data.place);
   };
 
   const goNext = () => {
@@ -136,9 +176,19 @@ export default function OnboardingScreen() {
       return;
     }
 
-    const city = CITY_COORDS[birthPlace];
-    if (!city) {
-      setSubmitError("Pick a supported city from the list so we can use real timezone data.");
+    // Real coordinates/timezone come from a resolved Google place (live), or the
+    // static table (mock/demo only). No silent 0,0/UTC fallback.
+    const place = USE_MOCK_DATA
+      ? CITY_COORDS[birthPlace]
+      : (resolvedPlace
+        ? { lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+        : undefined);
+    if (!place) {
+      setSubmitError(
+        USE_MOCK_DATA
+          ? "Pick a supported city from the list so we can use real timezone data."
+          : "Choose your birth city from the search results so we can resolve your real coordinates and timezone.",
+      );
       setOnboardingStep("birthplace");
       setRevealReady(false);
       return;
@@ -151,10 +201,10 @@ export default function OnboardingScreen() {
       birth_date: birthDate.toISOString().split("T")[0],
       birth_time: birthTimeKnown ? birthTime : null,
       time_known: birthTimeKnown,
-      birth_place_label: birthPlace,
-      lat: city.lat,
-      lng: city.lng,
-      timezone: city.timezone,
+      birth_place_label: resolvedPlace?.label ?? birthPlace,
+      lat: place.lat,
+      lng: place.lng,
+      timezone: place.timezone,
       house_system: "placidus",
     });
 
@@ -214,7 +264,9 @@ export default function OnboardingScreen() {
 
   const isFullNameValid = fullName.trim().length > 0;
   const isBirthTimeValid = birthTimeKnown ? /^([01]?\d|2[0-3]):[0-5]\d$/.test(birthTime) : true;
-  const isPlaceValid = birthPlace.length > 0 && !!CITY_COORDS[birthPlace];
+  const isPlaceValid = USE_MOCK_DATA
+    ? birthPlace.length > 0 && !!CITY_COORDS[birthPlace]
+    : !!resolvedPlace;
 
   // ─── Calculating screen ───────────────────────────────
   if (showCalculating) {
@@ -495,7 +547,8 @@ export default function OnboardingScreen() {
                   placeholder="Search for your city…"
                   placeholderTextColor={SolunaColors.creamSubtle}
                 />
-                {filteredCities.length > 0 && !isPlaceValid && (
+                {/* Mock/demo: static city list */}
+                {USE_MOCK_DATA && filteredCities.length > 0 && !isPlaceValid && (
                   <View style={os.cityDropdown}>
                     <Text style={os.cityDropdownHint}>Select from the list — this ensures accurate timezone data</Text>
                     {filteredCities.slice(0, 8).map((city) => (
@@ -506,11 +559,28 @@ export default function OnboardingScreen() {
                     ))}
                   </View>
                 )}
+                {/* Live: real Google Places suggestions */}
+                {!USE_MOCK_DATA && geoSuggestions.length > 0 && !resolvedPlace && (
+                  <View style={os.cityDropdown}>
+                    <Text style={os.cityDropdownHint}>Pick your city so we can resolve real coordinates + timezone</Text>
+                    {geoSuggestions.slice(0, 6).map((s) => (
+                      <TouchableOpacity key={s.id} style={os.cityOption} onPress={() => selectResolvedPlace(s)}>
+                        <MapPin size={12} color={SolunaColors.creamSubtle} />
+                        <Text style={os.cityOptionText}>{s.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {resolvingPlace && (
+                  <View style={os.cityDropdown}>
+                    <Text style={os.cityDropdownHint}>Resolving your birth place…</Text>
+                  </View>
+                )}
                 {isPlaceValid && (
                   <View style={os.placeConfirmed}>
                     <Text style={os.placeConfirmedIcon}>✓</Text>
-                    <Text style={os.placeConfirmedText}>{birthPlace}</Text>
-                    <TouchableOpacity onPress={() => { setBirthPlace(""); setPlaceSearch(""); }}>
+                    <Text style={os.placeConfirmedText}>{resolvedPlace?.label ?? birthPlace}</Text>
+                    <TouchableOpacity onPress={() => { setBirthPlace(""); setPlaceSearch(""); setResolvedPlace(null); setGeoSuggestions([]); }}>
                       <Text style={os.placeChangeText}>Change</Text>
                     </TouchableOpacity>
                   </View>

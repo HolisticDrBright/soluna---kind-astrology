@@ -60,6 +60,35 @@ export interface CompatibilityReport {
 
 // ─── API Functions ─────────────────────────────────────────────
 
+// ─── Birth place resolution (Google, server-proxied) ───────────
+
+export interface PlaceSuggestion {
+  id: string;
+  label: string;
+}
+
+export interface ResolvedPlace {
+  label: string;
+  lat: number;
+  lng: number;
+  timezone: string;
+  utcOffsetSeconds: number;
+}
+
+/** Autocomplete birth-city search via the geo Edge Function. */
+export async function geoAutocomplete(q: string) {
+  return invokeEdgeFunction<{ configured: boolean; suggestions: PlaceSuggestion[] }>(
+    `geo/autocomplete?q=${encodeURIComponent(q)}`,
+  );
+}
+
+/** Resolve a picked place + birth date to real lat/lng + a date-aware timezone. */
+export async function geoResolve(placeId: string, date: string) {
+  return invokeEdgeFunction<{ place: ResolvedPlace }>(
+    `geo/resolve?place_id=${encodeURIComponent(placeId)}&date=${encodeURIComponent(date)}`,
+  );
+}
+
 /** Submit onboarding data and receive blueprint summary */
 export async function submitOnboarding(input: OnboardingInput) {
   return invokeEdgeFunction<{ summary: Record<string, unknown>; timeKnown: boolean }>(
