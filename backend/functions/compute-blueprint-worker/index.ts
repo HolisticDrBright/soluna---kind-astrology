@@ -34,6 +34,22 @@ Deno.serve(async (_req: Request) => {
       if (existing) continue;
 
       try {
+        if (
+          typeof profile.lat !== "number" ||
+          typeof profile.lng !== "number" ||
+          !profile.timezone
+        ) {
+          await logEvent("blueprint_worker_skipped_missing_location", {
+            userId: profile.user_id,
+            missingInputs: [
+              typeof profile.lat === "number" ? null : "birth_place_latitude",
+              typeof profile.lng === "number" ? null : "birth_place_longitude",
+              profile.timezone ? null : "birth_place_timezone",
+            ].filter(Boolean),
+          }, profile.user_id);
+          continue;
+        }
+
         await computeAndPersistBlueprint({
           user_id: profile.user_id,
           full_birth_name: profile.full_birth_name,
@@ -41,9 +57,9 @@ Deno.serve(async (_req: Request) => {
           birth_time: profile.birth_time,
           time_known: profile.time_known,
           birth_place_label: profile.birth_place_label,
-          lat: profile.lat ?? 0,
-          lng: profile.lng ?? 0,
-          timezone: profile.timezone ?? "UTC",
+          lat: profile.lat,
+          lng: profile.lng,
+          timezone: profile.timezone,
           house_system: (profile.house_system ?? "placidus") as "placidus" | "whole_sign" | "porphyry",
         }, profile.user_id);
         processed++;

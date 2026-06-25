@@ -24,6 +24,10 @@ export interface BirthProfileInput {
   house_system?: "placidus" | "whole_sign" | "porphyry";
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 export function validateBirthProfile(input: unknown): ValidationResult<BirthProfileInput> {
   if (!input || typeof input !== "object") {
     return { success: false, error: "Invalid input" };
@@ -42,6 +46,28 @@ export function validateBirthProfile(input: unknown): ValidationResult<BirthProf
   }
 
   const timeKnown = b.time_known !== false;
+  const lat = b.lat;
+  const lng = b.lng;
+  const timezone = b.timezone;
+
+  if (!isFiniteNumber(lat) || lat < -90 || lat > 90) {
+    return {
+      success: false,
+      error: "A resolved birth place latitude is required for an accurate blueprint",
+    };
+  }
+  if (!isFiniteNumber(lng) || lng < -180 || lng > 180) {
+    return {
+      success: false,
+      error: "A resolved birth place longitude is required for an accurate blueprint",
+    };
+  }
+  if (!timezone || typeof timezone !== "string") {
+    return {
+      success: false,
+      error: "A resolved birth place timezone is required for an accurate blueprint",
+    };
+  }
 
   return {
     success: true,
@@ -52,9 +78,9 @@ export function validateBirthProfile(input: unknown): ValidationResult<BirthProf
       birth_time: b.birth_time as string | null | undefined,
       time_known: timeKnown,
       birth_place_label: b.birth_place_label as string | undefined,
-      lat: b.lat as number | undefined,
-      lng: b.lng as number | undefined,
-      timezone: b.timezone as string | undefined,
+      lat,
+      lng,
+      timezone,
       house_system: b.house_system as "placidus" | "whole_sign" | "porphyry" | undefined,
     },
   };

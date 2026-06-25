@@ -33,6 +33,13 @@ export async function invokeEdgeFunction<T = unknown>(
   functionName: string,
   body?: Record<string, unknown>,
 ): Promise<{ data: T | null; error: string | null }> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return {
+      data: null,
+      error: "Supabase environment variables are not configured",
+    };
+  }
+
   const { data: session } = await supabase.auth.getSession();
   const token = session?.session?.access_token;
 

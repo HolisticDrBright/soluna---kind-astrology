@@ -64,9 +64,9 @@ Deno.serve(async (req: Request) => {
       birth_time: input.birth_time ?? null,
       time_known: input.time_known,
       birth_place_label: input.birth_place_label,
-      lat: input.lat ?? 0,
-      lng: input.lng ?? 0,
-      timezone: input.timezone ?? "UTC",
+      lat: input.lat,
+      lng: input.lng,
+      timezone: input.timezone,
       house_system: (input.house_system ?? "placidus") as "placidus" | "whole_sign" | "porphyry",
     }, user.userId);
 

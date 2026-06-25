@@ -19,6 +19,10 @@ interface RCWebhookEvent {
 
 const WEBHOOK_SECRET = Deno.env.get("REVENUECAT_WEBHOOK_SECRET") ?? "";
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
   if (preflight) return preflight;
@@ -28,8 +32,8 @@ Deno.serve(async (req: Request) => {
     // Basic auth header verification (simplified — RevenueCat uses Authorization header)
     const authHeader = req.headers.get("Authorization") ?? "";
     if (WEBHOOK_SECRET && authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
-      // Still process but log warning (in production, reject)
       console.warn("RevenueCat webhook received without valid auth header");
+      return errorResponse("Unauthorized", 401);
     }
 
     const body: RCWebhookEvent = await req.json();
@@ -48,7 +52,22 @@ Deno.serve(async (req: Request) => {
       .eq("revenuecat_app_user_id", event.app_user_id)
       .maybeSingle();
 
-    const userId = existingSub?.user_id ?? event.app_user_id;
+    let userId = existingSub?.user_id ?? null;
+    if (!userId && isUuid(event.app_user_id)) {
+      const { data: profile } = await sb.from("profiles")
+        .select("id")
+        .eq("id", event.app_user_id)
+        .maybeSingle();
+      userId = profile?.id ?? null;
+    }
+
+    if (!userId) {
+      await logEvent("revenuecat_unmapped_user", {
+        appUserId: event.app_user_id,
+        type: event.type,
+      });
+      return errorResponse("RevenueCat user is not mapped to a Soluna profile", 400);
+    }
 
     switch (event.type) {
       case "INITIAL_PURCHASE":
@@ -108,7 +127,7 @@ Deno.serve(async (req: Request) => {
       await sb.from("purchases").insert({
         user_id: userId,
         product_id: event.product_id,
-        kind: event.type === "INITIAL_PURCHASE" ? "one_time" : "one_time",
+        kind: event.type === "NON_RENEWING_PURCHASE" ? "one_time" : "subscription",
       });
     }
 

@@ -60,6 +60,26 @@ Deno.serve(async (req: Request) => {
       }
 
       try {
+        if (
+          typeof profile.lat !== "number" ||
+          typeof profile.lng !== "number" ||
+          !profile.timezone
+        ) {
+          return jsonResponse({
+            blueprint: null,
+            message: "Birth place needs to be resolved before an accurate blueprint can be computed.",
+            accuracyLevel: "blocked",
+            missingInputs: [
+              typeof profile.lat === "number" ? null : "birth_place_latitude",
+              typeof profile.lng === "number" ? null : "birth_place_longitude",
+              profile.timezone ? null : "birth_place_timezone",
+            ].filter(Boolean),
+            confidenceNotes: [
+              "Soluna will not guess location or timezone because that would create fake chart precision.",
+            ],
+          }, 409);
+        }
+
         const { summary } = await computeAndPersistBlueprint({
           user_id: user.userId,
           full_birth_name: profile.full_birth_name,
@@ -67,9 +87,9 @@ Deno.serve(async (req: Request) => {
           birth_time: profile.birth_time,
           time_known: profile.time_known,
           birth_place_label: profile.birth_place_label,
-          lat: profile.lat ?? 0,
-          lng: profile.lng ?? 0,
-          timezone: profile.timezone ?? "UTC",
+          lat: profile.lat,
+          lng: profile.lng,
+          timezone: profile.timezone,
           house_system: (profile.house_system ?? "placidus") as "placidus" | "whole_sign" | "porphyry",
         }, user.userId);
 

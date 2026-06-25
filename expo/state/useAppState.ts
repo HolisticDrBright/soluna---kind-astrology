@@ -3,6 +3,8 @@ import createContextHook from "@nkzw/create-context-hook";
 import type { UserData, OnboardingStep, Placement } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/mockData";
 
+const useMockData = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
 export interface AppState {
   hasOnboarded: boolean;
   user: UserData | null;
@@ -11,9 +13,9 @@ export interface AppState {
 
 const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const [state, setState] = useState<AppState>({
-    hasOnboarded: true,
-    user: MOCK_USER,
-    onboardingStep: "reveal",
+    hasOnboarded: useMockData,
+    user: useMockData ? MOCK_USER : null,
+    onboardingStep: useMockData ? "reveal" : "welcome",
   });
 
   const setOnboardingStep = useCallback((step: OnboardingStep) => {
