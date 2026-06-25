@@ -24,10 +24,16 @@ export interface LLMResponse {
 }
 
 function getConfig(): LLMConfig {
+  const provider = (Deno.env.get("LLM_PROVIDER") ?? "anthropic").toLowerCase();
+  const providerKey = provider === "anthropic"
+    ? Deno.env.get("ANTHROPIC_API_KEY")
+    : Deno.env.get("OPENAI_API_KEY");
+
   return {
-    provider: Deno.env.get("LLM_PROVIDER") ?? "anthropic",
-    apiKey: Deno.env.get("LLM_API_KEY") ?? "",
-    model: Deno.env.get("LLM_MODEL") ?? "claude-sonnet-4-6",
+    provider,
+    apiKey: Deno.env.get("LLM_API_KEY") ?? providerKey ?? "",
+    model: Deno.env.get("LLM_MODEL") ?? (provider === "anthropic" ? "claude-sonnet-4-6" : "gpt-5-mini"),
+    baseUrl: Deno.env.get("LLM_BASE_URL") ?? undefined,
   };
 }
 

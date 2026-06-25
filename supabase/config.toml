@@ -1,0 +1,19 @@
+project_id = "soluna-kind-astrology"
+
+[functions.billing-webhook]
+verify_jwt = false
+
+[functions.compute-blueprint-worker]
+verify_jwt = false
+
+[functions.generate-daily-readings]
+verify_jwt = false
+
+[functions.reconcile-entitlements]
+verify_jwt = false
+
+[functions.refresh-transits]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false

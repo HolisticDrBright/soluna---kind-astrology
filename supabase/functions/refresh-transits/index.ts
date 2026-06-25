@@ -4,8 +4,12 @@
  */
 
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
+import { requireInternalSecret } from "../_shared/internal-auth.ts";
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  const unauthorized = requireInternalSecret(req);
+  if (unauthorized) return unauthorized;
+
   try {
     // For now, transits are computed on-the-fly in the today function
     // This worker logs that the refresh ran and can be extended later

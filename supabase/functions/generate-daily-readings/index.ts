@@ -6,8 +6,12 @@
 
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
+import { requireInternalSecret } from "../_shared/internal-auth.ts";
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  const unauthorized = requireInternalSecret(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const sb = getSupabaseAdmin();
     const today = new Date().toISOString().split("T")[0];

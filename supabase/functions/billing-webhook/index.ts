@@ -29,9 +29,14 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
 
   try {
-    // Basic auth header verification (simplified — RevenueCat uses Authorization header)
+    if (!WEBHOOK_SECRET) {
+      console.error("REVENUECAT_WEBHOOK_SECRET is not configured");
+      return errorResponse("Webhook secret is not configured", 500);
+    }
+
+    // RevenueCat can send the configured authorization header value.
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (WEBHOOK_SECRET && authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
+    if (authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
       console.warn("RevenueCat webhook received without valid auth header");
       return errorResponse("Unauthorized", 401);
     }

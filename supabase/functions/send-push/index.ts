@@ -5,6 +5,7 @@
  */
 
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
+import { requireInternalSecret } from "../_shared/internal-auth.ts";
 
 const EXPO_ACCESS_TOKEN = Deno.env.get("EXPO_ACCESS_TOKEN") ?? "";
 
@@ -16,7 +17,10 @@ interface PushNotification {
   data?: Record<string, unknown>;
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  const unauthorized = requireInternalSecret(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const sb = getSupabaseAdmin();
     const today = new Date().toISOString().split("T")[0];
