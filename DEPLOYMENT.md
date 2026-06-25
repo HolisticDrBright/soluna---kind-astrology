@@ -101,9 +101,11 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 |-------|-------------|------------|
 | Frontend `tsc` | ✅ pass | `cd expo && npx tsc --noEmit` |
 | Frontend lint | ⚠️ pre-existing warnings/`no-unescaped-entities` only; no new issues | `cd expo && npm run lint` |
-| Geo parser tests | ✅ 6/6 pass | `deno test supabase/functions/_shared/tests` |
+| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy) | ✅ 38/38 pass | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
 | Migration SQL grammar | ✅ both parse (265 + 6 stmts) | libpg_query / `supabase db lint` |
-| Worker internal-secret guard | ✅ present in all 6 non-JWT functions | code review |
+| Worker internal-secret guard | ✅ enforced in all non-JWT worker functions + unit-tested (`internal_auth_test.ts`) | included in the test run above |
+| RevenueCat webhook auth + app_user_id mapping | ✅ Bearer-secret check + UUID mapping unit-tested (`revenuecat_test.ts`) | included in the test run above |
+| "No forgeable generated content" RLS invariant | ✅ migration-parsed: every owner write policy on `blueprints`/`daily_readings` is dropped (`rls_policy_test.ts`) | included in the test run above |
 | Edge Function `deno check` | ⚠️ not runnable here (sandbox can't reach `esm.sh`) | `deno check supabase/functions/**/index.ts` |
 | Live migrations + advisors + function deploy | ⛔ **not possible from this environment** — no Soluna Supabase project is linked to the MCP (only an unrelated `petwell`). | run §1 against the real project |
 

@@ -1,7 +1,8 @@
 /**
  * Zero-dependency test assertions, so the suite runs in this environment without
  * fetching from jsr/deno.land (which are network-blocked here). Mirrors the
- * small subset of @std/assert we use. Run: `deno test supabase/functions`.
+ * small subset of @std/assert we use.
+ * Run: `deno test --allow-env --allow-read supabase/functions/_shared/tests`.
  */
 
 export function assert(cond: unknown, msg = "assertion failed"): void {

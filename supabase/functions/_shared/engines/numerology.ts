@@ -77,8 +77,8 @@ function nameToNumbers(name: string): { all: number; vowels: number; consonants:
 
 /**
  * Compute full numerology profile for a person.
- * Verified against known fixtures:
- * - "John Doe" / 1990-01-15 → Life Path 8, Expression 7, Soul Urge 8, Personality 8
+ * Verified against known fixtures (see _shared/tests/numerology_test.ts):
+ * - "John Doe" / 1990-01-15 → Life Path 8, Expression 8, Soul Urge 8, Personality 9, Birthday 6
  */
 export function computeNumerology(input: NumerologyInput): NumerologyOutput {
   const { fullBirthName, birthDate, targetDate } = input;

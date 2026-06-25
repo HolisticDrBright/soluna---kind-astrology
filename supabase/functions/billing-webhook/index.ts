@@ -5,6 +5,7 @@
 
 import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
+import { isAuthorizedRevenueCatRequest, isUuid } from "../_shared/revenuecat.ts";
 
 interface RCWebhookEvent {
   event: {
@@ -19,10 +20,6 @@ interface RCWebhookEvent {
 
 const WEBHOOK_SECRET = Deno.env.get("REVENUECAT_WEBHOOK_SECRET") ?? "";
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
   if (preflight) return preflight;
@@ -34,9 +31,9 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Webhook secret is not configured", 500);
     }
 
-    // RevenueCat can send the configured authorization header value.
+    // RevenueCat is configured to send `Authorization: Bearer <secret>`.
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
+    if (!isAuthorizedRevenueCatRequest(authHeader, WEBHOOK_SECRET)) {
       console.warn("RevenueCat webhook received without valid auth header");
       return errorResponse("Unauthorized", 401);
     }
