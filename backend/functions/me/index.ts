@@ -4,7 +4,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateMeUpdate, validateBirthProfile } from "../_shared/schemas.ts";
 import { getSupabaseAdmin } from "../_shared/supabase.ts";
 
@@ -75,6 +75,7 @@ Deno.serve(async (req: Request) => {
           moon_alerts: true,
           transit_alerts: false,
         },
+        blueprint: blueprint ?? null,
         subscription: subscription ?? { entitlement: "free", status: "inactive" },
         summaryChip: summaryChip || "Complete onboarding to see your blueprint",
       });

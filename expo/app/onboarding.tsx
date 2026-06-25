@@ -1,13 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated as RNAnimated, Platform, Dimensions } from "react-native";
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated as RNAnimated, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
+import { MOCK_USER, CITIES, CITY_COORDS, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
+import { submitOnboarding } from "@/lib/api";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TOTAL_STEPS = 8;
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -28,7 +28,7 @@ const siS = StyleSheet.create({
 });
 
 export default function OnboardingScreen() {
-  const { onboardingStep, setOnboardingStep, completeOnboarding } = useAppState();
+  const { authUser, onboardingStep, setOnboardingStep, completeOnboarding, refreshUser } = useAppState();
 
   // All fields start empty — no prefilled demo data
   const [fullName, setFullName] = useState("");
@@ -43,6 +43,9 @@ export default function OnboardingScreen() {
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
   const [showCalculating, setShowCalculating] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitNotice, setSubmitNotice] = useState("");
   const fadeAnim = useRef(new RNAnimated.Value(0)).current;
   const slideAnim = useRef(new RNAnimated.Value(30)).current;
   const calculatingAnim = useRef(new RNAnimated.Value(0)).current;
@@ -86,6 +89,7 @@ export default function OnboardingScreen() {
     setBirthPlace(city);
     setPlaceSearch("");
     setFilteredCities([]);
+    setSubmitError("");
   };
 
   const goNext = () => {
@@ -101,19 +105,80 @@ export default function OnboardingScreen() {
     if (idx > 0) setOnboardingStep(sequence[idx - 1]);
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (isSubmitting) return;
+    setSubmitError("");
+    setSubmitNotice("");
+
+    if (!authUser) {
+      router.replace("/auth");
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setSubmitError("Add your full birth name before we save your blueprint.");
+      setOnboardingStep("fullName");
+      setRevealReady(false);
+      return;
+    }
+
+    if (!birthDate) {
+      setSubmitError("Add your birth date before we save your blueprint.");
+      setOnboardingStep("birthdate");
+      setRevealReady(false);
+      return;
+    }
+
+    if (!isBirthTimeValid) {
+      setSubmitError("Use a valid 24-hour birth time, like 14:35, or choose that you do not know it yet.");
+      setOnboardingStep("birthtime");
+      setRevealReady(false);
+      return;
+    }
+
+    const city = CITY_COORDS[birthPlace];
+    if (!city) {
+      setSubmitError("Pick a supported city from the list so we can use real timezone data.");
+      setOnboardingStep("birthplace");
+      setRevealReady(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    const { error } = await submitOnboarding({
+      full_birth_name: fullName.trim(),
+      preferred_name: preferredName.trim() || fullName.trim().split(" ")[0],
+      birth_date: birthDate.toISOString().split("T")[0],
+      birth_time: birthTimeKnown ? birthTime : null,
+      time_known: birthTimeKnown,
+      birth_place_label: birthPlace,
+      lat: city.lat,
+      lng: city.lng,
+      timezone: city.timezone,
+      house_system: "placidus",
+    });
+
+    if (error) {
+      setIsSubmitting(false);
+      setSubmitError(error);
+      return;
+    }
+
+    await refreshUser();
     completeOnboarding({
-      fullName: fullName || "You",
-      preferredName: preferredName || fullName?.split(" ")[0] || "You",
-      birthDate: birthDate?.toISOString().split("T")[0] ?? "1990-01-01",
-      birthTime: birthTime || "12:00",
+      fullName: fullName.trim(),
+      preferredName: preferredName.trim() || fullName.trim().split(" ")[0],
+      birthDate: birthDate.toISOString().split("T")[0],
+      birthTime: birthTimeKnown ? birthTime : "",
       birthTimeKnown,
-      birthPlace: birthPlace || "Unknown",
+      birthPlace,
       chart: MOCK_USER.chart,
       numerology: MOCK_USER.numerology,
       chinese: MOCK_USER.chinese,
       humanDesign: MOCK_USER.humanDesign,
     });
+    setSubmitNotice("Saved. Your real blueprint is now connected to this account.");
+    setIsSubmitting(false);
     router.replace("/(tabs)");
   };
 
@@ -147,8 +212,9 @@ export default function OnboardingScreen() {
     }
   };
 
-  const isBirthTimeValid = birthTimeKnown ? /^\d{1,2}:\d{2}$/.test(birthTime) && birthTime.length >= 4 : true;
-  const isPlaceValid = birthPlace.length > 0;
+  const isFullNameValid = fullName.trim().length > 0;
+  const isBirthTimeValid = birthTimeKnown ? /^([01]?\d|2[0-3]):[0-5]\d$/.test(birthTime) : true;
+  const isPlaceValid = birthPlace.length > 0 && !!CITY_COORDS[birthPlace];
 
   // ─── Calculating screen ───────────────────────────────
   if (showCalculating) {
@@ -261,9 +327,11 @@ export default function OnboardingScreen() {
 
           <TouchableOpacity style={os.beginButton} onPress={handleFinish} activeOpacity={0.8}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
-              <Text style={os.beginButtonText}>Begin</Text>
+              {isSubmitting ? <ActivityIndicator color={SolunaColors.deepIndigo} /> : <Text style={os.beginButtonText}>Save & Begin</Text>}
             </LinearGradient>
           </TouchableOpacity>
+          {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
+          {submitNotice ? <Text style={os.submitNotice}>{submitNotice}</Text> : null}
         </RNAnimated.View>
       </LinearGradient>
     );
@@ -307,9 +375,9 @@ export default function OnboardingScreen() {
                 <TextInput style={os.input} value={fullName} onChangeText={setFullName} placeholder="Your full birth name" placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={[os.primaryButton, !fullName && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!fullName}>
-                <LinearGradient colors={fullName ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={[os.buttonText, !fullName && { color: SolunaColors.creamSubtle }]}>Continue</Text>
+              <TouchableOpacity style={[os.primaryButton, !isFullNameValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isFullNameValid}>
+                <LinearGradient colors={isFullNameValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !isFullNameValid && { color: SolunaColors.creamSubtle }]}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -324,9 +392,9 @@ export default function OnboardingScreen() {
                 <TextInput style={os.input} value={preferredName} onChangeText={setPreferredName} placeholder={fullName ? fullName.split(" ")[0] : "Your preferred name"} placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
-                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={os.buttonText}>Continue</Text>
+              <TouchableOpacity style={[os.primaryButton, !isBirthTimeValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isBirthTimeValid}>
+                <LinearGradient colors={isBirthTimeValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !isBirthTimeValid && { color: SolunaColors.creamSubtle }]}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
               {preferredName ? null : (
@@ -449,6 +517,9 @@ export default function OnboardingScreen() {
                 )}
               </View>
               <View style={{ height: 24 }} />
+              {birthPlace && !isPlaceValid ? (
+                <Text style={os.dateError}>Please choose a supported city from the list.</Text>
+              ) : null}
               <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isPlaceValid}>
                 <LinearGradient colors={isPlaceValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
                   <Text style={[os.buttonText, !isPlaceValid && { color: SolunaColors.creamSubtle }]}>Weave My Blueprint</Text>
@@ -548,4 +619,6 @@ const os = StyleSheet.create({
   beginButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 280, marginTop: 10 },
   beginGradient: { paddingVertical: 16, alignItems: "center" },
   beginButtonText: { fontSize: 18, fontWeight: "600", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
+  submitError: { color: SolunaColors.softPeach, fontSize: 13, marginTop: 10, textAlign: "center", fontFamily: Fonts.body },
+  submitNotice: { color: SolunaColors.creamMuted, fontSize: 13, marginTop: 10, textAlign: "center", fontFamily: Fonts.body },
 });

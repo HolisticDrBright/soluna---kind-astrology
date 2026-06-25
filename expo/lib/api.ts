@@ -97,6 +97,7 @@ export async function getMe() {
   return invokeEdgeFunction<{
     profile: unknown;
     birthProfile: unknown;
+    blueprint: BlueprintData | null;
     notificationPrefs: unknown;
     subscription: unknown;
     summaryChip: string;
