@@ -24,6 +24,30 @@ Deno.test("no card's user-facing guidance contains banned language", () => {
   assertEquals(offenders, []);
 });
 
+Deno.test("Human Design-inspired cards stay non-proprietary and non-deterministic", () => {
+  const hd = ALL_CARDS.filter((c) => c.system === "human_design_inspired");
+  assert(hd.length > 0);
+  // Proprietary HD specifics must not appear in ANY field (gates, channels,
+  // incarnation cross). Profile notation like "1/3" is fine and not matched here.
+  const proprietary = [/incarnation cross/i, /\bgate\s+\d+/i, /\bchannel\s+\d+\s*[-–]\s*\d+/i];
+  // Deterministic identity claims must not appear in user-facing fields; cards
+  // use "Generator-style energy", never "you are a Generator".
+  const deterministic = /\byou are an? (generator|manifestor|projector|reflector|manifesting generator)\b/i;
+
+  const offenders: string[] = [];
+  for (const c of hd) {
+    const allText = [c.title, c.plainMeaning, ...c.strengths, ...c.growthEdges, ...c.avoidSaying, ...c.confidenceNotes, ...c.safetyNotes].join(" ");
+    if (proprietary.some((re) => re.test(allText))) offenders.push(`${c.id}: proprietary HD term`);
+    const positive = [c.plainMeaning, ...c.strengths, ...c.growthEdges, ...c.confidenceNotes].join(" ");
+    if (deterministic.test(positive)) offenders.push(`${c.id}: deterministic type claim`);
+    // Every HD card must carry the reflective-lens caveat.
+    if (!c.confidenceNotes.some((n) => /inspired|lens|not a (rule|verdict|diagnosis|fixed)/i.test(n))) {
+      offenders.push(`${c.id}: missing reflective-lens caveat`);
+    }
+  }
+  assertEquals(offenders, []);
+});
+
 Deno.test("banned linter catches commands and certainty", () => {
   assert(scanForBannedLanguage("You must leave today.").length > 0);
   assert(scanForBannedLanguage("This will definitely happen to you.").length > 0);

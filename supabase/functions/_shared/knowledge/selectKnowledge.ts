@@ -119,6 +119,17 @@ const TRINE_OF: Record<string, string> = {
   rabbit: "trine_4", goat: "trine_4", pig: "trine_4",
 };
 
+// HD-inspired center name → card-key base. Only existing cards get selected
+// (missing defined/open variants simply resolve to nothing).
+const HD_CENTER_KEY: Record<string, string> = {
+  "solar plexus": "solar_plexus", "sacral": "sacral", "throat": "throat",
+  "g": "g", "g center": "g", "identity": "g", "self": "g",
+  "heart": "heart", "ego": "heart", "will": "heart",
+  "spleen": "spleen", "splenic": "spleen",
+  "head": "head_ajna", "ajna": "head_ajna", "mind": "head_ajna",
+  "root": "root",
+};
+
 const HD_TYPE_KEY: Record<string, string> = {
   "generator": "type_generator",
   "manifesting generator": "type_manifesting_generator",
@@ -276,9 +287,19 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
     if (a && HD_AUTHORITY_KEY[a]) push(cards, seen, cardByKeyInSystem("human_design_inspired", HD_AUTHORITY_KEY[a]));
     const prof = ctx.humanDesign.profile?.replace("/", "_").trim();
     if (prof) push(cards, seen, cardByKeyInSystem("human_design_inspired", `profile_${prof}`));
-    const open = (ctx.humanDesign.undefinedCenters ?? []).map((c) => c.toLowerCase());
-    if (open.includes("solar plexus")) push(cards, seen, cardByKeyInSystem("human_design_inspired", "center_solar_plexus_open"));
-    if (open.includes("root")) push(cards, seen, cardByKeyInSystem("human_design_inspired", "center_root_open"));
+    // Centers: select defined ("consistent") and open ("amplified") cards that
+    // exist, capped so HD doesn't flood the selection. Open centers come first —
+    // they're usually the most advice-relevant ("not yours to carry") themes.
+    const centerCards: (KnowledgeCard | undefined)[] = [];
+    for (const c of ctx.humanDesign.undefinedCenters ?? []) {
+      const base = HD_CENTER_KEY[c.toLowerCase().trim()];
+      if (base) centerCards.push(cardByKeyInSystem("human_design_inspired", `center_${base}_open`));
+    }
+    for (const c of ctx.humanDesign.definedCenters ?? []) {
+      const base = HD_CENTER_KEY[c.toLowerCase().trim()];
+      if (base) centerCards.push(cardByKeyInSystem("human_design_inspired", `center_${base}_defined`));
+    }
+    centerCards.filter(Boolean).slice(0, 3).forEach((c) => push(cards, seen, c));
   }
 
   // 6. Tarot draw.
