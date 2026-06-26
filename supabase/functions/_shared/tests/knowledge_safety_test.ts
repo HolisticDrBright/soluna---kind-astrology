@@ -7,6 +7,22 @@ import { assert, assertEquals } from "../test_util.ts";
 import { scanForBannedLanguage } from "../knowledge/tone-safety-rules.ts";
 import { scanUserInputSafety } from "../knowledge/synthesis-rules.ts";
 import { selectKnowledge } from "../knowledge/selectKnowledge.ts";
+import { ALL_CARDS } from "../knowledge/index.ts";
+
+Deno.test("no card's user-facing guidance contains banned language", () => {
+  // Scan the POSITIVE fields the model paraphrases. `avoidSaying` and
+  // `safetyNotes` intentionally quote anti-patterns, so they are excluded.
+  const offenders: string[] = [];
+  for (const c of ALL_CARDS) {
+    // "tone" cards intentionally quote banned phrases to teach the model what to
+    // avoid; they are meta-instructions, not paraphrased user-facing content.
+    if (c.system === "tone") continue;
+    const text = [c.plainMeaning, ...c.strengths, ...c.growthEdges, ...c.confidenceNotes].join(" ");
+    const hits = scanForBannedLanguage(text);
+    if (hits.length) offenders.push(`${c.id}: ${hits.map((h) => h.match).join(", ")}`);
+  }
+  assertEquals(offenders, []);
+});
 
 Deno.test("banned linter catches commands and certainty", () => {
   assert(scanForBannedLanguage("You must leave today.").length > 0);

@@ -20,7 +20,6 @@ import {
   FOCUS_CATEGORY_TAGS,
   SAFETY_GUIDANCE,
   scanUserInputSafety,
-  SYNTHESIS_TAGS,
   tensionTags,
   type ActionType,
   type ConfidenceLabel,
@@ -35,8 +34,14 @@ import {
 
 export interface KnowledgeContext {
   astrology?: {
-    planets?: Array<{ planet: string; sign: string }>;
+    planets?: Array<{ planet: string; sign: string; house?: number | null }>;
     ascendant?: { sign: string | null } | null;
+    /** Natal house cusps — present only when birth time is known. */
+    houses?: Array<{ house: number; sign: string }>;
+    /** Natal aspects between planets, when the provider supplies them. */
+    aspects?: Array<{ planetA: string; planetB: string; type: string; orb?: number }>;
+    /** True only when birth time is accurate enough for houses/angles. */
+    hasAccurateTime?: boolean;
   } | null;
   numerology?: {
     lifePath?: number;
@@ -92,6 +97,18 @@ const SIGN_ELEMENT: Record<string, "fire" | "earth" | "air" | "water"> = {
   taurus: "earth", virgo: "earth", capricorn: "earth",
   gemini: "air", libra: "air", aquarius: "air",
   cancer: "water", scorpio: "water", pisces: "water",
+};
+
+// Personal/social planets that have dedicated planet-in-sign cards.
+const PLANET_IN_SIGN = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn"];
+
+// Aspect type → knowledge card key (only the five core aspects).
+const ASPECT_KEYS: Record<string, string> = {
+  conjunction: "aspect_conjunction",
+  sextile: "aspect_sextile",
+  square: "aspect_square",
+  trine: "aspect_trine",
+  opposition: "aspect_opposition",
 };
 
 const HD_TYPE_KEY: Record<string, string> = {
@@ -168,7 +185,8 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
   const cards: KnowledgeCard[] = [];
   const seen = new Set<string>();
 
-  // 1. Astrology — sun, moon (by element), rising.
+  // 1. Astrology — sun, moon (by element), rising, planet-in-sign, houses, aspects.
+  //    Everything here is gated on REAL provider data; nothing is ever guessed.
   if (ctx.astrology) {
     const planets = ctx.astrology.planets ?? [];
     const sun = planets.find((p) => p.planet === "Sun");
@@ -181,6 +199,32 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
     if (ctx.astrology.ascendant?.sign) {
       push(cards, seen, cardByKeyInSystem("western_astrology", "rising_core"));
     }
+
+    // Planet-in-sign for the personal/social planets (real signs only).
+    for (const planet of PLANET_IN_SIGN) {
+      const p = planets.find((pl) => pl.planet === planet);
+      if (p?.sign) push(cards, seen, cardByKeyInSystem("western_astrology", `${planet.toLowerCase()}_${p.sign.toLowerCase()}`));
+    }
+
+    // Houses require an accurate birth time. Select the houses the Sun and Moon
+    // fall in (the most personal). The provider returns no houses without a
+    // birth time, so this never fabricates an angle.
+    if (ctx.astrology.hasAccurateTime && (ctx.astrology.houses?.length ?? 0) > 0) {
+      for (const luminary of ["Sun", "Moon"]) {
+        const lp = planets.find((pl) => pl.planet === luminary);
+        if (lp?.house) push(cards, seen, cardByKeyInSystem("western_astrology", `house_${lp.house}`));
+      }
+    }
+
+    // Aspects between natal planets, when the provider supplies them. Take the
+    // two tightest-orb aspects involving a personal planet, mapped to their type.
+    const aspects = (ctx.astrology.aspects ?? []).filter((a) => ASPECT_KEYS[(a.type ?? "").toLowerCase()]);
+    const personal = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars"]);
+    aspects
+      .filter((a) => personal.has(a.planetA) || personal.has(a.planetB))
+      .sort((a, b) => (a.orb ?? 99) - (b.orb ?? 99))
+      .slice(0, 2)
+      .forEach((a) => push(cards, seen, cardByKeyInSystem("western_astrology", ASPECT_KEYS[a.type.toLowerCase()])));
   }
 
   // 2. Transits — mercury retrograde, moon phase.

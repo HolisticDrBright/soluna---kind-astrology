@@ -25,8 +25,28 @@ Deno.test("every system has cards", () => {
   }
 });
 
-Deno.test("all 22 Major Arcana are present", () => {
-  assertEquals(CARDS_BY_SYSTEM.tarot.length, 22);
+Deno.test("the full 78-card tarot deck is present (22 major + 56 minor)", () => {
+  const keys = new Set(CARDS_BY_SYSTEM.tarot.map((c) => c.key));
+  assertEquals(CARDS_BY_SYSTEM.tarot.length, 78);
+  // 56 Minor Arcana: 4 suits × 14 ranks, keyed "<rank>_of_<suit>".
+  const ranks = ["ace", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "page", "knight", "queen", "king"];
+  const suits = ["wands", "cups", "swords", "pentacles"];
+  for (const s of suits) for (const r of ranks) assert(keys.has(`${r}_of_${s}`), `missing tarot ${r}_of_${s}`);
+});
+
+Deno.test("western astrology has planet-in-sign, houses, and aspect cards", () => {
+  const keys = new Set(CARDS_BY_SYSTEM.western_astrology.map((c) => c.key));
+  const signs = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];
+  // 5 personal/social planets × 12 signs = 60 planet-in-sign cards.
+  for (const p of ["mercury", "venus", "mars", "jupiter", "saturn"]) {
+    for (const s of signs) assert(keys.has(`${p}_${s}`), `missing ${p}_${s}`);
+  }
+  // 12 houses.
+  for (let h = 1; h <= 12; h++) assert(keys.has(`house_${h}`), `missing house_${h}`);
+  // 5 core aspects.
+  for (const a of ["conjunction", "sextile", "square", "trine", "opposition"]) {
+    assert(keys.has(`aspect_${a}`), `missing aspect_${a}`);
+  }
 });
 
 Deno.test("life path 1-9 plus master numbers exist", () => {

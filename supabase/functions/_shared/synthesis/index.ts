@@ -13,7 +13,7 @@
  */
 
 import { llmCall, llmCallJSON, type LLMMessage } from "../llm-client.ts";
-import { SOLUNA_VOICE, THEMES, type Theme } from "../constants.ts";
+import { THEMES, type Theme } from "../constants.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 import type { AstrologyOutput } from "../engines/astrology.ts";
 import type { NumerologyOutput } from "../engines/numerology.ts";
@@ -73,8 +73,17 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
   return {
     astrology: ctx.astrology
       ? {
-          planets: (ctx.astrology.planets ?? []).map((p) => ({ planet: p.planet, sign: p.sign })),
+          planets: (ctx.astrology.planets ?? []).map((p) => ({ planet: p.planet, sign: p.sign, house: p.house })),
           ascendant: ctx.astrology.ascendant ? { sign: ctx.astrology.ascendant.sign } : null,
+          // Houses + aspects are precision-sensitive: only pass them from a REAL
+          // provider chart (never the dev approximation), so they're never guessed.
+          houses: ctx.astrology.source === "provider"
+            ? (ctx.astrology.houses ?? []).map((h) => ({ house: h.house, sign: h.sign }))
+            : [],
+          aspects: ctx.astrology.source === "provider"
+            ? (ctx.astrology.aspects ?? []).map((a) => ({ planetA: a.planetA, planetB: a.planetB, type: a.type, orb: a.orb }))
+            : [],
+          hasAccurateTime: ctx.astrology.source === "provider" && ctx.astrology.timeRequired === false,
         }
       : null,
     numerology: ctx.numerology
@@ -468,7 +477,6 @@ function systemsFromSelection(
   selection: { selectedKnowledgeCards: Array<{ system: string }> },
   text: string,
 ): string[] {
-  const named = new Set(["western_astrology", "numerology", "eastern_astrology", "human_design_inspired", "tarot"]);
   const fromCards = selection.selectedKnowledgeCards
     .map((c) => (c.system === "western_astrology" ? "astrology" : c.system === "eastern_astrology" ? "chinese" : c.system === "human_design_inspired" ? "human_design" : c.system))
     .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "human_design" || s === "tarot");
