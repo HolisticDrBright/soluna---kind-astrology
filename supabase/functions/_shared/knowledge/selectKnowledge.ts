@@ -111,6 +111,14 @@ const ASPECT_KEYS: Record<string, string> = {
   opposition: "aspect_opposition",
 };
 
+// Chinese zodiac animal → its harmony trine card key.
+const TRINE_OF: Record<string, string> = {
+  rat: "trine_1", dragon: "trine_1", monkey: "trine_1",
+  ox: "trine_2", snake: "trine_2", rooster: "trine_2",
+  tiger: "trine_3", horse: "trine_3", dog: "trine_3",
+  rabbit: "trine_4", goat: "trine_4", pig: "trine_4",
+};
+
 const HD_TYPE_KEY: Record<string, string> = {
   "generator": "type_generator",
   "manifesting generator": "type_manifesting_generator",
@@ -227,12 +235,20 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
       .forEach((a) => push(cards, seen, cardByKeyInSystem("western_astrology", ASPECT_KEYS[a.type.toLowerCase()])));
   }
 
-  // 2. Transits — mercury retrograde, moon phase.
+  // 2. Transits — moon phase (deterministic/real), plus provider-only signals
+  //    (mercury retrograde) when supplied. Never fabricated.
   if (ctx.transits) {
     if (ctx.transits.mercuryRetrograde) push(cards, seen, cardByKeyInSystem("western_astrology", "mercury_retrograde"));
     const phase = ctx.transits.moonPhase?.toLowerCase() ?? "";
-    if (phase.includes("new")) push(cards, seen, cardByKeyInSystem("western_astrology", "new_moon"));
-    if (phase.includes("full")) push(cards, seen, cardByKeyInSystem("western_astrology", "full_moon"));
+    if (phase.includes("new")) {
+      push(cards, seen, cardByKeyInSystem("western_astrology", "new_moon"));
+    } else if (phase.includes("full")) {
+      push(cards, seen, cardByKeyInSystem("western_astrology", "full_moon"));
+    } else if (phase.includes("waxing") || phase.includes("first quarter")) {
+      push(cards, seen, cardByKeyInSystem("western_astrology", "waxing_moon"));
+    } else if (phase.includes("waning") || phase.includes("last quarter")) {
+      push(cards, seen, cardByKeyInSystem("western_astrology", "waning_moon"));
+    }
   }
 
   // 3. Numerology — life path + personal day.
@@ -241,9 +257,13 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
     if (ctx.numerology.personalDay) push(cards, seen, cardByKeyInSystem("numerology", `personal_day_${ctx.numerology.personalDay}`));
   }
 
-  // 4. Chinese — animal, element, polarity.
+  // 4. Chinese — animal, element, polarity, and the animal's harmony trine.
   if (ctx.chinese) {
-    if (ctx.chinese.animal) push(cards, seen, cardByKeyInSystem("eastern_astrology", `animal_${ctx.chinese.animal.toLowerCase()}`));
+    if (ctx.chinese.animal) {
+      const animal = ctx.chinese.animal.toLowerCase();
+      push(cards, seen, cardByKeyInSystem("eastern_astrology", `animal_${animal}`));
+      if (TRINE_OF[animal]) push(cards, seen, cardByKeyInSystem("eastern_astrology", TRINE_OF[animal]));
+    }
     if (ctx.chinese.element) push(cards, seen, cardByKeyInSystem("eastern_astrology", `element_${ctx.chinese.element.toLowerCase()}`));
     if (ctx.chinese.yinYang) push(cards, seen, cardByKeyInSystem("eastern_astrology", `polarity_${ctx.chinese.yinYang.toLowerCase()}`));
   }

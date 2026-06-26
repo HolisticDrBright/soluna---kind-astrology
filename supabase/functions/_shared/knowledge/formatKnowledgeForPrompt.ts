@@ -12,9 +12,10 @@
  * only distilled knowledge cards and signal labels.
  */
 
+import type { KnowledgeCard } from "./types.ts";
 import type { KnowledgeSelection } from "./selectKnowledge.ts";
 
-const MAX_CARDS_IN_PROMPT = 8;
+const MAX_CARDS_IN_PROMPT = 12;
 
 export interface PromptBlocks {
   knowledgeBlock: string;
@@ -22,8 +23,36 @@ export interface PromptBlocks {
   safetyDirective: string;
 }
 
+/**
+ * Pick a cross-system-balanced subset for the prompt. With deeper western depth
+ * a single system could otherwise fill every slot and crowd out the multi-system
+ * synthesis that is Soluna's whole point. Round-robin across systems so each is
+ * represented before any system gets a second card, preserving selection order.
+ */
+function balanceBySystem(cards: KnowledgeCard[], cap: number): KnowledgeCard[] {
+  const bySystem = new Map<string, KnowledgeCard[]>();
+  for (const c of cards) {
+    if (!bySystem.has(c.system)) bySystem.set(c.system, []);
+    bySystem.get(c.system)!.push(c);
+  }
+  const out: KnowledgeCard[] = [];
+  let progressed = true;
+  while (out.length < cap && progressed) {
+    progressed = false;
+    for (const list of bySystem.values()) {
+      const next = list.shift();
+      if (next) {
+        out.push(next);
+        progressed = true;
+        if (out.length >= cap) break;
+      }
+    }
+  }
+  return out;
+}
+
 export function formatKnowledgeForPrompt(sel: KnowledgeSelection): PromptBlocks {
-  const cards = sel.selectedKnowledgeCards.slice(0, MAX_CARDS_IN_PROMPT);
+  const cards = balanceBySystem(sel.selectedKnowledgeCards, MAX_CARDS_IN_PROMPT);
 
   const cardLines = cards.map((c) => {
     const grow = c.growthEdges[0] ? ` Growth: ${c.growthEdges[0]}` : "";

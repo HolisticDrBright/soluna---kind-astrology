@@ -10,7 +10,7 @@
  * Pure normalizers are exported for offline unit tests; the fetchers wrap them.
  */
 
-import type { AstrologyInput, AstrologyOutput, Aspect, HouseCusp, PlanetPosition } from "./astrology.ts";
+import type { AstrologyInput, AstrologyOutput, Aspect, HouseCusp, PlanetPosition, TransitAspect, TransitOutput } from "./astrology.ts";
 
 export type AstrologyProviderId = "astrologyapi" | "prokerala" | "custom";
 
@@ -373,4 +373,99 @@ export function normalizeProkerala(json: any, timeMissing: boolean): AstrologyOu
     source: "provider",
     provider: "prokerala",
   };
+}
+
+// ─── Transits (current sky → natal) — capability-gated, never fabricated ─────
+//
+// Soluna's only ALWAYS-real transit is the Moon phase (computed deterministically
+// from the date; see engines/moon-phase.ts). Full transit-to-natal data (planet
+// transits, transit aspects, mercury retrograde) requires a provider endpoint
+// that not every AstrologyAPI plan includes, so it is OFF by default and must be
+// explicitly enabled once the maintainer confirms their plan supports it. We do
+// NOT guess transit positions — when disabled, the app simply uses Moon phase.
+
+export interface TransitCapability {
+  enabled: boolean;
+  reason: string;
+}
+
+/**
+ * Whether real transit-to-natal data can be fetched. Requires BOTH a configured
+ * provider AND an explicit opt-in (ASTROLOGY_TRANSITS_ENABLED=true) plus the
+ * exact endpoint the plan exposes (ASTROLOGY_TRANSITS_ENDPOINT). Honest by
+ * default: returns disabled with a reason instead of pretending.
+ */
+export function getTransitCapability(): TransitCapability {
+  const provider = getConfiguredProvider();
+  if (!provider) return { enabled: false, reason: "No astrology provider is configured." };
+  const optedIn = (Deno.env.get("ASTROLOGY_TRANSITS_ENABLED") ?? "").toLowerCase() === "true";
+  if (!optedIn) {
+    return {
+      enabled: false,
+      reason: "Transit-to-natal endpoints are off. Set ASTROLOGY_TRANSITS_ENABLED=true once your plan's transit endpoint is confirmed; until then only the deterministic Moon phase is used.",
+    };
+  }
+  if (!Deno.env.get("ASTROLOGY_TRANSITS_ENDPOINT")) {
+    return { enabled: false, reason: "ASTROLOGY_TRANSITS_ENABLED is set but ASTROLOGY_TRANSITS_ENDPOINT (the plan's transit path) is missing." };
+  }
+  return { enabled: true, reason: "Transit endpoint configured." };
+}
+
+/**
+ * Pure normalizer for a transit response into TransitOutput. Exported for tests.
+ * Accepts a generic shape ({ transit_relation | aspects: [...] }) so it can be
+ * pointed at whatever transit endpoint a plan provides without code changes.
+ */
+// deno-lint-ignore no-explicit-any
+export function normalizeTransits(data: any, asOf: string, provider = "astrologyapi"): TransitOutput {
+  const rawAspects: unknown[] = data?.transit_relation ?? data?.aspects ?? data?.transits ?? [];
+  const aspects: TransitAspect[] = rawAspects.map((raw) => {
+    const a = raw as Record<string, unknown>;
+    return {
+      transitingPlanet: String(a.transit_planet ?? a.transiting_planet ?? a.aspecting_planet ?? a.planet_a ?? ""),
+      natalPlanet: String(a.natal_planet ?? a.aspected_planet ?? a.planet_b ?? ""),
+      type: String(a.type ?? a.aspect ?? "").toLowerCase(),
+      orb: round1(num(a.orb)),
+    };
+  }).filter((a) => a.transitingPlanet && a.natalPlanet && a.type);
+
+  return {
+    asOf,
+    mercuryRetrograde: data?.mercury_retrograde === true || data?.mercury_retrograde === "true" || undefined,
+    moonSign: data?.moon_sign ? coerceSign(data.moon_sign) : undefined,
+    aspects,
+    source: "provider",
+    provider,
+  };
+}
+
+/**
+ * Fetch current transits — ONLY when getTransitCapability().enabled. Throws
+ * otherwise (callers fall back to Moon-phase-only). The endpoint path comes from
+ * ASTROLOGY_TRANSITS_ENDPOINT so the maintainer points it at their plan's route.
+ */
+export async function fetchCurrentTransits(input: AstrologyInput, asOf: string): Promise<TransitOutput> {
+  const cap = getTransitCapability();
+  if (!cap.enabled) throw new Error(`transits disabled: ${cap.reason}`);
+
+  const key = Deno.env.get("ASTROLOGY_API_KEY");
+  if (!key) throw new Error("ASTROLOGY_API_KEY is not configured");
+  const base = (Deno.env.get("ASTROLOGY_API_BASE_URL") || "https://json.astrologyapi.com").replace(/\/$/, "");
+  const endpoint = Deno.env.get("ASTROLOGY_TRANSITS_ENDPOINT")!.replace(/^\//, "");
+  const userId = Deno.env.get("ASTROLOGY_API_USER_ID");
+
+  const [y, mo, d] = input.date.split("-").map(Number);
+  const [h, mi] = (input.time ?? "12:00").split(":").map(Number);
+  const tzone = tzOffsetHours(input.timezone, y, mo, d, h, mi);
+
+  const headers: Record<string, string> = { "Content-Type": "application/json", "x-astrologyapi-key": key };
+  if (userId) headers["Authorization"] = `Basic ${btoa(`${userId}:${key}`)}`;
+
+  const resp = await fetch(`${base}/${endpoint}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ day: d, month: mo, year: y, hour: h, min: mi, lat: input.lat, lon: input.lng, tzone }),
+  });
+  if (!resp.ok) throw new Error(`astrology transits ${resp.status}`);
+  return normalizeTransits(await resp.json(), asOf);
 }

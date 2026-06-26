@@ -317,4 +317,88 @@ export const easternAstrologyCards: KnowledgeCard[] = [
     ],
     safetyNotes: [],
   },
+
+  // ─── Trines (animal harmony sets) ───────────────────────────────
+  // Traditional groupings of animals that tend to share an easy rhythm.
+  // Selected from the user's birth-year animal. Honest and non-deterministic.
+  {
+    id: "ea.trine.1",
+    system: "eastern_astrology",
+    key: "trine_1",
+    title: "The Visionary Trine (Rat · Dragon · Monkey)",
+    plainMeaning:
+      "Tradition groups Rat, Dragon, and Monkey as natural allies — a lively trio of quick minds, bold ideas, and inventive energy. People in this set often feel an easy spark with one another and bring momentum to what they touch.",
+    strengths: ["Quick, inventive thinking", "Bold, momentum-building energy", "Easy creative rapport with kindred animals"],
+    growthEdges: ["Pairing big ideas with steady follow-through", "Slowing enough to let others catch up"],
+    supportiveActions: ["next_step_plan", "journal_prompt"],
+    avoidSaying: ["You can only get along with these signs", "Other animals are bad matches for you"],
+    synthesisTags: ["action_initiative", "creativity"],
+    confidenceNotes: ["Trines are a high-level harmony lens, not a rule about who you can love or befriend.", "Based on birth year only; a reflective lens, not a full Eastern chart."],
+    safetyNotes: [],
+  },
+  {
+    id: "ea.trine.2",
+    system: "eastern_astrology",
+    key: "trine_2",
+    title: "The Steady Trine (Ox · Snake · Rooster)",
+    plainMeaning:
+      "Tradition groups Ox, Snake, and Rooster as natural allies — a grounded trio of patience, depth, and discernment. People in this set often share a love of doing things well and a quiet, steady determination.",
+    strengths: ["Patience and staying power", "Thoughtful, discerning judgment", "Shared respect for quality and effort"],
+    growthEdges: ["Letting plans flex when life shifts", "Easing high standards into kind ones"],
+    supportiveActions: ["next_step_plan", "values_check"],
+    avoidSaying: ["You can only get along with these signs", "Other animals are bad matches for you"],
+    synthesisTags: ["planning_structure", "work_focus"],
+    confidenceNotes: ["Trines are a high-level harmony lens, not a rule about who you can love or befriend.", "Based on birth year only; a reflective lens, not a full Eastern chart."],
+    safetyNotes: [],
+  },
+  {
+    id: "ea.trine.3",
+    system: "eastern_astrology",
+    key: "trine_3",
+    title: "The Free-Spirit Trine (Tiger · Horse · Dog)",
+    plainMeaning:
+      "Tradition groups Tiger, Horse, and Dog as natural allies — a warm-hearted trio of independence, passion, and loyalty. People in this set often share a love of freedom and a deep care for fairness and the people they trust.",
+    strengths: ["Passion and independent spirit", "Loyalty to people and causes", "Honest, warm-hearted energy"],
+    growthEdges: ["Balancing freedom with commitment", "Pausing before acting on strong feeling"],
+    supportiveActions: ["values_check", "nervous_system_reset"],
+    avoidSaying: ["You can only get along with these signs", "Other animals are bad matches for you"],
+    synthesisTags: ["freedom_independence", "connection_love"],
+    confidenceNotes: ["Trines are a high-level harmony lens, not a rule about who you can love or befriend.", "Based on birth year only; a reflective lens, not a full Eastern chart."],
+    safetyNotes: [],
+  },
+  {
+    id: "ea.trine.4",
+    system: "eastern_astrology",
+    key: "trine_4",
+    title: "The Nurturer Trine (Rabbit · Goat · Pig)",
+    plainMeaning:
+      "Tradition groups Rabbit, Goat, and Pig as natural allies — a gentle trio of compassion, artistry, and warmth. People in this set often share a love of harmony and a tender care for comfort and beauty.",
+    strengths: ["Gentle, compassionate warmth", "Artistic and harmony-loving", "Easy, soothing rapport with kindred animals"],
+    growthEdges: ["Tending your own needs alongside others'", "Letting healthy conflict happen when it matters"],
+    supportiveActions: ["boundary_script", "gratitude_reframe"],
+    avoidSaying: ["You can only get along with these signs", "Other animals are bad matches for you"],
+    synthesisTags: ["nurture_care", "connection_love"],
+    confidenceNotes: ["Trines are a high-level harmony lens, not a rule about who you can love or befriend.", "Based on birth year only; a reflective lens, not a full Eastern chart."],
+    safetyNotes: [],
+  },
+
+  // ─── Year cycles (annual rhythm) ────────────────────────────────
+  {
+    id: "ea.cycle.year",
+    system: "eastern_astrology",
+    key: "year_cycle_core",
+    title: "Year Cycles & Annual Energy",
+    plainMeaning:
+      "Chinese astrology moves in a twelve-year wheel, each year carrying an animal's flavor. The year that matches your own animal (sometimes called your zodiac-year) is often felt as a time to renew your foundations and tend yourself with extra care.",
+    strengths: ["A natural rhythm to work with", "An invitation to renew and reflect", "Normalizes that some years feel like fresh starts"],
+    growthEdges: ["Holding annual themes loosely rather than as predictions", "Letting a 'big' year be about care, not pressure"],
+    supportiveActions: ["journal_prompt", "values_check"],
+    avoidSaying: ["Your zodiac-year will bring bad luck", "This year is fated to be hard for you"],
+    synthesisTags: ["timing_patience", "change_release"],
+    confidenceNotes: [
+      "Annual themes are a gentle rhythm to reflect on, never a forecast of good or bad luck.",
+      "Soluna uses your birth-year zodiac, not a full BaZi / Four Pillars chart.",
+    ],
+    safetyNotes: [],
+  },
 ];

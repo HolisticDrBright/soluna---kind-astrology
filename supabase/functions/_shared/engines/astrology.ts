@@ -38,6 +38,29 @@ export interface Aspect {
   orb: number;
 }
 
+/** A current transiting planet's aspect to one of the natal planets. */
+export interface TransitAspect {
+  transitingPlanet: string; // e.g. "Mars" (where it is in the sky now)
+  natalPlanet: string;      // e.g. "Venus" (the birth-chart point it touches)
+  type: string;             // conjunction | sextile | square | trine | opposition
+  orb: number;
+}
+
+/**
+ * Current sky-to-natal transits. Produced ONLY by a real provider when the
+ * transit capability is enabled (see getTransitCapability). Never fabricated:
+ * when transits are unavailable, this is simply absent and only the deterministic
+ * Moon phase is used.
+ */
+export interface TransitOutput {
+  asOf: string;                 // ISO date the transits were computed for
+  mercuryRetrograde?: boolean;
+  moonSign?: string;
+  aspects: TransitAspect[];
+  source: "provider";
+  provider: string;
+}
+
 export interface AstrologyOutput {
   planets: PlanetPosition[];
   ascendant: { sign: string; degree: number } | null;

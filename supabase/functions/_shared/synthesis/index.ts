@@ -21,6 +21,7 @@ import type { ChineseOutput } from "../engines/chinese.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
+import { computeMoonPhase } from "../engines/moon-phase.ts";
 import { selectKnowledge, type KnowledgeContext } from "../knowledge/selectKnowledge.ts";
 import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.ts";
 import { tagsFromText } from "../knowledge/synthesis-rules.ts";
@@ -39,6 +40,8 @@ export interface DailyContext {
   biorhythm: BiorhythmOutput | null;
   tarotCard: { name: string; meaning: string; arcana: string } | null;
   houseSystem: string;
+  /** Current Moon phase for the reading date — deterministic, real astronomy. */
+  moonPhase: string | null;
 }
 
 export interface AgreementResult {
@@ -108,6 +111,8 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
         }
       : null,
     tarot: ctx.tarotCard ? { name: ctx.tarotCard.name } : null,
+    // Moon phase is deterministic real astronomy; safe to pass as a transit signal.
+    transits: ctx.moonPhase ? { moonPhase: ctx.moonPhase } : null,
   };
 }
 
@@ -135,6 +140,8 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     .single();
 
   const tarotCard = cardOfTheDay(userId, dateStr);
+  // Moon phase is real astronomy derived from the date alone (no provider needed).
+  const moonPhase = computeMoonPhase(new Date(`${dateStr}T12:00:00Z`)).phase;
 
   return {
     userId,
@@ -147,6 +154,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     biorhythm: blueprint?.biorhythm_seed as BiorhythmOutput | null ?? null,
     tarotCard: tarotCard ? { name: tarotCard.name, meaning: tarotCard.meaning, arcana: tarotCard.arcana } : null,
     houseSystem: (birthProfile?.house_system as string) ?? "placidus",
+    moonPhase,
   };
 }
 
