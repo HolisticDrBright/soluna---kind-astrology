@@ -86,26 +86,37 @@ local dev only.
 (generic `LLM_API_KEY` also supported). Optional `LLM_MODEL`, `LLM_BASE_URL`
 (route through a zero-retention gateway for privacy).
 
-## 5. RevenueCat (subscriptions)
+## 5. RevenueCat (subscriptions, paywall & customer center)
 
-The app SDK is wired (`expo/lib/revenuecat.ts`, paywall, restore). Set:
-- `EXPO_PUBLIC_REVENUECAT_API_KEY` — the **public** SDK key (per platform).
-- `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT` — entitlement id (defaults to `premium`).
+SDKs `react-native-purchases` + `react-native-purchases-ui`, wired in
+`expo/lib/revenuecat.ts`, the paywall screen, and Profile.
+
+Keys (publishable — safe in the client; set per platform in production):
+- `EXPO_PUBLIC_REVENUECAT_API_KEY_IOS` / `EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID`
+  (or the shared `EXPO_PUBLIC_REVENUECAT_API_KEY`). The app falls back to the
+  test key `test_mmcZLBWDRvQaAduoydFRbsMNIsV` if none is set.
+- `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT` — the entitlement id (e.g. `Saluna: Astrology Pro`).
 - `REVENUECAT_WEBHOOK_SECRET` — backend secret; the webhook expects
   `Authorization: Bearer $REVENUECAT_WEBHOOK_SECRET` at
   `POST /functions/v1/billing-webhook`.
 
+Dashboard setup:
+1. Create the **entitlement** (e.g. "Saluna: Astrology Pro").
+2. Create products **lifetime**, **yearly**, **monthly** (App Store Connect /
+   Play Console) and attach them to an **Offering**; mark it current.
+3. Design a **Paywall** for that offering (RevenueCat → Paywalls). The app
+   presents it via `RevenueCatUI.Paywall` — no hardcoded prices.
+4. Enable the **Customer Center** (RevenueCat → Customer Center). Profile →
+   "Manage subscription" opens it (cancel / change plan / restore / refund).
+
 The client identifies RevenueCat with the Supabase user id (`app_user_id`) so
-webhook events map to the right account, and records it in
-`revenuecat_user_mappings` (migration `20260626_revenuecat_user_mappings.sql`).
-Premium is always confirmed by the backend entitlement — never a frontend-only
-flag. Configure offerings/products + the Apple subscription group in the
-RevenueCat + App Store Connect dashboards; the paywall renders whatever
-offerings RevenueCat returns (no hardcoded prices).
+webhook events map to the account, and records it in `revenuecat_user_mappings`
+(migration `20260626_revenuecat_user_mappings.sql`). Premium is always confirmed
+by the backend entitlement — never a frontend-only flag.
 
 Verify on a device/simulator (TestFlight or a dev build — **not** Expo Go):
-sandbox purchase, restore purchases, and confirm the webhook flips the backend
-entitlement.
+paywall purchase, restore, the Customer Center, and that the webhook flips the
+backend entitlement.
 
 ## 6. Expo / Rork + push notifications
 

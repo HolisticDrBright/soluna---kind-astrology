@@ -10,7 +10,7 @@ import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogO
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getEntitlements, updateMe, deleteAccount } from "@/lib/api";
 import { registerForPushNotifications } from "@/lib/push";
-import { restorePurchases } from "@/lib/revenuecat";
+import { restorePurchases, presentCustomerCenter } from "@/lib/revenuecat";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || "support@soluna.app";
@@ -452,6 +452,7 @@ function AccountSection() {
     setBusy(false);
     setMsg(res.ok ? (res.isPremium ? "Premium restored. 💛" : "No previous purchases found for this account.") : (res.error ?? "Restore failed."));
   };
+  const onManageSubscription = () => { void presentCustomerCenter(); };
 
   return (
     <>
@@ -490,6 +491,12 @@ function AccountSection() {
           icon={<Lock size={18} color={SolunaColors.softPeach} />}
           label="Send password reset email"
           onPress={onResetPassword}
+        />
+
+        <SettingRow
+          icon={<Crown size={18} color={SolunaColors.warmGold} />}
+          label="Manage subscription"
+          onPress={onManageSubscription}
         />
 
         <SettingRow
