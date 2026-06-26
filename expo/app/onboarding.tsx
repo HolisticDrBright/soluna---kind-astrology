@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { MOCK_USER, CITIES, CITY_COORDS, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
+import { CITIES, CITY_COORDS, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
 import { submitOnboarding, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 
@@ -32,7 +32,7 @@ const siS = StyleSheet.create({
 });
 
 export default function OnboardingScreen() {
-  const { authUser, onboardingStep, setOnboardingStep, completeOnboarding, refreshUser } = useAppState();
+  const { authUser, user, onboardingStep, setOnboardingStep, refreshUser } = useAppState();
 
   // All fields start empty — no prefilled demo data
   const [fullName, setFullName] = useState("");
@@ -49,7 +49,6 @@ export default function OnboardingScreen() {
   const [geoSuggestions, setGeoSuggestions] = useState<PlaceSuggestion[]>([]);
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
   const [resolvingPlace, setResolvingPlace] = useState(false);
-  const [showCalculating, setShowCalculating] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -75,19 +74,21 @@ export default function OnboardingScreen() {
 
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
+  // Visual "weaving" animation only — the reveal is gated on the real blueprint
+  // actually loading (see handleWeave), never on a timer.
   useEffect(() => {
-    if (onboardingStep === "calculating") {
-      setShowCalculating(true);
-      setRevealReady(false);
-      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: false }).start(() => {
-        setTimeout(() => {
-          setShowCalculating(false);
-          setRevealReady(true);
-          RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
-        }, 300);
-      });
+    if (onboardingStep === "calculating" && !revealReady) {
+      calculatingAnim.setValue(0);
+      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 1600, useNativeDriver: false }).start();
     }
-  }, [onboardingStep, calculatingAnim, revealFade]);
+  }, [onboardingStep, revealReady, calculatingAnim]);
+
+  useEffect(() => {
+    if (revealReady) {
+      revealFade.setValue(0);
+      RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+    }
+  }, [revealReady, revealFade]);
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
@@ -145,7 +146,9 @@ export default function OnboardingScreen() {
     if (idx > 0) setOnboardingStep(sequence[idx - 1]);
   };
 
-  const handleFinish = async () => {
+  // Submit the real birth profile, compute + persist the real blueprint, then
+  // load it from /me before revealing. No mock completion, no demo chart.
+  const handleWeave = async () => {
     if (isSubmitting) return;
     setSubmitError("");
     setSubmitNotice("");
@@ -154,25 +157,19 @@ export default function OnboardingScreen() {
       router.replace("/auth");
       return;
     }
-
     if (!fullName.trim()) {
       setSubmitError("Add your full birth name before we save your blueprint.");
       setOnboardingStep("fullName");
-      setRevealReady(false);
       return;
     }
-
     if (!birthDate) {
       setSubmitError("Add your birth date before we save your blueprint.");
       setOnboardingStep("birthdate");
-      setRevealReady(false);
       return;
     }
-
     if (!isBirthTimeValid) {
       setSubmitError("Use a valid 24-hour birth time, like 14:35, or choose that you do not know it yet.");
       setOnboardingStep("birthtime");
-      setRevealReady(false);
       return;
     }
 
@@ -190,11 +187,13 @@ export default function OnboardingScreen() {
           : "Choose your birth city from the search results so we can resolve your real coordinates and timezone.",
       );
       setOnboardingStep("birthplace");
-      setRevealReady(false);
       return;
     }
 
     setIsSubmitting(true);
+    setRevealReady(false);
+    setOnboardingStep("calculating");
+
     const { error } = await submitOnboarding({
       full_birth_name: fullName.trim(),
       preferred_name: preferredName.trim() || fullName.trim().split(" ")[0],
@@ -211,24 +210,18 @@ export default function OnboardingScreen() {
     if (error) {
       setIsSubmitting(false);
       setSubmitError(error);
+      setOnboardingStep("birthplace");
       return;
     }
 
+    // Pull the freshly computed blueprint so the reveal shows the real user.
     await refreshUser();
-    completeOnboarding({
-      fullName: fullName.trim(),
-      preferredName: preferredName.trim() || fullName.trim().split(" ")[0],
-      birthDate: birthDate.toISOString().split("T")[0],
-      birthTime: birthTimeKnown ? birthTime : "",
-      birthTimeKnown,
-      birthPlace,
-      chart: MOCK_USER.chart,
-      numerology: MOCK_USER.numerology,
-      chinese: MOCK_USER.chinese,
-      humanDesign: MOCK_USER.humanDesign,
-    });
-    setSubmitNotice("Saved. Your real blueprint is now connected to this account.");
     setIsSubmitting(false);
+    setRevealReady(true);
+  };
+
+  // Data is already saved by the time the reveal shows — just enter the app.
+  const handleBegin = () => {
     router.replace("/(tabs)");
   };
 
@@ -269,7 +262,7 @@ export default function OnboardingScreen() {
     : !!resolvedPlace;
 
   // ─── Calculating screen ───────────────────────────────
-  if (showCalculating) {
+  if (onboardingStep === "calculating" && !revealReady) {
     const glyphs = ["☉", "☽", "☆", "3", "🐖", "⚡"];
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
@@ -291,16 +284,47 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ─── Reveal screen ───────────────────────────────────
+  // ─── Reveal screen (real blueprint) ──────────────────
   if (revealReady) {
-    const chart = MOCK_USER.chart;
-    const num = MOCK_USER.numerology;
-    const ch = MOCK_USER.chinese;
-    const hd = MOCK_USER.humanDesign;
-    const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+    const chart = user?.chart;
+    const num = user?.numerology;
+    const animal = user?.chinese?.animal;
+    const element = user?.chinese?.element;
+    const elementAnimalLabel = user?.chinese?.elementAnimalLabel ?? (element && animal ? `${element} ${animal}` : "");
+    const hdType = user?.humanDesign?.type;
+    const name = user?.preferredName || preferredName || fullName?.split(" ")[0] || "You";
 
-    const name = preferredName || fullName?.split(" ")[0] || "You";
-    const birthTimeNote = birthTimeKnown ? birthTime : "Not provided (noon estimate used)";
+    // The blueprint is saved synchronously during onboarding; if it somehow isn't
+    // loaded yet, show a kind partial state instead of any demo data.
+    if (!chart || !num) {
+      return (
+        <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
+          <View style={[os.content, { justifyContent: "center" }]}>
+            <Sparkles size={32} color={SolunaColors.warmGold} />
+            <Text style={[os.revealTitle, { marginTop: 14 }]}>Your details are saved</Text>
+            <Text style={os.revealSub}>We saved your birth details, {name}. Your full blueprint will be ready in a moment.</Text>
+            <TouchableOpacity style={[os.beginButton, { marginTop: 24 }]} onPress={handleWeave} activeOpacity={0.8} disabled={isSubmitting}>
+              <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
+                {isSubmitting ? <ActivityIndicator color={SolunaColors.deepIndigo} /> : <Text style={os.beginButtonText}>Refresh</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginTop: 14 }} onPress={handleBegin}>
+              <Text style={os.submitNotice}>Continue to Soluna</Text>
+            </TouchableOpacity>
+            {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
+          </View>
+        </LinearGradient>
+      );
+    }
+
+    const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+    const chineseInfo = element && animal ? CHINESE_INTERPRETATIONS[`${element}-${animal}`] : undefined;
+    const hdInfo = hdType ? HD_INTERPRETATIONS[hdType] : undefined;
+    const roleLine: Record<string, string> = {
+      Sun: "Your core self — how you shine and what energizes you.",
+      Moon: "Your inner world — how you feel, rest, and recharge.",
+      Rising: "Your first impression — how you meet the world.",
+    };
 
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
@@ -311,15 +335,15 @@ export default function OnboardingScreen() {
             <Text style={os.revealSub}>Four systems, one {name}. Here's what each lens sees — notice how they echo each other.</Text>
           </View>
 
-          {/* Accuracy note */}
+          {/* Accuracy note — honest, driven by your real inputs */}
           <View style={os.accuracyCard}>
             <Clock size={14} color={SolunaColors.warmGold} />
             <View style={os.accuracyTextWrap}>
               <Text style={os.accuracyLine1}>
-                {birthTimeKnown ? "Exact birth time used — all placements are precise." : "Birth time not provided — Rising sign, houses, and Human Design are approximate. You can add it anytime."}
+                {user?.birthTimeKnown ? "Exact birth time used — Rising, houses, and Human Design are precise." : "Birth time not provided — Rising sign, houses, and Human Design are approximate. You can add it anytime."}
               </Text>
               <Text style={os.accuracyLine2}>
-                {birthPlace ? `Based on ${birthPlace}` : "Birth location not set — timezone estimated."}
+                {user?.birthPlace ? `Based on ${user.birthPlace}` : (birthPlace ? `Based on ${birthPlace}` : "Birth location not set.")}
               </Text>
             </View>
           </View>
@@ -335,17 +359,17 @@ export default function OnboardingScreen() {
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Sun</Text>
                   <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Sun-Cancer"]}</Text>
+                  <Text style={os.btDesc}>{roleLine.Sun}</Text>
                 </View>
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Moon</Text>
                   <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Moon-Pisces"]}</Text>
+                  <Text style={os.btDesc}>{roleLine.Moon}</Text>
                 </View>
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Rising</Text>
-                  <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Rising-Libra"]}</Text>
+                  <Text style={os.btSign}>{user?.birthTimeKnown ? `${ZODIAC_SYMBOLS[chart.rising]} ${chart.rising}` : "Needs birth time"}</Text>
+                  <Text style={os.btDesc}>{roleLine.Rising}</Text>
                 </View>
               </View>
             </View>
@@ -356,8 +380,8 @@ export default function OnboardingScreen() {
               <View style={os.numRow}>
                 <Text style={os.numBig}>{num.lifePath}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={os.numLabel}>Life Path {num.lifePath}: {lifePathInfo?.title || ""}</Text>
-                  <Text style={os.numDesc}>{num.lifePathMeaning.slice(0, 180)}…</Text>
+                  <Text style={os.numLabel}>Life Path {num.lifePath}{lifePathInfo?.title ? `: ${lifePathInfo.title}` : ""}</Text>
+                  <Text style={os.numDesc}>{lifePathInfo?.description ? `${lifePathInfo.description.slice(0, 180)}…` : "The central theme of your journey."}</Text>
                 </View>
               </View>
             </View>
@@ -365,21 +389,21 @@ export default function OnboardingScreen() {
             {/* Chinese */}
             <View style={os.revealCard}>
               <View style={os.revealCardHeader}><Bird size={18} color={SolunaColors.softPeach} /><Text style={os.revealCardTitle}>Chinese Astrology</Text></View>
-              <Text style={os.chineseMain}>{CHINESE_ANIMAL_EMOJI[ch.animal]} {ch.elementAnimalLabel}</Text>
-              <Text style={os.chineseDesc}>{ch.description.slice(0, 150)}…</Text>
+              <Text style={os.chineseMain}>{animal ? `${CHINESE_ANIMAL_EMOJI[animal] ?? ""} ` : ""}{elementAnimalLabel}</Text>
+              <Text style={os.chineseDesc}>{chineseInfo?.description ? `${chineseInfo.description.slice(0, 150)}…` : "Your element and animal combine into a distinct temperament."}</Text>
             </View>
 
             {/* Human Design */}
             <View style={os.revealCard}>
               <View style={os.revealCardHeader}><Cpu size={18} color={SolunaColors.warmGold} /><Text style={os.revealCardTitle}>Human Design</Text></View>
-              <Text style={os.hdMain}>{hd.type}</Text>
-              <Text style={os.hdDesc}>{hd.typeDescription.slice(0, 150)}…</Text>
+              <Text style={os.hdMain}>{hdType ?? "—"}</Text>
+              <Text style={os.hdDesc}>{hdInfo?.description ? `${hdInfo.description.slice(0, 150)}…` : (user?.birthTimeKnown ? "How your energy works best." : "Add your birth time for your full Human Design.")}</Text>
             </View>
           </ScrollView>
 
-          <TouchableOpacity style={os.beginButton} onPress={handleFinish} activeOpacity={0.8}>
+          <TouchableOpacity style={os.beginButton} onPress={handleBegin} activeOpacity={0.8}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
-              {isSubmitting ? <ActivityIndicator color={SolunaColors.deepIndigo} /> : <Text style={os.beginButtonText}>Save & Begin</Text>}
+              <Text style={os.beginButtonText}>Enter Soluna</Text>
             </LinearGradient>
           </TouchableOpacity>
           {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
@@ -590,7 +614,7 @@ export default function OnboardingScreen() {
               {birthPlace && !isPlaceValid ? (
                 <Text style={os.dateError}>Please choose a supported city from the list.</Text>
               ) : null}
-              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isPlaceValid}>
+              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={handleWeave} activeOpacity={0.8} disabled={!isPlaceValid}>
                 <LinearGradient colors={isPlaceValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
                   <Text style={[os.buttonText, !isPlaceValid && { color: SolunaColors.creamSubtle }]}>Weave My Blueprint</Text>
                 </LinearGradient>
