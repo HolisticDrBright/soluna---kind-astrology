@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useCallback } from "react";
@@ -6,7 +6,12 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, MOCK_ACTIVE_FOCUSES, Fonts, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
 import { getBlueprintSummary } from "@/constants/mockData";
-import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target } from "lucide-react-native";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download } from "lucide-react-native";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getEntitlements } from "@/lib/api";
+
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const SUPPORT_EMAIL = "support@soluna.app";
 
 // ─── Setting Row / Toggle ───────────────────────────────
 function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
@@ -53,6 +58,25 @@ const cS = StyleSheet.create({
 
 // ─── Premium Banner ──────────────────────────────────────
 function PremiumBanner() {
+  // Real subscription state in live mode; never trust a frontend-only flag.
+  const entQuery = useAsyncData(() => getEntitlements(), [], { enabled: !USE_MOCK_DATA });
+  const isPremium = !USE_MOCK_DATA && !!entQuery.data?.isPremium;
+
+  if (isPremium) {
+    return (
+      <View style={pS.wrap}>
+        <LinearGradient colors={["rgba(232,184,109,0.12)", "rgba(242,168,141,0.06)"]} style={pS.inner}>
+          <View style={pS.topRow}>
+            <Crown size={20} color={SolunaColors.warmGold} />
+            <View style={pS.premBadge}><Text style={pS.premBadgeText}>SOLUNA PREMIUM</Text></View>
+          </View>
+          <Text style={pS.title}>Premium is active 💛</Text>
+          <Text style={pS.body}>Your full Blueprint, unlimited Ask Soluna, and cross-system reports are unlocked. Manage your subscription in your App Store / Play Store account.</Text>
+        </LinearGradient>
+      </View>
+    );
+  }
+
   return (
     <TouchableOpacity style={pS.wrap} onPress={() => router.push("/paywall")} activeOpacity={0.8}>
       <LinearGradient colors={["rgba(232,184,109,0.12)", "rgba(242,168,141,0.06)"]} style={pS.inner}>
@@ -355,7 +379,7 @@ const wpS = StyleSheet.create({
 
 // ─── Account section (real auth controls) ───────────────
 function AccountSection() {
-  const { authUser, user, signOut, resetPassword, updatePreferredName, resetOnboarding } = useAppState();
+  const { authUser, user, signOut, resetPassword, updatePreferredName, resetOnboarding, setOnboardingStep } = useAppState();
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(user?.preferredName ?? "");
   const [msg, setMsg] = useState("");
@@ -388,6 +412,21 @@ function AccountSection() {
   const onSignOut = async () => {
     await signOut();
     router.replace("/auth");
+  };
+  const editBirthData = () => {
+    // Re-run onboarding to update birth details; submitting recomputes the blueprint.
+    setOnboardingStep("welcome");
+    router.push("/onboarding");
+  };
+  const requestExport = () => {
+    const subject = encodeURIComponent("Soluna data export request");
+    const body = encodeURIComponent(`Please export the data associated with my account (${authUser.email ?? ""}).`);
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
+  };
+  const requestDeletion = () => {
+    const subject = encodeURIComponent("Soluna account deletion request");
+    const body = encodeURIComponent(`Please delete my account and all associated data (${authUser.email ?? ""}).`);
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
   };
 
   return (
@@ -429,12 +468,33 @@ function AccountSection() {
           onPress={onResetPassword}
         />
 
+        <SettingRow
+          icon={<Star size={18} color={SolunaColors.warmGold} />}
+          label="Update birth data"
+          onPress={editBirthData}
+        />
+
+        <SettingRow
+          icon={<Download size={18} color={SolunaColors.gentleLavender} />}
+          label="Request my data"
+          onPress={requestExport}
+        />
+
+        <SettingRow
+          icon={<Trash2 size={18} color={SolunaColors.error} />}
+          label="Delete my account"
+          onPress={requestDeletion}
+        />
+
         <TouchableOpacity style={rS.row} onPress={onSignOut} activeOpacity={0.6}>
           <View style={rS.icon}><LogOut size={18} color={SolunaColors.softPeach} /></View>
           <Text style={[rS.label, { color: SolunaColors.softPeach }]}>Sign out</Text>
         </TouchableOpacity>
       </View>
       {msg ? <Text style={st.accountMsg}>{msg}</Text> : null}
+      <Text style={st.accountNote}>
+        Updating birth data re-runs your blueprint. Data export and deletion requests are confirmed by email and completed within 30 days.
+      </Text>
     </>
   );
 }
@@ -556,6 +616,13 @@ function ProfileContent() {
 
         <AccountSection />
 
+        {/* Wellness / astrology disclaimer */}
+        <View style={st.disclaimerCard}>
+          <Text style={st.disclaimerText}>
+            Soluna is for self-reflection and entertainment. It blends astrology, numerology, Chinese astrology, and Human Design — these traditions are not science, and Soluna does not give medical, legal, financial, or mental-health advice. For important decisions, or if you are struggling, please reach out to a qualified professional or someone you trust. You are always the author of your own choices.
+          </Text>
+        </View>
+
         <Text style={st.version}>Soluna v1.0 · Made with care</Text>
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -585,5 +652,8 @@ const st = StyleSheet.create({
   resetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8 },
   resetText: { fontSize: 13, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
   accountMsg: { fontSize: 13, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, textAlign: "center", marginBottom: 16, lineHeight: 19 },
+  accountNote: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, textAlign: "center", marginBottom: 16, lineHeight: 16, fontStyle: "italic", paddingHorizontal: 8 },
+  disclaimerCard: { backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", marginBottom: 16 },
+  disclaimerText: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, lineHeight: 17, textAlign: "center" },
   version: { fontSize: 11, color: SolunaColors.creamSubtle, textAlign: "center", fontFamily: Fonts.body, marginTop: 4 },
 });
