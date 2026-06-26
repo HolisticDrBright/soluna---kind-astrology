@@ -21,6 +21,10 @@ import type { ChineseOutput } from "../engines/chinese.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
+import { selectKnowledge, type KnowledgeContext } from "../knowledge/selectKnowledge.ts";
+import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.ts";
+import { tagsFromText } from "../knowledge/synthesis-rules.ts";
+import { gatherDynamicContext } from "./knowledge-context.ts";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -60,6 +64,42 @@ export interface InsightResult {
   why: string;
   strengths: string[];
   growthEdge: string;
+}
+
+// ─── DailyContext -> KnowledgeContext mapping ──────────────────
+
+/** Map the assembled blueprint into the structural shape selectKnowledge wants. */
+export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
+  return {
+    astrology: ctx.astrology
+      ? {
+          planets: (ctx.astrology.planets ?? []).map((p) => ({ planet: p.planet, sign: p.sign })),
+          ascendant: ctx.astrology.ascendant ? { sign: ctx.astrology.ascendant.sign } : null,
+        }
+      : null,
+    numerology: ctx.numerology
+      ? {
+          lifePath: ctx.numerology.lifePath,
+          personalDay: ctx.numerology.personalDay,
+          personalYear: ctx.numerology.personalYear,
+          expression: ctx.numerology.expression,
+          soulUrge: ctx.numerology.soulUrge,
+        }
+      : null,
+    chinese: ctx.chinese
+      ? { animal: ctx.chinese.animal, element: ctx.chinese.element, yinYang: ctx.chinese.yinYang }
+      : null,
+    humanDesign: ctx.humanDesign
+      ? {
+          type: ctx.humanDesign.type,
+          authority: ctx.humanDesign.authority,
+          profile: (ctx.humanDesign as { profile?: string }).profile,
+          definedCenters: ctx.humanDesign.definedCenters,
+          undefinedCenters: ctx.humanDesign.undefinedCenters,
+        }
+      : null,
+    tarot: ctx.tarotCard ? { name: ctx.tarotCard.name } : null,
+  };
 }
 
 // ─── buildContext ──────────────────────────────────────────────
@@ -172,7 +212,7 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
     { fn: (ctx) => (ctx.numerology?.personalDay ?? 0) === 9 || (ctx.numerology?.personalDay ?? 0) === 5, system: "numerology", detail: "Personal Day 9 or 5 signals completion, change, and freedom" },
     { fn: (ctx) => {
       const hd = ctx.humanDesign;
-      return hd?.type === "Reflector" || hd?.undefinedCenters.length >= 6 || false;
+      return hd?.type === "Reflector" || (hd?.undefinedCenters?.length ?? 0) >= 6 || false;
     }, system: "human_design", detail: "Many undefined centers suggest openness to change and transformation" },
     { fn: (ctx) => {
       const animal = ctx.chinese?.animal;
@@ -234,6 +274,10 @@ export async function generateDailyReading(
   const tarotCard = ctx.tarotCard;
   const tarotText = tarotCard ? `Your card today: ${tarotCard.name}. ${tarotCard.meaning}` : "";
 
+  // Knowledge selection for the daily reading (deterministic; blueprint-driven).
+  const dailySelection = selectKnowledge(dailyContextToKnowledge(ctx));
+  const { knowledgeBlock: dailyKnowledge } = formatKnowledgeForPrompt(dailySelection);
+
   const messages: LLMMessage[] = [
     {
       role: "user",
@@ -246,6 +290,8 @@ CONTEXT:
 - Chinese Zodiac: ${chineseAnimal}
 - Systems Agreement: ${agreementText}
 ${tarotText ? `- Tarot: ${tarotText}` : ""}
+
+${dailyKnowledge}
 
 Return valid JSON:
 {
@@ -335,6 +381,32 @@ export async function generateChatResponse(
 ): Promise<{ content: string; systemsReferenced: string[] }> {
   const ctx = await buildContext(userId, new Date().toISOString().split("T")[0]);
 
+  // Dynamic, privacy-minimised context: recent journal THEMES (not raw text),
+  // the active focus, and (if the user owns it) the referenced connection's lens.
+  const dyn = await gatherDynamicContext(userId);
+
+  // Distil the user's own recent messages into activity tags (already in memory;
+  // no extra DB read, and raw content never leaves this function as a "theme").
+  const activityTags = [
+    ...new Set(
+      conversationHistory
+        .filter((m) => m.role === "user")
+        .slice(-6)
+        .flatMap((m) => tagsFromText(m.content)),
+    ),
+  ];
+
+  // DETERMINISTIC knowledge selection (the LLM writes words, not this).
+  const selection = selectKnowledge({
+    ...dailyContextToKnowledge(ctx),
+    focus: dyn.focus,
+    connection: dyn.connection,
+    journalThemeTags: dyn.journalThemeTags,
+    activityTags,
+    userMessage,
+  });
+  const { knowledgeBlock, responseGuide, safetyDirective } = formatKnowledgeForPrompt(selection);
+
   const blueprintSummary = [
     ctx.astrology ? `Sun: ${ctx.astrology.planets.find(p => p.planet === "Sun")?.sign}, Moon: ${ctx.astrology.planets.find(p => p.planet === "Moon")?.sign}, Rising: ${ctx.astrology.ascendant?.sign ?? "unknown"}` : null,
     ctx.numerology ? `Life Path: ${ctx.numerology.lifePath}, Expression: ${ctx.numerology.expression}` : null,
@@ -342,11 +414,24 @@ export async function generateChatResponse(
     ctx.humanDesign ? `Type: ${ctx.humanDesign.type}, Authority: ${ctx.humanDesign.authority}` : null,
   ].filter(Boolean).join(" | ");
 
+  // One context system message. SOLUNA_VOICE is prepended inside llmCall; the
+  // llm-client fix means this second system message is now reliably delivered on
+  // Anthropic too. We pass the user's own focus text, but NEVER raw journals or
+  // another person's chart — only distilled knowledge + signal labels.
+  const contextSystem = [
+    `You are Soluna, speaking to ${ctx.userName}.`,
+    blueprintSummary ? `Their blueprint: ${blueprintSummary}.` : "",
+    dyn.focus?.problemText ? `Active focus (${dyn.focus.category}): "${dyn.focus.problemText}".` : "",
+    dyn.connection?.involved ? `A relationship is involved (lens: ${dyn.connection.lens}). Do not speculate about the other person's private thoughts or motives.` : "",
+    "",
+    knowledgeBlock,
+    "",
+    responseGuide,
+    safetyDirective,
+  ].filter(Boolean).join("\n");
+
   const messages: LLMMessage[] = [
-    {
-      role: "system",
-      content: `${SOLUNA_VOICE}\n\nYou are Soluna, speaking to ${ctx.userName}. Their blueprint: ${blueprintSummary}. Always reference and reconcile multiple systems when relevant. Show where they agree.`,
-    },
+    { role: "system", content: contextSystem },
     ...conversationHistory.map((m) => ({
       role: m.role,
       content: m.content,
@@ -355,16 +440,19 @@ export async function generateChatResponse(
   ];
 
   try {
-    const resp = await llmCall(messages, { maxTokens: 600, temperature: 0.7 });
+    const resp = await llmCall(messages, { maxTokens: 700, temperature: 0.7 });
 
     await logEvent("ask_message", {
       messageLength: userMessage.length,
       responseLength: resp.content.length,
+      confidence: selection.confidenceLabel,
+      knowledgeCards: selection.selectedKnowledgeCards.length,
+      safetyFlags: selection.safetyWarnings.map((w) => w.category),
     }, userId);
 
     return {
       content: resp.content,
-      systemsReferenced: extractSystemsReferenced(resp.content),
+      systemsReferenced: systemsFromSelection(selection, resp.content),
     };
   } catch (err) {
     await logEvent("ask_error", { error: String(err) }, userId);
@@ -373,6 +461,18 @@ export async function generateChatResponse(
       systemsReferenced: [],
     };
   }
+}
+
+/** Real systems actually used (from selection) unioned with text mentions. */
+function systemsFromSelection(
+  selection: { selectedKnowledgeCards: Array<{ system: string }> },
+  text: string,
+): string[] {
+  const named = new Set(["western_astrology", "numerology", "eastern_astrology", "human_design_inspired", "tarot"]);
+  const fromCards = selection.selectedKnowledgeCards
+    .map((c) => (c.system === "western_astrology" ? "astrology" : c.system === "eastern_astrology" ? "chinese" : c.system === "human_design_inspired" ? "human_design" : c.system))
+    .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "human_design" || s === "tarot");
+  return [...new Set([...fromCards, ...extractSystemsReferenced(text)])];
 }
 
 function extractSystemsReferenced(text: string): string[] {

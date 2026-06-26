@@ -145,6 +145,28 @@ source maps, add the `@sentry/react-native/expo` config plugin with your
 org/project at build time. `SENTRY_DSN` (Edge Functions), `POSTHOG_API_KEY`,
 `RESEND_API_KEY` — wire only if used.
 
+## 8. Soluna Knowledge Base
+
+A structured, original knowledge base now feeds the LLM richer, kinder, more
+accurate context. No new secrets or third-party APIs — it is self-contained
+TypeScript under `supabase/functions/_shared/knowledge/`, with human-readable
+docs under `docs/soluna-knowledge-base/` and full notes in
+`docs/KNOWLEDGE_BASE_IMPLEMENTATION.md`.
+
+- **Selection is deterministic** (`selectKnowledge.ts`): real blueprint/transit/
+  focus data → relevant cards + agreement/tension/confidence/safety/actions. The
+  LLM writes the words; it never picks the knowledge.
+- **Wired into** `ask`, `today`, and `connections` (compatibility) via the
+  `_shared/synthesis` engine. A provider failure still resolves **no** astrology
+  cards — placements are never fabricated.
+- **Privacy**: raw journals and another person's chart never reach a prompt; a
+  connection contributes only "involved + lens" and only when the user owns the
+  focus referencing it.
+- **New migration** `20260626_advice_feedback.sql` (owner-scoped helpful /
+  not_helpful feedback) — apply it with the others in §1.
+- **Bug fix**: Anthropic calls previously dropped all but the first system
+  message, silently losing per-user context; now merged in `llm-client.ts`.
+
 ---
 
 ## Verification status (this iteration)
@@ -155,12 +177,12 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 |-------|-------------|------------|
 | Frontend `tsc` | ✅ pass | `cd expo && npx tsc --noEmit` |
 | Frontend lint | ⚠️ pre-existing warnings/`no-unescaped-entities` only; no new issues | `cd expo && npm run lint` |
-| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy) | ✅ 38/38 pass | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
+| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy, **+ knowledge schema / selection / synthesis / safety / prompt**) | ✅ 68/68 pass (38 prior + 30 new) | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
 | Migration SQL grammar | ✅ both parse (265 + 6 stmts) | libpg_query / `supabase db lint` |
 | Worker internal-secret guard | ✅ enforced in all non-JWT worker functions + unit-tested (`internal_auth_test.ts`) | included in the test run above |
 | RevenueCat webhook auth + app_user_id mapping | ✅ Bearer-secret check + UUID mapping unit-tested (`revenuecat_test.ts`) | included in the test run above |
 | "No forgeable generated content" RLS invariant | ✅ migration-parsed: every owner write policy on `blueprints`/`daily_readings` is dropped (`rls_policy_test.ts`) | included in the test run above |
-| Edge Function `deno check` | ⚠️ not runnable here (sandbox can't reach `esm.sh`) | `deno check supabase/functions/**/index.ts` |
+| Edge Function `deno check` (knowledge module + ask/today/connections/synthesis) | ✅ passes (also surfaced + fixed a pre-existing null-safety bug in `synthesis/index.ts`) | `deno check supabase/functions/_shared/knowledge/index.ts supabase/functions/{ask,today,connections}/index.ts supabase/functions/_shared/synthesis/index.ts` |
 | Live migrations + advisors + function deploy | ⛔ **not possible from this environment** — no Soluna Supabase project is linked to the MCP (only an unrelated `petwell`). | run §1 against the real project |
 
 > Live Supabase verification (advisors, deploy, RLS smoke tests) must be run by

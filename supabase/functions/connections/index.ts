@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
       const messages = [
         {
           role: "user" as const,
-          content: `Generate a warm, constructive compatibility summary for two people. Frame all challenges as growth opportunities. Never doom or fear-based.
+          content: `Generate a warm, constructive compatibility summary for two people. Frame all challenges as growth opportunities, never doom or fear-based. Use repair-oriented language (curiosity over blame). Do NOT speculate about the other person's private thoughts, feelings, or motives, and never advise ending the relationship. Keep it a reflective lens, not a verdict.
 
 Person A: ${user.email ?? "user"}
 Person B: ${conn.name} (born ${conn.birth_date})

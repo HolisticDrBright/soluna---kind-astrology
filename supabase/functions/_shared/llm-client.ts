@@ -63,7 +63,12 @@ async function callAnthropic(
   messages: LLMMessage[],
   options?: { maxTokens?: number; temperature?: number; jsonMode?: boolean },
 ): Promise<LLMResponse> {
-  const systemMsg = messages.find((m) => m.role === "system");
+  // Anthropic takes a single top-level system string. Merge ALL system messages
+  // (SOLUNA_VOICE + any per-call context block) so none are silently dropped.
+  const systemContent = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
   const chatMessages = messages
     .filter((m) => m.role !== "system")
     .map((m) => ({ role: m.role, content: m.content }));
@@ -75,8 +80,8 @@ async function callAnthropic(
     messages: chatMessages,
   };
 
-  if (systemMsg) {
-    body.system = systemMsg.content;
+  if (systemContent) {
+    body.system = systemContent;
   }
 
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
