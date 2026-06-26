@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useCallback } from "react";
@@ -8,7 +8,7 @@ import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_
 import { getBlueprintSummary } from "@/constants/mockData";
 import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download } from "lucide-react-native";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { getEntitlements, updateMe } from "@/lib/api";
+import { getEntitlements, updateMe, deleteAccount } from "@/lib/api";
 import { registerForPushNotifications } from "@/lib/push";
 import { restorePurchases } from "@/lib/revenuecat";
 
@@ -426,9 +426,25 @@ function AccountSection() {
     Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
   };
   const requestDeletion = () => {
-    const subject = encodeURIComponent("Soluna account deletion request");
-    const body = encodeURIComponent(`Please delete my account and all associated data (${authUser.email ?? ""}).`);
-    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
+    Alert.alert(
+      "Delete your account?",
+      "This permanently deletes your account and all your data — blueprint, journal, connections, and saved items. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            const { error } = await deleteAccount();
+            setBusy(false);
+            if (error) { setMsg(error); return; }
+            await signOut();
+            router.replace("/auth");
+          },
+        },
+      ],
+    );
   };
   const onRestore = async () => {
     setBusy(true);
@@ -507,7 +523,7 @@ function AccountSection() {
       </View>
       {msg ? <Text style={st.accountMsg}>{msg}</Text> : null}
       <Text style={st.accountNote}>
-        Updating birth data re-runs your blueprint. Data export and deletion requests are confirmed by email and completed within 30 days.
+        Updating birth data re-runs your blueprint. Deleting your account is immediate and permanent. Data export requests are handled by email within 30 days.
       </Text>
     </>
   );

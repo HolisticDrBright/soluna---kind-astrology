@@ -169,11 +169,16 @@ error+retry states and never silently substitutes fake data.
 | Journal | `getJournal()` / `createJournalEntry()` | title+body folded into body; mood 1-5 |
 | Connections | `getConnections()` / `addConnection()` / `getCompatibility()` | compatibility fetched per card on expand |
 | Tarot | `drawTarot()` | spread id mapped to daily / three_card / celtic_cross |
-| Profile | `getEntitlements()` + birth-data edit + data/deletion requests | real subscription state; deletion/export via `EXPO_PUBLIC_SUPPORT_EMAIL` |
+| Profile | `getEntitlements()` + birth-data edit + restore purchases + delete account | real subscription state; **in-app account deletion** via `delete-account`; data export via `EXPO_PUBLIC_SUPPORT_EMAIL` |
+
+In-app account deletion is live: Profile → "Delete my account" confirms, then
+calls `POST /functions/v1/delete-account` (requires the user JWT), which hard-
+deletes the auth user. Every user table is `ON DELETE CASCADE` from
+`profiles` → `auth.users`, so all of the user's data is removed (shared link
+fields are `SET NULL`). This satisfies the App Store / Play in-app deletion rule.
 
 Still demo-only / pending live wiring (tracked in PR #1): Soluna Shift card,
 compatibility-detail screen, weekly report, pattern memory, widget previews,
 rituals, and focus result/active screens; Ask history hydration. RevenueCat
-purchase/restore and push-token registration require a native build + live keys.
-Account deletion currently emails support — a backend deletion endpoint is a
-launch requirement (App Store/Play in-app deletion).
+purchase/restore, push delivery, and Sentry events require a native build +
+live keys to verify on a device.

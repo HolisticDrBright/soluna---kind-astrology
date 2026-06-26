@@ -142,6 +142,11 @@ export async function updateMe(payload: {
   return invokeEdgeFunction("me", payload as unknown as Record<string, unknown>, "PATCH");
 }
 
+/** Permanently delete the signed-in user's account and all associated data. */
+export async function deleteAccount() {
+  return invokeEdgeFunction<{ ok: boolean }>("delete-account", {}, "POST");
+}
+
 /** Get saved items */
 export async function getSaved() {
   return invokeEdgeFunction<{ items: unknown[] }>("saved");
