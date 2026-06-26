@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -8,6 +8,24 @@ import { CONNECTIONS, ZODIAC_SYMBOLS, MOCK_BOND_RITUALS, Fonts, type Relationshi
 import EmptyState from "@/components/EmptyState";
 import ConfidencePill from "@/components/ConfidencePill";
 import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle, Target } from "lucide-react-native";
+import { LoadingState, ErrorState } from "@/components/DataStates";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getConnections, addConnection, getCompatibility } from "@/lib/api";
+
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
+const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const parseBirthDate = (text: string): string | null => {
+  const t = text.trim();
+  if (!t) return null;
+  const d = new Date(t);
+  if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > new Date().getFullYear()) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const formatBirth = (iso: string) => {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+};
 
 // ─── Lens config ───────────────────────────────────────────
 const LENSES: { key: RelationshipLens; label: string; icon: typeof Heart; color: string }[] = [
@@ -30,22 +48,101 @@ function MiniScoreRing({ score }: { score: number }) {
 const mrS = StyleSheet.create({ ring: { alignItems: "center", gap: 2 }, score: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.body }, label: { fontSize: 9, color: SolunaColors.creamMuted, fontWeight: "600" } });
 
 // ─── Add Person Form ───────────────────────────────────────
-function AddPersonForm({ onClose }: { onClose: () => void }) {
+function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void; onAdded: () => void; defaultLens: string }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async () => {
+    const n = name.trim();
+    if (!n) { setErr("Add their name."); return; }
+    const iso = parseBirthDate(date);
+    if (!iso) { setErr("Add a valid birth date, like July 5, 1993."); return; }
+    if (USE_MOCK_DATA) { onClose(); return; }
+    setSaving(true);
+    setErr("");
+    const { error } = await addConnection({ name: n, birth_date: iso, lens: defaultLens });
+    setSaving(false);
+    if (error) { setErr(error); return; }
+    onAdded();
+  };
+
   return (
     <View style={fS.wrap}>
       <Text style={fS.title}>Add Someone to Your Circle</Text>
       <TextInput style={fS.input} value={name} onChangeText={setName} placeholder="Their full name" placeholderTextColor={SolunaColors.creamSubtle} />
       <TextInput style={fS.input} value={date} onChangeText={setDate} placeholder="Birth date (e.g. July 5, 1993)" placeholderTextColor={SolunaColors.creamSubtle} />
       <Text style={fS.hint}>Just a name and birth date to get started. More details unlock deeper compatibility.</Text>
+      {err ? <Text style={fS.err}>{err}</Text> : null}
       <View style={fS.buttons}>
-        <TouchableOpacity style={fS.cancelBtn} onPress={onClose}><Text style={fS.cancelText}>Cancel</Text></TouchableOpacity>
-        <TouchableOpacity style={[fS.addBtn, !name && fS.addBtnDisabled]} onPress={onClose} disabled={!name}>
-          <Text style={[fS.addText, !name && { color: SolunaColors.creamSubtle }]}>Add to Circle</Text>
+        <TouchableOpacity style={fS.cancelBtn} onPress={onClose} disabled={saving}><Text style={fS.cancelText}>Cancel</Text></TouchableOpacity>
+        <TouchableOpacity style={[fS.addBtn, (!name.trim() || saving) && fS.addBtnDisabled]} onPress={submit} disabled={!name.trim() || saving}>
+          {saving ? <ActivityIndicator color={SolunaColors.warmGold} /> : <Text style={[fS.addText, !name.trim() && { color: SolunaColors.creamSubtle }]}>Add to Circle</Text>}
         </TouchableOpacity>
       </View>
     </View>
+  );
+}
+
+// ─── Live connection card (real list + on-demand compatibility) ──
+function LiveConnectionCard({ conn, lens }: { conn: { id: string; name: string; birth_date: string; lens: string }; lens: string }) {
+  const [open, setOpen] = useState(false);
+  const compat = useAsyncData(() => getCompatibility(conn.id, lens), [conn.id, lens, open], { enabled: open });
+  const report = compat.data;
+
+  return (
+    <TouchableOpacity style={pcS.card} onPress={() => setOpen((o) => !o)} activeOpacity={0.7}>
+      <View style={pcS.top}>
+        <View style={pcS.left}>
+          <View style={pcS.avatar}><Text style={pcS.avatarText}>{(conn.name[0] ?? "?").toUpperCase()}</Text></View>
+          <View style={pcS.info}>
+            <Text style={pcS.name}>{conn.name}</Text>
+            <Text style={pcS.meta}>Born {formatBirth(conn.birth_date)} · {capitalize(conn.lens)}</Text>
+          </View>
+        </View>
+        <ChevronRight size={16} color={SolunaColors.creamSubtle} style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }} />
+      </View>
+
+      {open && (
+        <View style={pcS.expanded}>
+          {compat.loading ? (
+            <LoadingState message="Reading your compatibility…" />
+          ) : compat.error ? (
+            <ErrorState message={compat.error} onRetry={compat.refetch} retrying={compat.reloading} />
+          ) : report ? (
+            <>
+              <View style={pcS.scoresRow}>
+                <View style={pcS.scoreCell}>
+                  <Text style={pcS.scoreVal}>{report.score}%</Text>
+                  <Text style={pcS.scoreSrc}>{report.label}</Text>
+                </View>
+              </View>
+              {report.whereYouFlow?.length ? (
+                <View style={pcS.section}>
+                  <Text style={pcS.sectionLabel}>Where you flow</Text>
+                  {report.whereYouFlow.map((t, i) => <Text key={i} style={pcS.sectionText}>{t}</Text>)}
+                </View>
+              ) : null}
+              {report.whereYouGrow?.length ? (
+                <View style={pcS.section}>
+                  <Text style={pcS.sectionLabel}>Where you grow</Text>
+                  {report.whereYouGrow.map((t, i) => <Text key={i} style={pcS.sectionText}>{t}</Text>)}
+                </View>
+              ) : null}
+              {report.howToSupport?.length ? (
+                <View style={pcS.section}>
+                  <Text style={pcS.sectionLabel}>How to support each other</Text>
+                  {report.howToSupport.map((t, i) => (
+                    <View key={i} style={pcS.tipRow}><Sparkles size={10} color={SolunaColors.warmGold} /><Text style={pcS.tipText}>{t}</Text></View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          ) : null}
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 const fS = StyleSheet.create({
@@ -53,6 +150,7 @@ const fS = StyleSheet.create({
   title: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 16 },
   input: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SolunaRadius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", fontFamily: Fonts.body, marginBottom: 12 },
   hint: { fontSize: 12, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, fontStyle: "italic", marginBottom: 16, lineHeight: 18 },
+  err: { fontSize: 12, color: SolunaColors.softPeach, fontFamily: Fonts.body, marginBottom: 12 },
   buttons: { flexDirection: "row", gap: 12 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: SolunaRadius.md, backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center" },
   cancelText: { fontSize: 14, color: SolunaColors.creamMuted, fontWeight: "600", fontFamily: Fonts.body },
@@ -195,6 +293,8 @@ function ConnectionsContent() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeLens, setActiveLens] = useState<RelationshipLens>("Romance");
   const [tapState, setTapState] = useState<Record<string, boolean>>({});
+  const connQuery = useAsyncData(() => getConnections(), [], { enabled: !USE_MOCK_DATA });
+  const liveConnections = connQuery.data?.connections ?? [];
   if (!user) return null;
 
   const toggleTap = (id: string) => setTapState((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -251,11 +351,15 @@ function ConnectionsContent() {
             <Plus size={20} color={SolunaColors.warmGold} /><Text style={st.addButtonText}>Add someone</Text>
           </TouchableOpacity>
         ) : (
-          <AddPersonForm onClose={() => setShowAddForm(false)} />
+          <AddPersonForm
+            onClose={() => setShowAddForm(false)}
+            onAdded={() => { setShowAddForm(false); connQuery.refetch(); }}
+            defaultLens={activeLens.toLowerCase()}
+          />
         )}
 
-        {/* ── Person Cards ── */}
-        {CONNECTIONS.map((person) => {
+        {/* ── Person Cards (demo only) ── */}
+        {USE_MOCK_DATA && CONNECTIONS.map((person) => {
           const isOpen = tapState[person.id] ?? false;
           const lensActive = LENSES.find((l) => l.key === activeLens)!;
           const ritual = MOCK_BOND_RITUALS[person.id];
@@ -349,6 +453,21 @@ function ConnectionsContent() {
             </TouchableOpacity>
           );
         })}
+
+        {/* ── Your Circle (real data) ── */}
+        {!USE_MOCK_DATA && (
+          connQuery.loading ? (
+            <LoadingState message="Loading your circle…" />
+          ) : connQuery.error ? (
+            <ErrorState message={connQuery.error} onRetry={connQuery.refetch} retrying={connQuery.reloading} />
+          ) : liveConnections.length === 0 ? (
+            <EmptyState icon={HeartHandshake} title="No one in your circle yet" description="Add someone with their name and birth date to explore how you connect across systems." />
+          ) : (
+            liveConnections.map((c) => (
+              <LiveConnectionCard key={c.id} conn={c} lens={activeLens.toLowerCase()} />
+            ))
+          )
+        )}
 
         {/* ── Privacy ── */}
         <View style={st.privacyCard}>

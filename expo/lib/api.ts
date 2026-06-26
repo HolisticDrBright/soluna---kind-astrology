@@ -168,8 +168,9 @@ export async function getCompatibility(connectionId: string, lens = "romance") {
 /** Draw tarot cards */
 export async function drawTarot(spread: string = "daily", question?: string) {
   return invokeEdgeFunction<{
-    cards: unknown[];
+    cards: { name?: string; reversed?: boolean; arcana?: string }[];
     interpretation: string;
+    positions?: { name: string; meaning: string }[];
     nudge: string;
   }>("tarot", { spread, question });
 }

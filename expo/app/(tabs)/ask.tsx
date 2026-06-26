@@ -6,6 +6,10 @@ import { useAppState } from "@/state/useAppState";
 import { MOCK_CHAT_HISTORY, Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@/constants/mockData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
+import { askSoluna } from "@/lib/api";
+
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const nowTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
 type ChatError = { message: string; retryable: boolean } | null;
 
@@ -140,12 +144,15 @@ const mockResponses: Record<string, string> = {
 function AskContent() {
   const { user } = useAppState();
   const { prompt: deepLinkPrompt } = useLocalSearchParams<{ prompt?: string }>();
-  const [messages, setMessages] = useState<ChatMessage[]>([...MOCK_CHAT_HISTORY]);
+  const [messages, setMessages] = useState<ChatMessage[]>(USE_MOCK_DATA ? [...MOCK_CHAT_HISTORY] : []);
   const [input, setInput] = useState(deepLinkPrompt ?? "");
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<ChatError>(null);
   const [showPrompts, setShowPrompts] = useState(true);
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [lastQuestion, setLastQuestion] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const deepLinkSent = useRef(false);
 
   // Build personalized prompts from user blueprint
   const personalizedPrompts = useMemo(() => {
@@ -175,63 +182,63 @@ function AskContent() {
     return prompts;
   }, [user]);
 
-  // Deep-link auto-send
-  useEffect(() => {
-    if (deepLinkPrompt) {
-      const t = setTimeout(() => {
-        setShowPrompts(false);
-        const userMsg: ChatMessage = { id: `u${Date.now()}`, sender: "user", text: deepLinkPrompt, timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) };
-        setMessages((prev) => [...prev, userMsg]);
-        setIsTyping(true);
-        setError(null);
-        setTimeout(() => {
-          const key = Object.keys(mockResponses).find((k) => deepLinkPrompt.toLowerCase().includes(k));
-          const replyText = mockResponses[key ?? ""] ?? mockResponses.fallback;
-          setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: replyText, timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) }]);
-          setIsTyping(false);
-        }, 2000);
-      }, 500);
-      return () => clearTimeout(t);
-    }
-  }, [deepLinkPrompt]);
-
-  const sendMessage = useCallback((retryText?: string) => {
-    const trimmed = (retryText ?? input).trim();
+  // Send a question to Soluna. Live mode calls the real /ask Edge Function;
+  // mock mode keeps the canned responses for EXPO_PUBLIC_USE_MOCK_DATA demos.
+  const runAsk = useCallback(async (text: string, isRetry: boolean) => {
+    const trimmed = text.trim();
     if (!trimmed) return;
     setShowPrompts(false);
     setError(null);
 
-    if (!retryText) {
-      const userMsg: ChatMessage = { id: `u${Date.now()}`, sender: "user", text: trimmed, timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) };
-      setMessages((prev) => [...prev, userMsg]);
-      setInput("");
-    } else {
-      // Retry: remove the last error message if any
+    if (isRetry) {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
-        if (last && last.isError) return prev.slice(0, -1);
-        return prev;
+        return last && last.isError ? prev.slice(0, -1) : prev;
       });
+    } else {
+      setLastQuestion(trimmed);
+      setMessages((prev) => [...prev, { id: `u${Date.now()}`, sender: "user", text: trimmed, timestamp: nowTime() }]);
     }
 
     setIsTyping(true);
-    setTimeout(() => {
-      // Simulate occasional error (5% chance for demo — replace with real API)
-      const shouldError = false; // Set to Math.random() < 0.05 for real demo
-      if (shouldError) {
-        setIsTyping(false);
-        const errorMsg: ChatMessage = { id: `e${Date.now()}`, sender: "soluna", text: "I wasn't able to reach my systems to answer that. This might be a temporary connection issue.", timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }), isError: true };
-        setMessages((prev) => [...prev, errorMsg]);
-        setError({ message: "Connection issue — tap retry to try again", retryable: true });
-        return;
-      }
 
-      const key = Object.keys(mockResponses).find((k) => trimmed.toLowerCase().includes(k));
-      const replyText = mockResponses[key ?? ""] ?? mockResponses.fallback;
-      setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: replyText, timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) }]);
-      setIsTyping(false);
-    }, 2000 + Math.random() * 1500);
-  }, [input]);
+    if (USE_MOCK_DATA) {
+      setTimeout(() => {
+        const key = Object.keys(mockResponses).find((k) => trimmed.toLowerCase().includes(k));
+        const replyText = mockResponses[key ?? ""] ?? mockResponses.fallback;
+        setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: replyText, timestamp: nowTime() }]);
+        setIsTyping(false);
+      }, 1500);
+      return;
+    }
+
+    const { data, error: apiError } = await askSoluna(trimmed, conversationId);
+    setIsTyping(false);
+    if (apiError || !data) {
+      setMessages((prev) => [...prev, { id: `e${Date.now()}`, sender: "soluna", text: apiError ?? "I couldn't reach my systems to answer that just now.", timestamp: nowTime(), isError: true }]);
+      setError({ message: apiError ?? "Connection issue — tap retry to try again", retryable: true });
+      return;
+    }
+    if (data.conversation_id) setConversationId(data.conversation_id);
+    setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: data.message?.content ?? "", timestamp: nowTime() }]);
+  }, [conversationId]);
+
+  const handleSend = useCallback(() => {
+    const t = input.trim();
+    if (!t || isTyping) return;
+    setInput("");
+    void runAsk(t, false);
+  }, [input, isTyping, runAsk]);
+
+  // Deep-link auto-send (once)
+  useEffect(() => {
+    if (deepLinkPrompt && !deepLinkSent.current) {
+      deepLinkSent.current = true;
+      const t = setTimeout(() => { void runAsk(deepLinkPrompt, false); }, 400);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkPrompt]);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -260,14 +267,14 @@ function AskContent() {
 
         <ScrollView ref={scrollRef} style={st.messages} contentContainerStyle={st.messagesContent} showsVerticalScrollIndicator={false}>
           {messages.map((msg) => (
-            <ChatBubble key={msg.id} message={msg} onRetry={msg.isError ? () => sendMessage(msg.text) : undefined} />
+            <ChatBubble key={msg.id} message={msg} onRetry={msg.isError ? () => runAsk(lastQuestion, true) : undefined} />
           ))}
           {isTyping && <TypingIndicator />}
-          {error && !isTyping && <ErrorCard message={error.message} onRetry={() => sendMessage(messages[messages.length - 1]?.text ?? "")} />}
+          {error && !isTyping && <ErrorCard message={error.message} onRetry={() => runAsk(lastQuestion, true)} />}
         </ScrollView>
 
         {/* Prompt groups */}
-        {showPrompts && messages.length <= MOCK_CHAT_HISTORY.length && (
+        {showPrompts && (
           <View style={st.promptsWrap}>
             <Text style={st.promptsHeading}>What would you like to explore?</Text>
             {personalizedPrompts.map((group) => (
@@ -319,8 +326,8 @@ function AskContent() {
         {/* Input */}
         <View style={st.inputWrap}>
           <View style={st.inputRow}>
-            <TextInput style={st.input} value={input} onChangeText={setInput} placeholder="Ask about your blueprint…" placeholderTextColor={SolunaColors.creamSubtle} multiline maxLength={500} onSubmitEditing={() => sendMessage()} returnKeyType="send" />
-            <TouchableOpacity style={[st.sendBtn, !input.trim() && st.sendBtnDisabled]} onPress={() => sendMessage()} disabled={!input.trim()} activeOpacity={0.7}>
+            <TextInput style={st.input} value={input} onChangeText={setInput} placeholder="Ask about your blueprint…" placeholderTextColor={SolunaColors.creamSubtle} multiline maxLength={500} onSubmitEditing={handleSend} returnKeyType="send" />
+            <TouchableOpacity style={[st.sendBtn, !input.trim() && st.sendBtnDisabled]} onPress={handleSend} disabled={!input.trim()} activeOpacity={0.7}>
               <ArrowUp size={18} color={input.trim() ? SolunaColors.deepIndigo : SolunaColors.creamSubtle} />
             </TouchableOpacity>
           </View>
