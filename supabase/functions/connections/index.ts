@@ -5,10 +5,9 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateConnection } from "../_shared/schemas.ts";
-import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
-import { llmCall } from "../_shared/llm-client.ts";
+import { generateCompatibility } from "../_shared/synthesis/compatibility.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -66,7 +65,10 @@ Deno.serve(async (req: Request) => {
     // GET /connections/:id/compatibility?lens=
     if (req.method === "GET" && isCompatibility) {
       const connectionId = pathParts[pathParts.length - 2]; // compatibility is last, id is second-last
-      const lens = url.searchParams.get("lens") ?? "romance";
+      // Clamp to the lenses the schema allows (also what the knowledge layer maps).
+      const ALLOWED_LENSES = ["romance", "friendship", "work", "family"];
+      const requestedLens = url.searchParams.get("lens") ?? "romance";
+      const lens = ALLOWED_LENSES.includes(requestedLens) ? requestedLens : "romance";
 
       const { data: conn } = await supabase.from("connections")
         .select("*")
@@ -78,7 +80,7 @@ Deno.serve(async (req: Request) => {
         return errorResponse("Connection not found", 404);
       }
 
-      // Check cache
+      // Check cache — return the flat report body the app renders, not the DB row.
       const { data: cached } = await supabase.from("compatibility_reports")
         .select("*")
         .eq("user_id", user.userId)
@@ -87,65 +89,38 @@ Deno.serve(async (req: Request) => {
         .single();
 
       if (cached) {
-        return jsonResponse(cached);
+        return jsonResponse(cached.body ?? cached);
       }
 
-      // Generate compatibility (mocked with LLM for now)
-      const messages = [
-        {
-          role: "user" as const,
-          content: `Generate a warm, constructive compatibility summary for two people. Frame all challenges as growth opportunities, never doom or fear-based. Use repair-oriented language (curiosity over blame). Do NOT speculate about the other person's private thoughts, feelings, or motives, and never advise ending the relationship. Keep it a reflective lens, not a verdict.
-
-Person A: ${user.email ?? "user"}
-Person B: ${conn.name} (born ${conn.birth_date})
-
-Lens: ${lens}
-Return JSON:
-{
-  "score": number 60-98,
-  "label": "short supportive label",
-  "whereYouFlow": ["3-4 areas of natural ease"],
-  "whereYouGrow": ["3-4 growth areas framed positively"],
-  "howToSupport": ["3 warm tips for supporting each other"],
-  "astrologyNote": "one sentence about synastry",
-  "numerologyNote": "one sentence about number compatibility"
-}`,
-        },
-      ];
-
+      // Generate a knowledge-driven compatibility reading: the user's REAL
+      // blueprint run through the deterministic knowledge SELECTION layer (the same
+      // layer Ask and Today use), blended with the connection's date-derived basics
+      // (Sun sign, Life Path, Chinese animal). We never fabricate the other person's
+      // chart, and the score is computed deterministically from real signals.
       try {
-        const resp = await llmCall(messages, { maxTokens: 500, temperature: 0.7 });
-        const jsonMatch = resp.content.match(/\{[\s\S]*\}/);
-        const body = jsonMatch ? JSON.parse(jsonMatch[0]) : {
-          score: 78,
-          label: "Growth pairing",
-          whereYouFlow: ["Natural understanding", "Shared values", "Easy conversation"],
-          whereYouGrow: ["Learning patience together", "Different emotional rhythms", "Building trust over time"],
-          howToSupport: ["Listen more than you fix", "Celebrate small wins together", "Give each other space when needed"],
-          astrologyNote: "Your sun signs show complementary qualities.",
-          numerologyNote: "Your Life Path numbers suggest natural alignment.",
-        };
+        const result = await generateCompatibility(user.userId, {
+          name: conn.name,
+          birthDate: conn.birth_date,
+          birthTime: conn.birth_time ?? null,
+          lens,
+        });
 
         const { data: report } = await supabase.from("compatibility_reports")
           .upsert({
             user_id: user.userId,
             connection_id: connectionId,
             lens,
-            score: body.score,
-            body,
+            score: result.score,
+            body: result,
           })
           .select()
           .single();
 
-        return jsonResponse(report ?? body);
+        return jsonResponse(report?.body ?? result);
       } catch (err) {
-        return jsonResponse({
-          score: 75,
-          label: "Growth pairing",
-          whereYouFlow: ["Natural understanding"],
-          whereYouGrow: ["Learning each other's rhythms"],
-          howToSupport: ["Listen more than you fix"],
-        });
+        // No silent fake-data fallback — surface an honest, retryable error.
+        console.error("Compatibility generation error:", err);
+        return errorResponse("Could not generate a compatibility reading right now. Please try again.", 502);
       }
     }
 

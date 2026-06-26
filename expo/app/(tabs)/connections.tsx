@@ -138,6 +138,18 @@ function LiveConnectionCard({ conn, lens }: { conn: { id: string; name: string; 
                   ))}
                 </View>
               ) : null}
+              {(report.astrologyNote || report.numerologyNote) ? (
+                <View style={pcS.section}>
+                  <Text style={pcS.sectionLabel}>The lens</Text>
+                  {report.astrologyNote ? <Text style={pcS.sectionText}>{report.astrologyNote}</Text> : null}
+                  {report.numerologyNote ? <Text style={[pcS.sectionText, { marginTop: 4 }]}>{report.numerologyNote}</Text> : null}
+                </View>
+              ) : null}
+              {report.confidenceNote ? (
+                <Text style={[pcS.sectionText, { fontStyle: "italic", color: SolunaColors.creamSubtle, marginTop: 2 }]}>
+                  {report.confidenceNote}
+                </Text>
+              ) : null}
             </>
           ) : null}
         </View>

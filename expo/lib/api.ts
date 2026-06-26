@@ -56,6 +56,12 @@ export interface CompatibilityReport {
   whereYouFlow: string[];
   whereYouGrow: string[];
   howToSupport: string[];
+  astrologyNote?: string;
+  numerologyNote?: string;
+  /** Honest note about what the reading is (and isn't) based on. */
+  confidenceNote?: string;
+  /** Transparency: which real signals each side contributed. */
+  basis?: { you: string[]; them: string[] };
 }
 
 // ─── API Functions ─────────────────────────────────────────────
