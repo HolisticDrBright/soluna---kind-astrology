@@ -1,14 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated as RNAnimated, Platform, Dimensions } from "react-native";
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated as RNAnimated, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { MOCK_USER, CITIES, ZODIAC_SYMBOLS, BIG_THREE_DESCRIPTIONS, CHINESE_ANIMAL_EMOJI, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
+import { CITIES, CITY_COORDS, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
+import { submitOnboarding, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TOTAL_STEPS = 8;
+
+// Real Google place resolution is used for the live (paid) journey; the static
+// CITY_COORDS table is only a convenience for mock/demo mode.
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
@@ -28,7 +32,7 @@ const siS = StyleSheet.create({
 });
 
 export default function OnboardingScreen() {
-  const { onboardingStep, setOnboardingStep, completeOnboarding } = useAppState();
+  const { authUser, user, onboardingStep, setOnboardingStep, refreshUser } = useAppState();
 
   // All fields start empty — no prefilled demo data
   const [fullName, setFullName] = useState("");
@@ -41,8 +45,14 @@ export default function OnboardingScreen() {
   const [birthPlace, setBirthPlace] = useState("");
   const [placeSearch, setPlaceSearch] = useState("");
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
-  const [showCalculating, setShowCalculating] = useState(false);
+  // Live geo (Google) autocomplete + resolved coordinates/timezone.
+  const [geoSuggestions, setGeoSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitNotice, setSubmitNotice] = useState("");
   const fadeAnim = useRef(new RNAnimated.Value(0)).current;
   const slideAnim = useRef(new RNAnimated.Value(30)).current;
   const calculatingAnim = useRef(new RNAnimated.Value(0)).current;
@@ -64,28 +74,63 @@ export default function OnboardingScreen() {
 
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
+  // Visual "weaving" animation only — the reveal is gated on the real blueprint
+  // actually loading (see handleWeave), never on a timer.
   useEffect(() => {
-    if (onboardingStep === "calculating") {
-      setShowCalculating(true);
-      setRevealReady(false);
-      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 2000, useNativeDriver: false }).start(() => {
-        setTimeout(() => {
-          setShowCalculating(false);
-          setRevealReady(true);
-          RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
-        }, 300);
-      });
+    if (onboardingStep === "calculating" && !revealReady) {
+      calculatingAnim.setValue(0);
+      RNAnimated.timing(calculatingAnim, { toValue: 1, duration: 1600, useNativeDriver: false }).start();
     }
-  }, [onboardingStep, calculatingAnim, revealFade]);
+  }, [onboardingStep, revealReady, calculatingAnim]);
+
+  useEffect(() => {
+    if (revealReady) {
+      revealFade.setValue(0);
+      RNAnimated.timing(revealFade, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+    }
+  }, [revealReady, revealFade]);
 
   const handleCitySearch = (text: string) => {
     setPlaceSearch(text);
-    setFilteredCities(text.length >= 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+    setSubmitError("");
+    if (USE_MOCK_DATA) {
+      setFilteredCities(text.length >= 1 ? CITIES.filter((c) => c.toLowerCase().includes(text.toLowerCase())) : []);
+      return;
+    }
+    // Live: real Google Places autocomplete (server-proxied). Changing the text
+    // invalidates any previously resolved place.
+    setResolvedPlace(null);
+    if (text.trim().length >= 2) {
+      geoAutocomplete(text)
+        .then(({ data }) => setGeoSuggestions(data?.suggestions ?? []))
+        .catch(() => setGeoSuggestions([]));
+    } else {
+      setGeoSuggestions([]);
+    }
   };
+  // Mock mode: pick a static city (coords come from CITY_COORDS).
   const selectCity = (city: string) => {
     setBirthPlace(city);
     setPlaceSearch("");
     setFilteredCities([]);
+    setSubmitError("");
+  };
+  // Live mode: resolve the chosen place to real lat/lng + a date-aware timezone.
+  const selectResolvedPlace = async (s: PlaceSuggestion) => {
+    setBirthPlace(s.label);
+    setPlaceSearch("");
+    setGeoSuggestions([]);
+    setResolvedPlace(null);
+    setSubmitError("");
+    const dateForTz = birthDate ? birthDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+    setResolvingPlace(true);
+    const { data, error } = await geoResolve(s.id, dateForTz);
+    setResolvingPlace(false);
+    if (error || !data?.place) {
+      setSubmitError(error ?? "We couldn't resolve that place. Please try another.");
+      return;
+    }
+    setResolvedPlace(data.place);
   };
 
   const goNext = () => {
@@ -101,19 +146,82 @@ export default function OnboardingScreen() {
     if (idx > 0) setOnboardingStep(sequence[idx - 1]);
   };
 
-  const handleFinish = () => {
-    completeOnboarding({
-      fullName: fullName || "You",
-      preferredName: preferredName || fullName?.split(" ")[0] || "You",
-      birthDate: birthDate?.toISOString().split("T")[0] ?? "1990-01-01",
-      birthTime: birthTime || "12:00",
-      birthTimeKnown,
-      birthPlace: birthPlace || "Unknown",
-      chart: MOCK_USER.chart,
-      numerology: MOCK_USER.numerology,
-      chinese: MOCK_USER.chinese,
-      humanDesign: MOCK_USER.humanDesign,
+  // Submit the real birth profile, compute + persist the real blueprint, then
+  // load it from /me before revealing. No mock completion, no demo chart.
+  const handleWeave = async () => {
+    if (isSubmitting) return;
+    setSubmitError("");
+    setSubmitNotice("");
+
+    if (!authUser) {
+      router.replace("/auth");
+      return;
+    }
+    if (!fullName.trim()) {
+      setSubmitError("Add your full birth name before we save your blueprint.");
+      setOnboardingStep("fullName");
+      return;
+    }
+    if (!birthDate) {
+      setSubmitError("Add your birth date before we save your blueprint.");
+      setOnboardingStep("birthdate");
+      return;
+    }
+    if (!isBirthTimeValid) {
+      setSubmitError("Use a valid 24-hour birth time, like 14:35, or choose that you do not know it yet.");
+      setOnboardingStep("birthtime");
+      return;
+    }
+
+    // Real coordinates/timezone come from a resolved Google place (live), or the
+    // static table (mock/demo only). No silent 0,0/UTC fallback.
+    const place = USE_MOCK_DATA
+      ? CITY_COORDS[birthPlace]
+      : (resolvedPlace
+        ? { lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+        : undefined);
+    if (!place) {
+      setSubmitError(
+        USE_MOCK_DATA
+          ? "Pick a supported city from the list so we can use real timezone data."
+          : "Choose your birth city from the search results so we can resolve your real coordinates and timezone.",
+      );
+      setOnboardingStep("birthplace");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setRevealReady(false);
+    setOnboardingStep("calculating");
+
+    const { error } = await submitOnboarding({
+      full_birth_name: fullName.trim(),
+      preferred_name: preferredName.trim() || fullName.trim().split(" ")[0],
+      birth_date: birthDate.toISOString().split("T")[0],
+      birth_time: birthTimeKnown ? birthTime : null,
+      time_known: birthTimeKnown,
+      birth_place_label: resolvedPlace?.label ?? birthPlace,
+      lat: place.lat,
+      lng: place.lng,
+      timezone: place.timezone,
+      house_system: "placidus",
     });
+
+    if (error) {
+      setIsSubmitting(false);
+      setSubmitError(error);
+      setOnboardingStep("birthplace");
+      return;
+    }
+
+    // Pull the freshly computed blueprint so the reveal shows the real user.
+    await refreshUser();
+    setIsSubmitting(false);
+    setRevealReady(true);
+  };
+
+  // Data is already saved by the time the reveal shows — just enter the app.
+  const handleBegin = () => {
     router.replace("/(tabs)");
   };
 
@@ -147,11 +255,14 @@ export default function OnboardingScreen() {
     }
   };
 
-  const isBirthTimeValid = birthTimeKnown ? /^\d{1,2}:\d{2}$/.test(birthTime) && birthTime.length >= 4 : true;
-  const isPlaceValid = birthPlace.length > 0;
+  const isFullNameValid = fullName.trim().length > 0;
+  const isBirthTimeValid = birthTimeKnown ? /^([01]?\d|2[0-3]):[0-5]\d$/.test(birthTime) : true;
+  const isPlaceValid = USE_MOCK_DATA
+    ? birthPlace.length > 0 && !!CITY_COORDS[birthPlace]
+    : !!resolvedPlace;
 
   // ─── Calculating screen ───────────────────────────────
-  if (showCalculating) {
+  if (onboardingStep === "calculating" && !revealReady) {
     const glyphs = ["☉", "☽", "☆", "3", "🐖", "⚡"];
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
@@ -173,16 +284,47 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ─── Reveal screen ───────────────────────────────────
+  // ─── Reveal screen (real blueprint) ──────────────────
   if (revealReady) {
-    const chart = MOCK_USER.chart;
-    const num = MOCK_USER.numerology;
-    const ch = MOCK_USER.chinese;
-    const hd = MOCK_USER.humanDesign;
-    const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+    const chart = user?.chart;
+    const num = user?.numerology;
+    const animal = user?.chinese?.animal;
+    const element = user?.chinese?.element;
+    const elementAnimalLabel = user?.chinese?.elementAnimalLabel ?? (element && animal ? `${element} ${animal}` : "");
+    const hdType = user?.humanDesign?.type;
+    const name = user?.preferredName || preferredName || fullName?.split(" ")[0] || "You";
 
-    const name = preferredName || fullName?.split(" ")[0] || "You";
-    const birthTimeNote = birthTimeKnown ? birthTime : "Not provided (noon estimate used)";
+    // The blueprint is saved synchronously during onboarding; if it somehow isn't
+    // loaded yet, show a kind partial state instead of any demo data.
+    if (!chart || !num) {
+      return (
+        <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
+          <View style={[os.content, { justifyContent: "center" }]}>
+            <Sparkles size={32} color={SolunaColors.warmGold} />
+            <Text style={[os.revealTitle, { marginTop: 14 }]}>Your details are saved</Text>
+            <Text style={os.revealSub}>We saved your birth details, {name}. Your full blueprint will be ready in a moment.</Text>
+            <TouchableOpacity style={[os.beginButton, { marginTop: 24 }]} onPress={handleWeave} activeOpacity={0.8} disabled={isSubmitting}>
+              <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
+                {isSubmitting ? <ActivityIndicator color={SolunaColors.deepIndigo} /> : <Text style={os.beginButtonText}>Refresh</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ marginTop: 14 }} onPress={handleBegin}>
+              <Text style={os.submitNotice}>Continue to Soluna</Text>
+            </TouchableOpacity>
+            {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
+          </View>
+        </LinearGradient>
+      );
+    }
+
+    const lifePathInfo = NUMBER_MEANINGS[num.lifePath];
+    const chineseInfo = element && animal ? CHINESE_INTERPRETATIONS[`${element}-${animal}`] : undefined;
+    const hdInfo = hdType ? HD_INTERPRETATIONS[hdType] : undefined;
+    const roleLine: Record<string, string> = {
+      Sun: "Your core self — how you shine and what energizes you.",
+      Moon: "Your inner world — how you feel, rest, and recharge.",
+      Rising: "Your first impression — how you meet the world.",
+    };
 
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={os.gradient}>
@@ -193,15 +335,15 @@ export default function OnboardingScreen() {
             <Text style={os.revealSub}>Four systems, one {name}. Here's what each lens sees — notice how they echo each other.</Text>
           </View>
 
-          {/* Accuracy note */}
+          {/* Accuracy note — honest, driven by your real inputs */}
           <View style={os.accuracyCard}>
             <Clock size={14} color={SolunaColors.warmGold} />
             <View style={os.accuracyTextWrap}>
               <Text style={os.accuracyLine1}>
-                {birthTimeKnown ? "Exact birth time used — all placements are precise." : "Birth time not provided — Rising sign, houses, and Human Design are approximate. You can add it anytime."}
+                {user?.birthTimeKnown ? "Exact birth time used — Rising, houses, and Human Design are precise." : "Birth time not provided — Rising sign, houses, and Human Design are approximate. You can add it anytime."}
               </Text>
               <Text style={os.accuracyLine2}>
-                {birthPlace ? `Based on ${birthPlace}` : "Birth location not set — timezone estimated."}
+                {user?.birthPlace ? `Based on ${user.birthPlace}` : (birthPlace ? `Based on ${birthPlace}` : "Birth location not set.")}
               </Text>
             </View>
           </View>
@@ -217,17 +359,17 @@ export default function OnboardingScreen() {
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Sun</Text>
                   <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.sun.sign]} {chart.sun.sign}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Sun-Cancer"]}</Text>
+                  <Text style={os.btDesc}>{roleLine.Sun}</Text>
                 </View>
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Moon</Text>
                   <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.moon.sign]} {chart.moon.sign}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Moon-Pisces"]}</Text>
+                  <Text style={os.btDesc}>{roleLine.Moon}</Text>
                 </View>
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Rising</Text>
-                  <Text style={os.btSign}>{ZODIAC_SYMBOLS[chart.rising]} {chart.rising}</Text>
-                  <Text style={os.btDesc}>{BIG_THREE_DESCRIPTIONS["Rising-Libra"]}</Text>
+                  <Text style={os.btSign}>{user?.birthTimeKnown ? `${ZODIAC_SYMBOLS[chart.rising]} ${chart.rising}` : "Needs birth time"}</Text>
+                  <Text style={os.btDesc}>{roleLine.Rising}</Text>
                 </View>
               </View>
             </View>
@@ -238,8 +380,8 @@ export default function OnboardingScreen() {
               <View style={os.numRow}>
                 <Text style={os.numBig}>{num.lifePath}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={os.numLabel}>Life Path {num.lifePath}: {lifePathInfo?.title || ""}</Text>
-                  <Text style={os.numDesc}>{num.lifePathMeaning.slice(0, 180)}…</Text>
+                  <Text style={os.numLabel}>Life Path {num.lifePath}{lifePathInfo?.title ? `: ${lifePathInfo.title}` : ""}</Text>
+                  <Text style={os.numDesc}>{lifePathInfo?.description ? `${lifePathInfo.description.slice(0, 180)}…` : "The central theme of your journey."}</Text>
                 </View>
               </View>
             </View>
@@ -247,23 +389,25 @@ export default function OnboardingScreen() {
             {/* Chinese */}
             <View style={os.revealCard}>
               <View style={os.revealCardHeader}><Bird size={18} color={SolunaColors.softPeach} /><Text style={os.revealCardTitle}>Chinese Astrology</Text></View>
-              <Text style={os.chineseMain}>{CHINESE_ANIMAL_EMOJI[ch.animal]} {ch.elementAnimalLabel}</Text>
-              <Text style={os.chineseDesc}>{ch.description.slice(0, 150)}…</Text>
+              <Text style={os.chineseMain}>{animal ? `${CHINESE_ANIMAL_EMOJI[animal] ?? ""} ` : ""}{elementAnimalLabel}</Text>
+              <Text style={os.chineseDesc}>{chineseInfo?.description ? `${chineseInfo.description.slice(0, 150)}…` : "Your element and animal combine into a distinct temperament."}</Text>
             </View>
 
             {/* Human Design */}
             <View style={os.revealCard}>
               <View style={os.revealCardHeader}><Cpu size={18} color={SolunaColors.warmGold} /><Text style={os.revealCardTitle}>Human Design</Text></View>
-              <Text style={os.hdMain}>{hd.type}</Text>
-              <Text style={os.hdDesc}>{hd.typeDescription.slice(0, 150)}…</Text>
+              <Text style={os.hdMain}>{hdType ?? "—"}</Text>
+              <Text style={os.hdDesc}>{hdInfo?.description ? `${hdInfo.description.slice(0, 150)}…` : (user?.birthTimeKnown ? "How your energy works best." : "Add your birth time for your full Human Design.")}</Text>
             </View>
           </ScrollView>
 
-          <TouchableOpacity style={os.beginButton} onPress={handleFinish} activeOpacity={0.8}>
+          <TouchableOpacity style={os.beginButton} onPress={handleBegin} activeOpacity={0.8}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.beginGradient}>
-              <Text style={os.beginButtonText}>Begin</Text>
+              <Text style={os.beginButtonText}>Enter Soluna</Text>
             </LinearGradient>
           </TouchableOpacity>
+          {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
+          {submitNotice ? <Text style={os.submitNotice}>{submitNotice}</Text> : null}
         </RNAnimated.View>
       </LinearGradient>
     );
@@ -307,9 +451,9 @@ export default function OnboardingScreen() {
                 <TextInput style={os.input} value={fullName} onChangeText={setFullName} placeholder="Your full birth name" placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={[os.primaryButton, !fullName && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!fullName}>
-                <LinearGradient colors={fullName ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={[os.buttonText, !fullName && { color: SolunaColors.creamSubtle }]}>Continue</Text>
+              <TouchableOpacity style={[os.primaryButton, !isFullNameValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isFullNameValid}>
+                <LinearGradient colors={isFullNameValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !isFullNameValid && { color: SolunaColors.creamSubtle }]}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -324,9 +468,9 @@ export default function OnboardingScreen() {
                 <TextInput style={os.input} value={preferredName} onChangeText={setPreferredName} placeholder={fullName ? fullName.split(" ")[0] : "Your preferred name"} placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
-                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={os.buttonText}>Continue</Text>
+              <TouchableOpacity style={[os.primaryButton, !isBirthTimeValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isBirthTimeValid}>
+                <LinearGradient colors={isBirthTimeValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={[os.buttonText, !isBirthTimeValid && { color: SolunaColors.creamSubtle }]}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
               {preferredName ? null : (
@@ -427,7 +571,8 @@ export default function OnboardingScreen() {
                   placeholder="Search for your city…"
                   placeholderTextColor={SolunaColors.creamSubtle}
                 />
-                {filteredCities.length > 0 && !isPlaceValid && (
+                {/* Mock/demo: static city list */}
+                {USE_MOCK_DATA && filteredCities.length > 0 && !isPlaceValid && (
                   <View style={os.cityDropdown}>
                     <Text style={os.cityDropdownHint}>Select from the list — this ensures accurate timezone data</Text>
                     {filteredCities.slice(0, 8).map((city) => (
@@ -438,18 +583,38 @@ export default function OnboardingScreen() {
                     ))}
                   </View>
                 )}
+                {/* Live: real Google Places suggestions */}
+                {!USE_MOCK_DATA && geoSuggestions.length > 0 && !resolvedPlace && (
+                  <View style={os.cityDropdown}>
+                    <Text style={os.cityDropdownHint}>Pick your city so we can resolve real coordinates + timezone</Text>
+                    {geoSuggestions.slice(0, 6).map((s) => (
+                      <TouchableOpacity key={s.id} style={os.cityOption} onPress={() => selectResolvedPlace(s)}>
+                        <MapPin size={12} color={SolunaColors.creamSubtle} />
+                        <Text style={os.cityOptionText}>{s.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {resolvingPlace && (
+                  <View style={os.cityDropdown}>
+                    <Text style={os.cityDropdownHint}>Resolving your birth place…</Text>
+                  </View>
+                )}
                 {isPlaceValid && (
                   <View style={os.placeConfirmed}>
                     <Text style={os.placeConfirmedIcon}>✓</Text>
-                    <Text style={os.placeConfirmedText}>{birthPlace}</Text>
-                    <TouchableOpacity onPress={() => { setBirthPlace(""); setPlaceSearch(""); }}>
+                    <Text style={os.placeConfirmedText}>{resolvedPlace?.label ?? birthPlace}</Text>
+                    <TouchableOpacity onPress={() => { setBirthPlace(""); setPlaceSearch(""); setResolvedPlace(null); setGeoSuggestions([]); }}>
                       <Text style={os.placeChangeText}>Change</Text>
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isPlaceValid}>
+              {birthPlace && !isPlaceValid ? (
+                <Text style={os.dateError}>Please choose a supported city from the list.</Text>
+              ) : null}
+              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={handleWeave} activeOpacity={0.8} disabled={!isPlaceValid}>
                 <LinearGradient colors={isPlaceValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
                   <Text style={[os.buttonText, !isPlaceValid && { color: SolunaColors.creamSubtle }]}>Weave My Blueprint</Text>
                 </LinearGradient>
@@ -548,4 +713,6 @@ const os = StyleSheet.create({
   beginButton: { borderRadius: SolunaRadius.lg, overflow: "hidden", width: "100%", maxWidth: 280, marginTop: 10 },
   beginGradient: { paddingVertical: 16, alignItems: "center" },
   beginButtonText: { fontSize: 18, fontWeight: "600", color: SolunaColors.deepIndigo, fontFamily: Fonts.body },
+  submitError: { color: SolunaColors.softPeach, fontSize: 13, marginTop: 10, textAlign: "center", fontFamily: Fonts.body },
+  submitNotice: { color: SolunaColors.creamMuted, fontSize: 13, marginTop: 10, textAlign: "center", fontFamily: Fonts.body },
 });

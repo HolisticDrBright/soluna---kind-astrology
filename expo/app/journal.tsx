@@ -1,43 +1,117 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { JOURNAL_ENTRIES, Fonts } from "@/constants/mockData";
 import EmptyState from "@/components/EmptyState";
+import { LoadingState, ErrorState } from "@/components/DataStates";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getJournal, createJournalEntry } from "@/lib/api";
 import { ChevronLeft, BookOpen, Sparkles, Calendar, Plus, Smile } from "lucide-react-native";
 
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
 const MOOD_OPTIONS = [
-  { emoji: "☀️", label: "Radiant" },
-  { emoji: "🌤️", label: "Good" },
-  { emoji: "🌥️", label: "Okay" },
-  { emoji: "🌧️", label: "Low" },
-  { emoji: "🌙", label: "Reflective" },
+  { emoji: "☀️", label: "Radiant", value: 5 },
+  { emoji: "🌤️", label: "Good", value: 4 },
+  { emoji: "🌥️", label: "Okay", value: 3 },
+  { emoji: "🌧️", label: "Low", value: 2 },
+  { emoji: "🌙", label: "Reflective", value: 1 },
 ];
+const moodLabelFor = (value?: number | null) =>
+  MOOD_OPTIONS.find((m) => m.value === value)?.label ?? "Unmarked";
+
+interface JournalItem {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+  moodLabel: string;
+  context: string | null;
+}
+
+function mapMockEntry(e: typeof JOURNAL_ENTRIES[number]): JournalItem {
+  return { id: e.id, date: e.date, title: e.title, content: e.content, moodLabel: e.mood, context: e.transitContext };
+}
+
+function mapLiveEntry(raw: Record<string, unknown>): JournalItem {
+  const body = String(raw.body ?? "");
+  const [maybeTitle, ...rest] = body.split("\n\n");
+  const hasTitle = rest.length > 0 && maybeTitle.length <= 80;
+  return {
+    id: String(raw.id ?? `j${String(raw.entry_date ?? "")}`),
+    date: String(raw.entry_date ?? raw.created_at ?? new Date().toISOString().split("T")[0]),
+    title: hasTitle ? maybeTitle : "",
+    content: hasTitle ? rest.join("\n\n") : body,
+    moodLabel: moodLabelFor(typeof raw.mood === "number" ? raw.mood : null),
+    context: raw.prompt ? String(raw.prompt) : null,
+  };
+}
 
 export default function JournalScreen() {
   const [showNewEntry, setShowNewEntry] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [selectedMood, setSelectedMood] = useState("");
-  const [entries, setEntries] = useState(JOURNAL_ENTRIES);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [mockEntries, setMockEntries] = useState(JOURNAL_ENTRIES);
 
-  const handleSave = () => {
-    if (!newTitle.trim()) return;
-    const entry = {
-      id: `j${Date.now()}`,
-      date: new Date().toISOString().split("T")[0],
-      title: newTitle,
-      content: newContent || "No content written.",
-      mood: selectedMood || "Unmarked",
-      transitContext: "Moon in Cancer · Personal Day 7",
-    };
-    setEntries((prev) => [entry, ...prev]);
+  const journalQuery = useAsyncData(() => getJournal(50), [], { enabled: !USE_MOCK_DATA });
+
+  const entries: JournalItem[] = useMemo(() => {
+    if (USE_MOCK_DATA) return mockEntries.map(mapMockEntry);
+    const list = (journalQuery.data?.entries ?? []) as Record<string, unknown>[];
+    return list.map(mapLiveEntry);
+  }, [mockEntries, journalQuery.data]);
+
+  const resetForm = () => {
     setShowNewEntry(false);
     setNewTitle("");
     setNewContent("");
     setSelectedMood("");
+    setSaveError("");
   };
+
+  const handleSave = async () => {
+    const title = newTitle.trim();
+    const content = newContent.trim();
+    if (!title && !content) {
+      setSaveError("Write a title or a few words first.");
+      return;
+    }
+    const moodValue = MOOD_OPTIONS.find((m) => m.label === selectedMood)?.value;
+
+    if (USE_MOCK_DATA) {
+      const entry = {
+        id: `j${Date.now()}`,
+        date: new Date().toISOString().split("T")[0],
+        title: title || "Reflection",
+        content: content || "No content written.",
+        mood: selectedMood || "Unmarked",
+        transitContext: "",
+      };
+      setMockEntries((prev) => [entry, ...prev]);
+      resetForm();
+      return;
+    }
+
+    const body = [title, content].filter(Boolean).join("\n\n");
+    setSaving(true);
+    setSaveError("");
+    const { error } = await createJournalEntry(body, moodValue);
+    setSaving(false);
+    if (error) {
+      setSaveError(error);
+      return;
+    }
+    resetForm();
+    journalQuery.refetch();
+  };
+
+  const liveLoading = !USE_MOCK_DATA && journalQuery.loading;
+  const liveError = !USE_MOCK_DATA ? journalQuery.error : null;
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
@@ -49,32 +123,32 @@ export default function JournalScreen() {
         <View style={s.headerRow}>
           <View>
             <Text style={s.title}>Cosmic Journal</Text>
-            <Text style={s.sub}>Gentle reflections tied to the day's energy</Text>
+            <Text style={s.sub}>Gentle reflections, kept private to you</Text>
           </View>
           <TouchableOpacity style={s.addBtn} onPress={() => setShowNewEntry(true)} activeOpacity={0.8}>
             <Plus size={20} color={SolunaColors.warmGold} />
           </TouchableOpacity>
         </View>
 
-        {/* Today's prompt from reading */}
-        <TouchableOpacity style={s.promptCard} activeOpacity={0.8}>
+        {/* Gentle reflection prompt */}
+        <TouchableOpacity style={s.promptCard} activeOpacity={0.8} onPress={() => setShowNewEntry(true)}>
           <Sparkles size={16} color={SolunaColors.warmGold} />
           <View style={{ flex: 1 }}>
             <Text style={s.promptTitle}>Today's reflection prompt</Text>
-            <Text style={s.promptText}>"Reflect on today's nudge: {`Light a candle and journal for ten minutes`}. What came up for you?"</Text>
+            <Text style={s.promptText}>What is one feeling and one small moment from today you'd like to remember?</Text>
           </View>
         </TouchableOpacity>
 
         {showNewEntry && (
           <View style={s.newEntryCard}>
             <Text style={s.newEntryTitle}>New Reflection</Text>
-            <Text style={s.newEntryContext}>Moon in Cancer · Personal Day 7 · Generator energy</Text>
+            <Text style={s.newEntryContext}>A private space for your thoughts.</Text>
 
             <TextInput
               style={s.inputTitle}
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder="Entry title…"
+              placeholder="Entry title (optional)…"
               placeholderTextColor={SolunaColors.creamSubtle}
             />
             <TextInput
@@ -104,26 +178,38 @@ export default function JournalScreen() {
               ))}
             </View>
 
+            {saveError ? <Text style={s.saveError}>{saveError}</Text> : null}
+
             <View style={s.newEntryBtns}>
-              <TouchableOpacity style={s.cancelBtn} onPress={() => setShowNewEntry(false)}>
+              <TouchableOpacity style={s.cancelBtn} onPress={resetForm} disabled={saving}>
                 <Text style={s.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.saveEntryBtn, !newTitle && { opacity: 0.5 }]}
-                disabled={!newTitle}
+                style={[s.saveEntryBtn, (!newTitle.trim() && !newContent.trim()) && { opacity: 0.5 }]}
+                disabled={saving || (!newTitle.trim() && !newContent.trim())}
                 onPress={handleSave}
               >
-                <BookOpen size={16} color={SolunaColors.deepIndigo} />
-                <Text style={s.saveEntryText}>Save Entry</Text>
+                {saving ? (
+                  <ActivityIndicator color={SolunaColors.deepIndigo} />
+                ) : (
+                  <>
+                    <BookOpen size={16} color={SolunaColors.deepIndigo} />
+                    <Text style={s.saveEntryText}>Save Entry</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Reflection cards — yesterday / last week */}
+        {/* Entries */}
         <Text style={s.sectionTitle}>Your Entries</Text>
 
-        {entries.length === 0 ? (
+        {liveLoading ? (
+          <LoadingState message="Opening your journal…" />
+        ) : liveError ? (
+          <ErrorState message={liveError} onRetry={journalQuery.refetch} retrying={journalQuery.reloading} />
+        ) : entries.length === 0 ? (
           <EmptyState
             icon={BookOpen}
             title="No entries yet"
@@ -139,29 +225,33 @@ export default function JournalScreen() {
                 </Text>
                 <View style={s.moodBadge}>
                   <Smile size={10} color={SolunaColors.warmGold} />
-                  <Text style={s.moodText}>{entry.mood}</Text>
+                  <Text style={s.moodText}>{entry.moodLabel}</Text>
                 </View>
               </View>
-              <Text style={s.entryTitle}>{entry.title}</Text>
+              {entry.title ? <Text style={s.entryTitle}>{entry.title}</Text> : null}
               <Text style={s.entryContent} numberOfLines={3}>{entry.content}</Text>
-              <View style={s.entryFooter}>
-                <Sparkles size={12} color={SolunaColors.creamSubtle} />
-                <Text style={s.entryTransit}>{entry.transitContext}</Text>
-              </View>
+              {entry.context ? (
+                <View style={s.entryFooter}>
+                  <Sparkles size={12} color={SolunaColors.creamSubtle} />
+                  <Text style={s.entryTransit}>{entry.context}</Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           ))
         )}
 
-        {/* Yesterday / last week nudges */}
-        <View style={s.reflectionCard}>
-          <Sparkles size={14} color={SolunaColors.warmGold} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.reflectionTitle}>Look back</Text>
-            <Text style={s.reflectionText}>
-              Your last entry was about creative sparks. How has that project evolved since then? Sometimes re-reading your own words reveals patterns you didn't notice the first time.
-            </Text>
+        {/* Look back */}
+        {entries.length > 0 && (
+          <View style={s.reflectionCard}>
+            <Sparkles size={14} color={SolunaColors.warmGold} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.reflectionTitle}>Look back</Text>
+              <Text style={s.reflectionText}>
+                Re-reading your own words often reveals patterns you didn't notice the first time. Revisit an earlier entry when you have a quiet moment.
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <Text style={s.footerNote}>
           Your journal is private — these reflections stay with you. We never read them, analyze them, or use them to train anything.
@@ -201,6 +291,7 @@ const s = StyleSheet.create({
   moodEmoji: { fontSize: 16, marginBottom: 2 },
   moodChipLabel: { fontSize: 9, color: SolunaColors.creamSubtle, fontWeight: "600" },
   moodChipLabelSelected: { color: SolunaColors.warmGold },
+  saveError: { fontSize: 12, color: SolunaColors.softPeach, fontFamily: Fonts.body, marginBottom: 10 },
   newEntryBtns: { flexDirection: "row", gap: 10 },
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: SolunaRadius.md, backgroundColor: "rgba(255,255,255,0.05)", alignItems: "center" },
   cancelText: { fontSize: 14, color: SolunaColors.creamMuted, fontWeight: "600" },

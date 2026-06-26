@@ -4,11 +4,45 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { MOCK_THREE_CARD_READING, TAROT_SPREADS, Fonts } from "@/constants/mockData";
+import { LoadingState } from "@/components/DataStates";
+import { drawTarot } from "@/lib/api";
 import { ChevronLeft, Sparkles, Shuffle, BookOpen } from "lucide-react-native";
+
+const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const SPREAD_KEY: Record<string, string> = { "daily-reset": "daily", "three-card": "three_card", "celtic-cross": "celtic_cross" };
+
+interface LiveTarotCard { name: string; arcanaLabel: string; reversed: boolean; positionMeaning: string }
+interface LiveTarot { cards: LiveTarotCard[]; overall: string; nudge: string | null }
 
 export default function TarotScreen() {
   const [showReading, setShowReading] = useState(false);
   const [question, setQuestion] = useState("");
+  const [drawing, setDrawing] = useState(false);
+  const [drawError, setDrawError] = useState("");
+  const [live, setLive] = useState<LiveTarot | null>(null);
+
+  const handleDraw = async (spreadId: string) => {
+    if (USE_MOCK_DATA) { setShowReading(true); return; }
+    setDrawing(true);
+    setDrawError("");
+    setLive(null);
+    const { data, error } = await drawTarot(SPREAD_KEY[spreadId] ?? "daily", question.trim() || undefined);
+    setDrawing(false);
+    if (error || !data) { setDrawError(error ?? "We couldn't draw your cards just now. Please try again."); return; }
+    const positions = data.positions ?? [];
+    const cards: LiveTarotCard[] = (data.cards ?? []).map((raw, i) => {
+      const c = raw as { name?: string; arcana?: string; reversed?: boolean };
+      const pos = positions[i];
+      return {
+        name: c.name ?? pos?.name ?? "Card",
+        arcanaLabel: c.arcana === "major" ? "Major Arcana" : "Minor Arcana",
+        reversed: !!c.reversed,
+        positionMeaning: pos?.meaning ?? "",
+      };
+    });
+    setLive({ cards, overall: data.interpretation, nudge: data.nudge ?? null });
+    setShowReading(true);
+  };
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={ts.gradient}>
@@ -23,15 +57,17 @@ export default function TarotScreen() {
 
         {!showReading ? (
           <View>
-            {/* Card of the Day */}
-            <View style={ts.cardOfDay}>
-              <Text style={ts.sectionTitle}>Card of the Day</Text>
-              <View style={ts.codCard}>
-                <Text style={ts.codEmoji}>🌙</Text>
-                <Text style={ts.codName}>The High Priestess</Text>
-                <Text style={ts.codMeaning}>Today, The High Priestess invites you to trust what you know without knowing how you know it. Your intuition is especially sharp — pay attention to dreams, gut feelings, and the quiet voice inside.</Text>
+            {/* Card of the Day (demo only — the live daily card lives on Home) */}
+            {USE_MOCK_DATA && (
+              <View style={ts.cardOfDay}>
+                <Text style={ts.sectionTitle}>Card of the Day</Text>
+                <View style={ts.codCard}>
+                  <Text style={ts.codEmoji}>🌙</Text>
+                  <Text style={ts.codName}>The High Priestess</Text>
+                  <Text style={ts.codMeaning}>Today, The High Priestess invites you to trust what you know without knowing how you know it. Your intuition is especially sharp — pay attention to dreams, gut feelings, and the quiet voice inside.</Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Pull a spread */}
             <Text style={ts.sectionTitle}>Pull a Spread</Text>
@@ -39,8 +75,10 @@ export default function TarotScreen() {
               <TextInput style={ts.input} value={question} onChangeText={setQuestion} placeholder="Ask a question (optional)" placeholderTextColor={SolunaColors.creamSubtle} />
             </View>
             <Text style={ts.spreadLabel}>Choose a spread:</Text>
+            {drawing ? <LoadingState message="Shuffling the deck…" /> : null}
+            {drawError ? <Text style={ts.questionLabel}>{drawError}</Text> : null}
             {TAROT_SPREADS.map((spread) => (
-              <TouchableOpacity key={spread.id} style={ts.spreadCard} onPress={() => setShowReading(true)} activeOpacity={0.8}>
+              <TouchableOpacity key={spread.id} style={ts.spreadCard} onPress={() => handleDraw(spread.id)} disabled={drawing} activeOpacity={0.8}>
                 <View style={ts.spreadHeader}>
                   <Shuffle size={18} color={SolunaColors.warmGold} />
                   <View style={{ flex: 1 }}>
@@ -59,27 +97,51 @@ export default function TarotScreen() {
         ) : (
           <View>
             {question ? <Text style={ts.questionLabel}>Your question: "{question}"</Text> : null}
-            <Text style={ts.sectionTitle}>Your 3-Card Reading</Text>
-            {/* Cards */}
-            {MOCK_THREE_CARD_READING.cards.map((card, i) => (
-              <View key={i} style={ts.cardResult}>
-                <View style={ts.cardResultHeader}>
-                  <Text style={ts.cardEmoji}>{card.imageEmoji}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={ts.cardName}>{card.name}</Text>
-                    <Text style={ts.cardArcana}>{card.arcana === "major" ? "Major Arcana" : `Minor Arcana · ${card.suit}`}</Text>
+            <Text style={ts.sectionTitle}>Your Reading</Text>
+
+            {!USE_MOCK_DATA && live ? (
+              <>
+                {live.cards.map((card, i) => (
+                  <View key={i} style={ts.cardResult}>
+                    <View style={ts.cardResultHeader}>
+                      <Text style={ts.cardEmoji}>🃏</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={ts.cardName}>{card.name}{card.reversed ? " (reversed)" : ""}</Text>
+                        <Text style={ts.cardArcana}>{card.arcanaLabel}</Text>
+                      </View>
+                    </View>
+                    {card.positionMeaning ? <Text style={ts.cardMeaning}>{card.positionMeaning}</Text> : null}
                   </View>
+                ))}
+                <View style={ts.overallCard}>
+                  <Text style={ts.overallTitle}>Your Reading</Text>
+                  <Text style={ts.overallText}>{live.overall}</Text>
+                  {live.nudge ? <Text style={[ts.overallText, { marginTop: 10, fontStyle: "italic" }]}>{live.nudge}</Text> : null}
                 </View>
-                <View style={ts.positionBadge}><Text style={ts.positionText}>{MOCK_THREE_CARD_READING.cards[i].positionMeaning}</Text></View>
-                <Text style={ts.cardMeaning}>{card.uprightMeaning}</Text>
-              </View>
-            ))}
-            {/* Overall */}
-            <View style={ts.overallCard}>
-              <Text style={ts.overallTitle}>Your Reading</Text>
-              <Text style={ts.overallText}>{MOCK_THREE_CARD_READING.overallReading}</Text>
-            </View>
-            <TouchableOpacity style={ts.newBtn} onPress={() => setShowReading(false)} activeOpacity={0.8}>
+              </>
+            ) : USE_MOCK_DATA ? (
+              <>
+                {MOCK_THREE_CARD_READING.cards.map((card, i) => (
+                  <View key={i} style={ts.cardResult}>
+                    <View style={ts.cardResultHeader}>
+                      <Text style={ts.cardEmoji}>{card.imageEmoji}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={ts.cardName}>{card.name}</Text>
+                        <Text style={ts.cardArcana}>{card.arcana === "major" ? "Major Arcana" : `Minor Arcana · ${card.suit}`}</Text>
+                      </View>
+                    </View>
+                    <View style={ts.positionBadge}><Text style={ts.positionText}>{MOCK_THREE_CARD_READING.cards[i].positionMeaning}</Text></View>
+                    <Text style={ts.cardMeaning}>{card.uprightMeaning}</Text>
+                  </View>
+                ))}
+                <View style={ts.overallCard}>
+                  <Text style={ts.overallTitle}>Your Reading</Text>
+                  <Text style={ts.overallText}>{MOCK_THREE_CARD_READING.overallReading}</Text>
+                </View>
+              </>
+            ) : null}
+
+            <TouchableOpacity style={ts.newBtn} onPress={() => { setShowReading(false); setLive(null); }} activeOpacity={0.8}>
               <Shuffle size={16} color={SolunaColors.warmGold} />
               <Text style={ts.newBtnText}>Draw new reading</Text>
             </TouchableOpacity>

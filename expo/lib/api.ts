@@ -60,6 +60,35 @@ export interface CompatibilityReport {
 
 // ─── API Functions ─────────────────────────────────────────────
 
+// ─── Birth place resolution (Google, server-proxied) ───────────
+
+export interface PlaceSuggestion {
+  id: string;
+  label: string;
+}
+
+export interface ResolvedPlace {
+  label: string;
+  lat: number;
+  lng: number;
+  timezone: string;
+  utcOffsetSeconds: number;
+}
+
+/** Autocomplete birth-city search via the geo Edge Function. */
+export async function geoAutocomplete(q: string) {
+  return invokeEdgeFunction<{ configured: boolean; suggestions: PlaceSuggestion[] }>(
+    `geo/autocomplete?q=${encodeURIComponent(q)}`,
+  );
+}
+
+/** Resolve a picked place + birth date to real lat/lng + a date-aware timezone. */
+export async function geoResolve(placeId: string, date: string) {
+  return invokeEdgeFunction<{ place: ResolvedPlace }>(
+    `geo/resolve?place_id=${encodeURIComponent(placeId)}&date=${encodeURIComponent(date)}`,
+  );
+}
+
 /** Submit onboarding data and receive blueprint summary */
 export async function submitOnboarding(input: OnboardingInput) {
   return invokeEdgeFunction<{ summary: Record<string, unknown>; timeKnown: boolean }>(
@@ -97,10 +126,25 @@ export async function getMe() {
   return invokeEdgeFunction<{
     profile: unknown;
     birthProfile: unknown;
+    blueprint: BlueprintData | null;
     notificationPrefs: unknown;
     subscription: unknown;
     summaryChip: string;
   }>("me");
+}
+
+/** Update profile: preferred name, notification prefs, and/or push token (PATCH /me) */
+export async function updateMe(payload: {
+  preferred_name?: string;
+  notification_prefs?: Record<string, unknown>;
+  push_token?: { expo_token: string; platform?: "ios" | "android" };
+}) {
+  return invokeEdgeFunction("me", payload as unknown as Record<string, unknown>, "PATCH");
+}
+
+/** Permanently delete the signed-in user's account and all associated data. */
+export async function deleteAccount() {
+  return invokeEdgeFunction<{ ok: boolean }>("delete-account", {}, "POST");
 }
 
 /** Get saved items */
@@ -138,8 +182,9 @@ export async function getCompatibility(connectionId: string, lens = "romance") {
 /** Draw tarot cards */
 export async function drawTarot(spread: string = "daily", question?: string) {
   return invokeEdgeFunction<{
-    cards: unknown[];
+    cards: { name?: string; reversed?: boolean; arcana?: string }[];
     interpretation: string;
+    positions?: { name: string; meaning: string }[];
     nudge: string;
   }>("tarot", { spread, question });
 }
