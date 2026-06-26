@@ -7,6 +7,7 @@ import { assert, assertEquals, assertThrows } from "../test_util.ts";
 import {
   coerceSign,
   getConfiguredProvider,
+  normalizeAstrologyApi,
   normalizeCustom,
   normalizeProkerala,
 } from "../engines/astrology-providers.ts";
@@ -75,11 +76,21 @@ Deno.test("normalizeProkerala maps western chart + tags source", () => {
 });
 
 Deno.test("getConfiguredProvider honors env + auto-detects by creds", () => {
-  const keys = ["ASTROLOGY_PROVIDER", "PROKERALA_CLIENT_ID", "PROKERALA_CLIENT_SECRET", "ASTROLOGY_API_BASE_URL"];
+  const keys = ["ASTROLOGY_PROVIDER", "PROKERALA_CLIENT_ID", "PROKERALA_CLIENT_SECRET", "ASTROLOGY_API_BASE_URL", "ASTROLOGY_API_KEY", "ASTROLOGY_API_USER_ID"];
   const clear = () => keys.forEach((k) => Deno.env.delete(k));
 
   clear();
   assertEquals(getConfiguredProvider(), null);
+
+  // AstrologyAPI is the production provider: explicit needs a key; also auto-detected by key.
+  Deno.env.set("ASTROLOGY_PROVIDER", "astrologyapi"); // explicit but no key
+  assertEquals(getConfiguredProvider(), null);
+  Deno.env.set("ASTROLOGY_API_KEY", "secret-token");
+  assertEquals(getConfiguredProvider(), "astrologyapi");
+  clear();
+  Deno.env.set("ASTROLOGY_API_KEY", "secret-token"); // no explicit → auto-detect astrologyapi
+  assertEquals(getConfiguredProvider(), "astrologyapi");
+  clear();
 
   Deno.env.set("ASTROLOGY_PROVIDER", "prokerala"); // explicit but no creds
   assertEquals(getConfiguredProvider(), null);
@@ -91,4 +102,40 @@ Deno.test("getConfiguredProvider honors env + auto-detects by creds", () => {
   Deno.env.set("ASTROLOGY_API_BASE_URL", "https://example.invalid"); // auto-detect custom
   assertEquals(getConfiguredProvider(), "custom");
   clear();
+});
+
+Deno.test("normalizeAstrologyApi maps western_horoscope + tags source", () => {
+  const out = normalizeAstrologyApi({
+    planets: [
+      { name: "Sun", full_degree: 351.6, norm_degree: 21.6, is_retro: "false", sign: "Pisces", house: 10 },
+      { name: "Moon", full_degree: 215.0, norm_degree: 5.0, is_retro: "true", sign: "Scorpio", house: 2 },
+    ],
+    houses: [{ house_id: 1, sign: "Gemini", degree: 80.5 }],
+    ascendant: 80.5,
+    midheaven: 350.2,
+    aspects: [{ aspecting_planet: "Sun", aspected_planet: "Moon", type: "Square", orb: 2.1 }],
+  }, false);
+  assertEquals(out.source, "provider");
+  assertEquals(out.provider, "astrologyapi");
+  assertEquals(out.planets[0].planet, "Sun");
+  assertEquals(out.planets[0].sign, "Pisces");
+  assertEquals(out.planets[0].degree, 21.6);
+  assertEquals(out.planets[1].retrograde, true);
+  // ascendant 80.5 -> Gemini (60..90), 20.5 within sign
+  assertEquals(out.ascendant?.sign, "Gemini");
+  assertEquals(out.ascendant?.degree, 20.5);
+  assertEquals(out.aspects[0].type, "square");
+});
+
+Deno.test("normalizeAstrologyApi hides angles/houses when birth time missing; throws on no planets", () => {
+  const out = normalizeAstrologyApi({
+    planets: [{ name: "Sun", full_degree: 351.6, norm_degree: 21.6, sign: "Pisces", house: 10 }],
+    ascendant: 80.5,
+    houses: [{ house_id: 1, sign: "Gemini", degree: 80.5 }],
+  }, true);
+  assertEquals(out.ascendant, null);
+  assertEquals(out.houses.length, 0);
+  assertEquals(out.planets[0].house, null);
+  assertEquals(out.timeRequired, true);
+  assertThrows(() => normalizeAstrologyApi({ planets: [] }, false));
 });

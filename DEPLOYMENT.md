@@ -53,15 +53,32 @@ Enable **Places API**, **Geocoding API**, and **Time Zone API**, then set
 to real `lat`/`lng` + a date-aware IANA `timezone`; if it can't resolve, the app
 does **not** submit coordinates (no fake `0,0`/`UTC`).
 
-## 3. Astrology provider
+## 3. Astrology provider — AstrologyAPI
 
-`ASTROLOGY_PROVIDER` selects the implementation:
-- `prokerala` → `PROKERALA_CLIENT_ID`, `PROKERALA_CLIENT_SECRET`
-- `custom` → `ASTROLOGY_API_BASE_URL` (+ `ASTROLOGY_API_KEY`)
+AstrologyAPI is the production provider. Set these as Supabase Edge Function
+secrets (never in client / `EXPO_PUBLIC_*` config):
 
-With no provider configured the engine uses its in-repo approximation and labels
-results honestly via `accuracy_level` (`exact|partial|approximate|blocked`); it
-never presents an approximation as exact.
+```bash
+supabase secrets set ASTROLOGY_PROVIDER=astrologyapi \
+  ASTROLOGY_API_BASE_URL=https://json.astrologyapi.com \
+  ASTROLOGY_API_KEY=<your-access-token>
+# only if your plan uses userId + key (HTTP Basic):
+#   ASTROLOGY_API_USER_ID=<your-user-id>
+```
+
+The adapter calls `POST /v1/western_horoscope` (`x-astrologyapi-key` header;
+HTTP Basic added when `ASTROLOGY_API_USER_ID` is set) and maps planets,
+ascendant, MC, houses, and aspects into the stored blueprint. The numeric
+`tzone` is computed from the birth place's IANA timezone (real `Intl` math).
+
+**No fake fallback:** if AstrologyAPI fails, or birth coordinates are missing,
+the chart is returned **blocked** (zero placements) with honest `accuracy_level`
+/ `missing_inputs` / `confidence_notes` — never fabricated. The in-app estimate
+is disabled in production; `ASTROLOGY_ALLOW_APPROXIMATION=true` re-enables it for
+local dev only.
+
+`ASTROLOGY_PROVIDER` also accepts `prokerala` (`PROKERALA_CLIENT_ID/SECRET`) or
+`custom` (`ASTROLOGY_API_BASE_URL/natal-chart`) as alternatives.
 
 ## 4. LLM provider
 

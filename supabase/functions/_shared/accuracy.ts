@@ -29,6 +29,29 @@ export function deriveReadingAccuracy(astrology: AstrologyOutput | null): Readin
     };
   }
 
+  // Provider unavailable or required inputs missing — never fabricate placements.
+  if (astrology.source === "blocked") {
+    const reason = astrology.blockedReason ?? "unavailable";
+    const byReason: Record<string, { missing: string; note: string }> = {
+      missing_location: {
+        missing: "birth_place",
+        note: "We need your resolved birth place (city, coordinates, and timezone) to calculate your chart. Add it in onboarding to unlock your chart-based reading.",
+      },
+      provider_unavailable: {
+        missing: "astrology_service",
+        note: "Our astrology service is temporarily unavailable, so chart-based placements are paused. Your numerology and Chinese astrology are still accurate — please try again shortly.",
+      },
+      provider_not_configured: {
+        missing: "astrology_provider",
+        note: "Chart-based placements aren't available for this account yet. Your other systems still work.",
+      },
+    };
+    const r = byReason[reason] ?? { missing: "astrology", note: "Your chart-based placements are temporarily unavailable." };
+    const missing_inputs = ["astrology", r.missing];
+    if (astrology.timeRequired) missing_inputs.push("birth_time");
+    return { accuracy_level: "blocked", missing_inputs, confidence_notes: [r.note] };
+  }
+
   const missing_inputs: string[] = [];
   const confidence_notes: string[] = [];
 

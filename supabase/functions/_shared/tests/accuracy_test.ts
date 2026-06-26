@@ -44,3 +44,16 @@ Deno.test("real provider + time unknown => partial + birth_time note", () => {
   assertEquals(a.accuracy_level, "partial");
   assert(a.missing_inputs.includes("birth_time"));
 });
+
+Deno.test("blocked provider (unavailable) => blocked, never faked", () => {
+  const a = deriveReadingAccuracy(chart({ source: "blocked", blockedReason: "provider_unavailable", timeRequired: false }));
+  assertEquals(a.accuracy_level, "blocked");
+  assert(a.missing_inputs.includes("astrology"));
+  assert(a.confidence_notes.some((n) => n.toLowerCase().includes("unavailable")));
+});
+
+Deno.test("blocked provider (missing location) => blocked + birth_place", () => {
+  const a = deriveReadingAccuracy(chart({ source: "blocked", blockedReason: "missing_location", timeRequired: false }));
+  assertEquals(a.accuracy_level, "blocked");
+  assert(a.missing_inputs.includes("birth_place"));
+});

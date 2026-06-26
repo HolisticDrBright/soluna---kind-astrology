@@ -48,11 +48,15 @@ export interface AstrologyOutput {
   timeMissingNote?: string;
   /**
    * Provenance — "provider" = a real ephemeris API; "approximation" = the
-   * in-app estimate. Consumers MUST use this to label accuracy honestly and
-   * never present an approximation as exact.
+   * in-app estimate (dev only, off in production); "blocked" = no placements
+   * could be produced (missing birth data or the provider was unavailable).
+   * Consumers MUST use this to label accuracy honestly and never present
+   * anything as exact unless it came from a real provider.
    */
-  source: "provider" | "approximation";
+  source: "provider" | "approximation" | "blocked";
   provider?: string;
+  /** Why a blocked chart has no placements: missing_location | provider_unavailable | provider_not_configured. */
+  blockedReason?: string;
 }
 
 const SIGNS = [
@@ -198,28 +202,52 @@ function lngHash(lng: number): number {
   return ((Math.abs(lng) * 100) % 360) / 360;
 }
 
+/** A chart with no placements — used instead of ever fabricating astrology. */
+function blockedChart(input: AstrologyInput, reason: string): AstrologyOutput {
+  return {
+    planets: [],
+    ascendant: null,
+    mc: null,
+    houses: [],
+    aspects: [],
+    timeRequired: input.time === null,
+    source: "blocked",
+    blockedReason: reason,
+  };
+}
+
 /**
- * Compute the full natal chart.
+ * Compute the full natal chart from a REAL provider only (AstrologyAPI by
+ * default; see ASTROLOGY_PROVIDER). Production never fabricates placements:
  *
- * 1. If a real provider (ASTROLOGY_PROVIDER: prokerala | custom) is configured
- *    AND we have real coordinates, use it → `source: "provider"`.
- * 2. On any provider error, or when no provider is configured, fall back to the
- *    in-app approximation → `source: "approximation"`.
+ * 1. Provider configured + real coordinates → call it → `source: "provider"`.
+ * 2. Provider configured but coordinates missing → `source: "blocked"` (missing_location).
+ * 3. Provider call fails → `source: "blocked"` (provider_unavailable) — NOT faked.
+ * 4. No provider configured → `source: "blocked"` (provider_not_configured),
+ *    unless ASTROLOGY_ALLOW_APPROXIMATION=true (local dev only) re-enables the
+ *    in-app estimate → `source: "approximation"`.
  *
- * We never silently present the approximation as exact: the `source` flag flows
- * into the stored blueprint so daily readings label their accuracy honestly.
+ * The `source`/`blockedReason` flow into the stored blueprint so readings label
+ * their accuracy honestly and degrade to blocked/partial states.
  */
 export async function computeAstrology(input: AstrologyInput): Promise<AstrologyOutput> {
   const provider = getConfiguredProvider();
   const hasCoords = Number.isFinite(input.lat) && Number.isFinite(input.lng);
 
-  if (provider && hasCoords) {
+  if (provider) {
+    if (!hasCoords) return blockedChart(input, "missing_location");
     try {
       return await fetchFromProvider(provider, input);
     } catch (err) {
-      console.warn(`Astrology provider (${provider}) failed, using approximation:`, err);
+      console.error(`Astrology provider (${provider}) failed — returning blocked (no fabricated placements):`, err);
+      return blockedChart(input, "provider_unavailable");
     }
   }
 
-  return computeFallbackChart(input);
+  // No provider configured. Production must not fabricate; only an explicit
+  // dev opt-in re-enables the in-app approximation for local work.
+  if ((Deno.env.get("ASTROLOGY_ALLOW_APPROXIMATION") ?? "").toLowerCase() === "true") {
+    return computeFallbackChart(input);
+  }
+  return blockedChart(input, "provider_not_configured");
 }

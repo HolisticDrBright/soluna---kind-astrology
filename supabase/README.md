@@ -19,7 +19,9 @@ Minimum production secrets:
 - `SOLUNA_INTERNAL_FUNCTION_SECRET`
 - `LLM_API_KEY` or the selected provider-specific key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`)
 - `LLM_PROVIDER` and `LLM_MODEL`
-- `ASTROLOGY_API_BASE_URL` and `ASTROLOGY_API_KEY` when the real astrology provider is enabled
+- `ASTROLOGY_PROVIDER=astrologyapi`, `ASTROLOGY_API_BASE_URL=https://json.astrologyapi.com`, and `ASTROLOGY_API_KEY` (AstrologyAPI is the production astrology provider; add `ASTROLOGY_API_USER_ID` only if your plan uses HTTP Basic). No fake placements are generated if it fails — readings degrade to a blocked/partial state.
+- `GOOGLE_MAPS_API_KEY` for birth-place autocomplete, geocoding, and time-zone resolution
+- `SENTRY_DSN` for error monitoring (optional, recommended)
 - `EXPO_ACCESS_TOKEN` before push sending is enabled
 
 ## Deploy functions
