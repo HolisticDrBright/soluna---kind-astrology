@@ -197,3 +197,15 @@ These tags are the bridge between systems. When a Mars placement (`action_initia
 - **Be honest about uncertainty.** Rising signs, houses, and exact aspects depend on an accurate birth time — when it's missing, hold those especially loosely.
 
 The goal is always the same: a person should close the app feeling *more* understood, *more* capable, and freer to choose — never smaller, never doomed, never boxed in.
+
+## Implemented depth
+
+The western deck includes Sun in all 12 signs, the Moon by element, the Rising,
+the elements and modalities, **planet-in-sign for Mercury / Venus / Mars /
+Jupiter / Saturn (60 cards)**, **the 12 houses** (selected only when an accurate
+birth time yields real houses), **the 5 core aspects** (conjunction, sextile,
+square, trine, opposition — hard aspects framed as growth, never doom), and
+**Moon-phase** cards (new / waxing / full / waning). Houses and aspects are
+selected only from a real provider chart; the Moon phase is computed
+deterministically from the date. Nothing is fabricated when birth time or the
+provider is missing.

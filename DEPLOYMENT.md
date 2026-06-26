@@ -80,6 +80,21 @@ local dev only.
 `ASTROLOGY_PROVIDER` also accepts `prokerala` (`PROKERALA_CLIENT_ID/SECRET`) or
 `custom` (`ASTROLOGY_API_BASE_URL/natal-chart`) as alternatives.
 
+**Transits.** The Moon phase is computed deterministically from the date (real
+astronomy, no provider needed) and always feeds Today/Ask. Full transit-to-natal
+data (planet transits, retrogrades, transit aspects) is **off by default** and
+never fabricated. To enable it once your AstrologyAPI plan's transit endpoint is
+confirmed:
+
+```bash
+supabase secrets set ASTROLOGY_TRANSITS_ENABLED=true \
+  ASTROLOGY_TRANSITS_ENDPOINT=<the plan's transit path, e.g. v1/natal_transits/daily>
+```
+
+Until both are set, `getTransitCapability()` reports disabled (with a reason) and
+the app uses Moon phase only. Soluna does **not** provide full BaZi / Four Pillars
+— Eastern astrology uses the birth-year zodiac (animal/element/polarity/trine).
+
 ## 4. LLM provider
 
 `LLM_PROVIDER=openai|anthropic` with `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
@@ -177,7 +192,7 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 |-------|-------------|------------|
 | Frontend `tsc` | ✅ pass | `cd expo && npx tsc --noEmit` |
 | Frontend lint | ⚠️ pre-existing warnings/`no-unescaped-entities` only; no new issues | `cd expo && npm run lint` |
-| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy, **+ knowledge schema / selection / synthesis / safety / prompt**) | ✅ 68/68 pass (38 prior + 30 new) | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
+| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy, knowledge schema / selection / safety / prompt, **moon phase, transits, compatibility scoring, output QA**) | ✅ 89/89 pass | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
 | Migration SQL grammar | ✅ both parse (265 + 6 stmts) | libpg_query / `supabase db lint` |
 | Worker internal-secret guard | ✅ enforced in all non-JWT worker functions + unit-tested (`internal_auth_test.ts`) | included in the test run above |
 | RevenueCat webhook auth + app_user_id mapping | ✅ Bearer-secret check + UUID mapping unit-tested (`revenuecat_test.ts`) | included in the test run above |

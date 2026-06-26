@@ -114,3 +114,13 @@ These tags are the bridge between systems. When a Tiger year (`action_initiative
 - **Never claim scientific certainty.** This is a reflective lens, and Soluna says so.
 
 The goal is always the same: a person should meet their year animal and feel gently *seen* — offered a warm archetype and a small, kind invitation — never reduced to a label, never warned, never told their relationships or future are already decided.
+
+## Implemented depth (and honest limits)
+
+The eastern deck includes the 12 animals, the 5 elements, yin/yang polarity, the
+**four harmony trines** (selected from the user's animal), and a **year-cycle**
+card for the annual rhythm. **Soluna does not yet provide full BaZi / Four
+Pillars** — it works from the birth-year zodiac only. A real BaZi reading needs
+accurate birth time and a dedicated ephemeris/endpoint; until that exists, the
+year-cycle card and every animal/element card say plainly that this is a
+birth-year lens, not a Four Pillars chart, and never a forecast of luck.

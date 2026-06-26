@@ -24,6 +24,51 @@ or copying proprietary content.
 7. **A latent bug fix** — Anthropic calls previously dropped every system message
    after the first, silently losing per-user context. Now merged.
 
+## Depth upgrade (best-in-game pass)
+
+A later pass deepened the decks and wiring substantially, while keeping every
+guardrail (original content, no fabrication, kind/non-fatalistic, reflective
+framing):
+
+- **Western**: added 60 planet-in-sign cards (Mercury/Venus/Mars/Jupiter/Saturn ×
+  12), 12 houses (gated on an accurate birth time), 5 core aspects, and two moon-
+  phase cards. Selection now picks planet-in-sign, the Sun/Moon house cards, and
+  the two tightest natal aspects — houses/aspects only from a REAL provider chart.
+- **Transits**: a deterministic Moon-phase engine (real astronomy from the date)
+  feeds Today/Ask; full transit-to-natal data is capability-gated and OFF until a
+  plan endpoint is confirmed (`getTransitCapability`), never fabricated.
+- **Tarot**: completed the full 78-card deck (all 56 Minor Arcana), keys matching
+  the draw engine.
+- **Eastern**: added the four harmony trines + a year-cycle card; documented that
+  Soluna uses birth-year zodiac, not full BaZi / Four Pillars.
+- **Human Design-inspired**: added Identity/Heart/Spleen center cards; a test now
+  forbids proprietary specifics (gates/channels/incarnation cross) and
+  deterministic "you are a <type>" claims.
+- **Prompt balance**: the prompt now round-robins cards across systems (cap 12) so
+  deeper western depth can't crowd out multi-system synthesis.
+- **Output QA**: 52 scenarios + a deterministic quality gate
+  (`output_quality_test.ts`) + a live runner (`scripts/run-output-qa.ts` →
+  `docs/qa/soluna-output-qa-report.md`).
+
+### Knowledge Depth Coverage
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Western — signs (Sun/Moon/Rising, elements, modalities) | ✅ implemented | Moon by element; Rising needs birth time |
+| Western — planet-in-sign | ✅ implemented | Mercury/Venus/Mars/Jupiter/Saturn × 12 (60 cards) |
+| Western — houses | ✅ implemented | 12 cards; selected only with an accurate birth time |
+| Western — aspects (natal) | ✅ implemented | 5 core aspects; selected from real provider aspects |
+| Transits — Moon phase | ✅ implemented | deterministic real astronomy (date-only) |
+| Transits — planet/retrograde/transit-to-natal | ⏳ depends on provider | capability-gated OFF until `ASTROLOGY_TRANSITS_ENABLED` + endpoint |
+| Numerology | ✅ implemented | life path (1–9 + masters), personal day, expression, soul urge |
+| Eastern — animal / element / polarity / trine / year-cycle | ✅ implemented | birth-year zodiac |
+| Eastern — full BaZi / Four Pillars | 🚫 not yet available | needs a real BaZi endpoint; documented as out of scope |
+| Human Design-inspired (type / authority / profile / centers) | ✅ implemented | reflective framing; no gates/channels |
+| Tarot — full 78 | ✅ implemented | 22 Major + 56 Minor |
+| Compatibility | ✅ implemented | real blueprint + knowledge layer (see connections endpoint) |
+| Dynamic personal context | ✅ implemented | journal *themes*, active focus, connection *lens* only |
+| Output QA | ✅ implemented | 52 scenarios, deterministic gate + live runner |
+
 ## Where the files live
 
 ```
@@ -37,17 +82,21 @@ docs/soluna-knowledge-base/
 
 supabase/functions/_shared/knowledge/
   types.ts                  # KnowledgeCard schema + validateCard/validateDeck
-  western-astrology.ts      # 34 cards
+  western-astrology.ts      # 113 cards (signs, planet-in-sign, houses, aspects, phases)
   numerology.ts             # 25 cards
-  eastern-astrology.ts      # 20 cards
-  human-design-inspired.ts  # 24 cards
-  tarot-archetypes.ts       # 22 cards (full Major Arcana)
+  eastern-astrology.ts      # 25 cards (animals, elements, polarity, trines, year-cycle)
+  human-design-inspired.ts  # 30 cards (types, authorities, profiles, centers)
+  tarot-archetypes.ts       # 78 cards (full deck: 22 Major + 56 Minor)
   tone-safety-rules.ts      # tone cards + BANNED_PATTERNS + scanForBannedLanguage()
   action-library.ts         # 9 reusable action types
   synthesis-rules.ts        # agreement/tension/confidence + input safety scan
   selectKnowledge.ts        # the deterministic selection layer
-  formatKnowledgeForPrompt.ts  # selection -> compact prompt blocks
-  index.ts                  # barrel: ALL_CARDS + by-id/key/tag lookups
+  formatKnowledgeForPrompt.ts  # selection -> compact prompt blocks (system-balanced)
+  index.ts                  # barrel: ALL_CARDS (285) + by-id/key/tag lookups
+
+supabase/functions/_shared/engines/
+  moon-phase.ts             # deterministic real Moon phase from a date
+  astrology-providers.ts    # + getTransitCapability / normalizeTransits (gated)
 
 supabase/functions/_shared/synthesis/
   knowledge-context.ts      # gatherDynamicContext() — privacy-minimised reads
@@ -67,7 +116,9 @@ supabase/migrations/
 4. `selectKnowledge()` deterministically maps that context to knowledge cards and
    computes agreement, tension, a confidence label, safety warnings, and
    suggested action types. Same input → same output (unit-tested).
-5. `formatKnowledgeForPrompt()` renders compact prompt blocks (cards capped at 8).
+5. `formatKnowledgeForPrompt()` renders compact prompt blocks. Cards are balanced
+   round-robin across systems (cap 12) so no single system crowds out the rest.
+   The Moon phase (deterministic) is added as a transit signal.
 6. The Edge Function composes a single context system message + the response
    shape + an internal safety directive, then calls the LLM. The LLM writes the
    words; it never chooses the knowledge.
@@ -123,7 +174,13 @@ it never fabricates placements.
 ```bash
 # Backend unit tests (no network needed; pure TS)
 deno test --allow-env --allow-read supabase/functions/_shared/tests
-#   -> 68 passed (38 pre-existing + 30 new)
+#   -> 89 passed (knowledge schema/selection/safety/prompt, moon phase, transits,
+#      compatibility scoring, output QA, plus the pre-existing backend tests)
+
+# Generate the output-quality report (deterministic; add an LLM key + --allow-net
+# for live samples):
+deno run --allow-read --allow-env --allow-write scripts/run-output-qa.ts --stamp=YYYY-MM-DD
+#   -> writes docs/qa/soluna-output-qa-report.md
 
 # Type-check the knowledge module + touched functions
 deno check supabase/functions/_shared/knowledge/index.ts \
@@ -149,8 +206,10 @@ cd expo && npx tsc --noEmit
 
 - Surface the new structured signals (agreement/tension/confidence) on the
   demo-only screens listed above.
-- Add a dedicated transits feed into `selectKnowledge` (mercury retrograde / moon
-  phase) once a live transit endpoint is wired.
+- Moon phase now feeds `selectKnowledge` (deterministic). Enable full transit-to-
+  natal (mercury retrograde, planet transits, transit aspects) by confirming the
+  plan's transit endpoint and setting `ASTROLOGY_TRANSITS_ENABLED=true` +
+  `ASTROLOGY_TRANSITS_ENDPOINT` (see `getTransitCapability`).
 - Use `advice_feedback` to down-weight action types a user repeatedly marks
   unhelpful.
 - Expand decks (planets-in-signs, more profiles) as needed — the schema and tests

@@ -230,6 +230,16 @@ chosen from the user's *actual* blueprint — not assumed.
 
 It is a mirror, offered kindly. The user decides whether the reflection fits.
 
+## Implemented depth (and legal limits)
+
+The deck covers the five energy types ("Generator-style energy", etc.), the seven
+decision styles (authorities), four profile-style life themes, and the centers as
+reflective "consistent" (defined) / "amplified" (open) themes — including
+Identity, Heart/willpower, and Spleen/instinct. It deliberately **excludes
+proprietary specifics** (gates, channels, incarnation cross) and never makes a
+deterministic "you are a <type>" claim; a test enforces both. Everything stays
+"Human Design-**inspired**" until literal licensing is resolved.
+
 ---
 
 *Reflective lens only. Not a licensed system, not a diagnosis, not a forecast.*

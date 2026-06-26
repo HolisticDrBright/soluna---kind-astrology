@@ -261,6 +261,15 @@ to the agreement/tension engine just like every other system (see doc 06).
 A card can clarify a choice, but it can never make it for you — and it can never
 tell you what will happen.
 
+## Implemented depth
+
+The tarot deck is now **complete: all 78 cards** — the 22 Major Arcana plus the
+56 Minor Arcana (Wands, Cups, Swords, Pentacles, Ace through King). Card keys
+match the draw engine's names ("Ace of Wands" → `ace_of_wands`), so any drawn card
+resolves to its knowledge card. Difficult cards (e.g. the Tower, Death, Three /
+Ten of Swords, Five of Cups/Pentacles) are framed as honesty, clarity, and relief
+— never literal harm — and carry explicit non-catastrophe safety notes.
+
 ---
 
 *Reflective archetypes only. Tarot in Soluna is a mirror for self-reflection, not a
