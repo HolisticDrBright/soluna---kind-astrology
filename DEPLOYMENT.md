@@ -111,3 +111,26 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 
 > Live Supabase verification (advisors, deploy, RLS smoke tests) must be run by
 > the maintainer against the actual Soluna project; the steps above are exact.
+
+## Frontend data wiring
+
+Screens use the real backend by default; mock/demo content shows only when
+`EXPO_PUBLIC_USE_MOCK_DATA=true`. Each wired screen has loading / empty /
+error+retry states and never silently substitutes fake data.
+
+| Screen | Source | Notes |
+|--------|--------|-------|
+| Onboarding reveal | real `/onboarding` + `/me` | shows the user's real blueprint; kind partial state if not ready |
+| Home / Today | `getToday()` | cosmic-weather & energy cards are demo-only and hidden in live mode (no fabricated transits) |
+| Ask | `askSoluna()` | conversation continuity; typing + error+retry |
+| Journal | `getJournal()` / `createJournalEntry()` | title+body folded into body; mood 1-5 |
+| Connections | `getConnections()` / `addConnection()` / `getCompatibility()` | compatibility fetched per card on expand |
+| Tarot | `drawTarot()` | spread id mapped to daily / three_card / celtic_cross |
+| Profile | `getEntitlements()` + birth-data edit + data/deletion requests | real subscription state; deletion/export via `EXPO_PUBLIC_SUPPORT_EMAIL` |
+
+Still demo-only / pending live wiring (tracked in PR #1): Soluna Shift card,
+compatibility-detail screen, weekly report, pattern memory, widget previews,
+rituals, and focus result/active screens; Ask history hydration. RevenueCat
+purchase/restore and push-token registration require a native build + live keys.
+Account deletion currently emails support — a backend deletion endpoint is a
+launch requirement (App Store/Play in-app deletion).

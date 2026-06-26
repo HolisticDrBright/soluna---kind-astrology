@@ -11,7 +11,7 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { getEntitlements } from "@/lib/api";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
-const SUPPORT_EMAIL = "support@soluna.app";
+const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || "support@soluna.app";
 
 // ─── Setting Row / Toggle ───────────────────────────────
 function SettingRow({ icon, label, value, onPress, isLast }: { icon: React.ReactNode; label: string; value?: string; onPress?: () => void; isLast?: boolean }) {
