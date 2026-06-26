@@ -86,27 +86,53 @@ local dev only.
 (generic `LLM_API_KEY` also supported). Optional `LLM_MODEL`, `LLM_BASE_URL`
 (route through a zero-retention gateway for privacy).
 
-## 5. RevenueCat
+## 5. RevenueCat (subscriptions)
 
-- Frontend public SDK key (per platform).
-- `REVENUECAT_WEBHOOK_SECRET` + `REVENUECAT_API_KEY` as backend secrets.
-- Webhook: `POST /functions/v1/billing-webhook` with
-  `Authorization: Bearer $REVENUECAT_WEBHOOK_SECRET`.
-- The client must set RevenueCat `app_user_id` to the Supabase user id so events
-  map to the right account.
+The app SDK is wired (`expo/lib/revenuecat.ts`, paywall, restore). Set:
+- `EXPO_PUBLIC_REVENUECAT_API_KEY` — the **public** SDK key (per platform).
+- `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT` — entitlement id (defaults to `premium`).
+- `REVENUECAT_WEBHOOK_SECRET` — backend secret; the webhook expects
+  `Authorization: Bearer $REVENUECAT_WEBHOOK_SECRET` at
+  `POST /functions/v1/billing-webhook`.
 
-## 6. Expo / Rork
+The client identifies RevenueCat with the Supabase user id (`app_user_id`) so
+webhook events map to the right account, and records it in
+`revenuecat_user_mappings` (migration `20260626_revenuecat_user_mappings.sql`).
+Premium is always confirmed by the backend entitlement — never a frontend-only
+flag. Configure offerings/products + the Apple subscription group in the
+RevenueCat + App Store Connect dashboards; the paywall renders whatever
+offerings RevenueCat returns (no hardcoded prices).
+
+Verify on a device/simulator (TestFlight or a dev build — **not** Expo Go):
+sandbox purchase, restore purchases, and confirm the webhook flips the backend
+entitlement.
+
+## 6. Expo / Rork + push notifications
 
 ```bash
 cd expo && cp ../.env.example .env.local   # fill EXPO_PUBLIC_* + keep USE_MOCK_DATA off
-npm install && npm run start
+bun install && bun run start
 ```
 `EXPO_PUBLIC_USE_MOCK_DATA=true` is **dev/demo only**; the paid journey runs on
 real backend data.
 
-## 7. Optional ops
+Push is wired (`expo/lib/push.ts`, Profile → Daily reading toggle): it requests
+permission, fetches the Expo push token, and saves it via `PATCH /me` →
+`push_tokens`. Requirements:
+- `expo.extra.eas.projectId` in `app.json` (run `eas init`) so a token can be
+  fetched in standalone builds.
+- `EXPO_ACCESS_TOKEN` as a backend secret; `send-push` fails closed without it.
+- A native build (dev build / TestFlight) to verify delivery — push doesn't work
+  in Expo Go (SDK 53+) or on web.
 
-`SENTRY_DSN`, `POSTHOG_API_KEY`, `RESEND_API_KEY` — wire only if used.
+## 7. Sentry + optional ops
+
+Sentry is wired (`expo/lib/sentry.ts`, root layout). Set `EXPO_PUBLIC_SENTRY_DSN`
+for the app (a DSN is publishable); PII is scrubbed in `beforeSend` (no birth
+data, journals, or chat content reach Sentry). For native crash symbolication +
+source maps, add the `@sentry/react-native/expo` config plugin with your
+org/project at build time. `SENTRY_DSN` (Edge Functions), `POSTHOG_API_KEY`,
+`RESEND_API_KEY` — wire only if used.
 
 ---
 

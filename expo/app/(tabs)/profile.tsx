@@ -8,7 +8,9 @@ import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_
 import { getBlueprintSummary } from "@/constants/mockData";
 import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download } from "lucide-react-native";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { getEntitlements } from "@/lib/api";
+import { getEntitlements, updateMe } from "@/lib/api";
+import { registerForPushNotifications } from "@/lib/push";
+import { restorePurchases } from "@/lib/revenuecat";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || "support@soluna.app";
@@ -428,6 +430,12 @@ function AccountSection() {
     const body = encodeURIComponent(`Please delete my account and all associated data (${authUser.email ?? ""}).`);
     Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
   };
+  const onRestore = async () => {
+    setBusy(true);
+    const res = await restorePurchases();
+    setBusy(false);
+    setMsg(res.ok ? (res.isPremium ? "Premium restored. 💛" : "No previous purchases found for this account.") : (res.error ?? "Restore failed."));
+  };
 
   return (
     <>
@@ -469,6 +477,12 @@ function AccountSection() {
         />
 
         <SettingRow
+          icon={<Crown size={18} color={SolunaColors.warmGold} />}
+          label="Restore purchases"
+          onPress={onRestore}
+        />
+
+        <SettingRow
           icon={<Star size={18} color={SolunaColors.warmGold} />}
           label="Update birth data"
           onPress={editBirthData}
@@ -505,6 +519,31 @@ function ProfileContent() {
   const [moonAlerts, setMoonAlerts] = useState(true);
   const [transitAlerts, setTransitAlerts] = useState(false);
   const [personalDayAlert, setPersonalDayAlert] = useState(true);
+  const [notifMsg, setNotifMsg] = useState("");
+
+  const persistPrefs = useCallback(async (partial: Record<string, unknown>) => {
+    if (USE_MOCK_DATA) return;
+    await updateMe({ notification_prefs: partial });
+  }, []);
+
+  // Enabling the daily reading requests permission + registers the Expo push token.
+  const onDailyReading = useCallback(async (v: boolean) => {
+    setDailyReading(v);
+    setNotifMsg("");
+    if (USE_MOCK_DATA) return;
+    if (v) {
+      const reg = await registerForPushNotifications();
+      if (reg.token) {
+        await updateMe({ push_token: { expo_token: reg.token, platform: reg.platform }, notification_prefs: { daily_reading: true } });
+        setNotifMsg("Daily reading notifications are on. 💛");
+      } else {
+        setNotifMsg(reg.error ?? "We couldn't enable notifications.");
+        await updateMe({ notification_prefs: { daily_reading: true } });
+      }
+    } else {
+      await updateMe({ notification_prefs: { daily_reading: false } });
+    }
+  }, []);
 
   if (!user) return null;
   const bp = getBlueprintSummary(user);
@@ -594,12 +633,13 @@ function ProfileContent() {
         {/* ── Notifications ── */}
         <Text style={st.sectionTitle}>Notifications</Text>
         <View style={st.card}>
-          <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={setDailyReading} />
+          <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={onDailyReading} />
           <SettingRow icon={<Clock size={18} color={SolunaColors.creamMuted} />} label="Reading time" value="8:00 AM" />
-          <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={setPersonalDayAlert} />
-          <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={setMoonAlerts} />
-          <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={setTransitAlerts} />
+          <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={(v) => { setPersonalDayAlert(v); void persistPrefs({ personal_day: v }); }} />
+          <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={(v) => { setMoonAlerts(v); void persistPrefs({ moon_alerts: v }); }} />
+          <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={(v) => { setTransitAlerts(v); void persistPrefs({ transit_alerts: v }); }} />
         </View>
+        {notifMsg ? <Text style={st.accountMsg}>{notifMsg}</Text> : null}
 
         {/* ── About ── */}
         <Text style={st.sectionTitle}>About</Text>

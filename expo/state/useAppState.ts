@@ -15,6 +15,8 @@ import type {
 import { MOCK_USER, PLANETS, ZODIAC } from "@/constants/mockData";
 import { supabase } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
+import { configureRevenueCat } from "@/lib/revenuecat";
+import { setSentryUser } from "@/lib/sentry";
 
 const useMockData = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 
@@ -187,7 +189,11 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         authUser: session?.user ?? null,
         authLoading: false,
       }));
-      if (session) await refreshUser();
+      if (session) {
+        setSentryUser(session.user.id);
+        void configureRevenueCat(session.user.id);
+        await refreshUser();
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -201,7 +207,13 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         user: session ? s.user : null,
         onboardingStep: session ? s.onboardingStep : "welcome",
       }));
-      if (session) void refreshUser();
+      if (session) {
+        setSentryUser(session.user.id);
+        void configureRevenueCat(session.user.id);
+        void refreshUser();
+      } else {
+        setSentryUser(null);
+      }
     });
 
     return () => {

@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
 import { Crown, Sparkles, X, ShieldCheck, Star, Infinity, Heart } from "lucide-react-native";
+import type { PurchasesOffering, PurchasesPackage } from "react-native-purchases";
+import { getCurrentOffering, isRevenueCatAvailable, purchasePackage, restorePurchases } from "@/lib/revenuecat";
 
 function Benefit({ text }: { text: string }) {
   return (
@@ -62,6 +64,45 @@ function Check({ size, color }: { size: number; color: string }) {
 
 export default function PaywallScreen() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly");
+  const [offering, setOffering] = useState<PurchasesOffering | null>(null);
+  const [loading, setLoading] = useState(isRevenueCatAvailable());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!isRevenueCatAvailable()) { setLoading(false); return; }
+    let active = true;
+    getCurrentOffering().then((o) => { if (active) { setOffering(o); setLoading(false); } });
+    return () => { active = false; };
+  }, []);
+
+  const available = isRevenueCatAvailable();
+  const monthlyPkg = offering?.monthly ?? offering?.availablePackages?.find((p) => p.packageType === "MONTHLY") ?? null;
+  const yearlyPkg = offering?.annual ?? offering?.availablePackages?.find((p) => p.packageType === "ANNUAL") ?? null;
+  const selectedPkg: PurchasesPackage | null = selectedPlan === "yearly" ? yearlyPkg : monthlyPkg;
+
+  const onPurchase = async () => {
+    if (!selectedPkg || busy) return;
+    setBusy(true);
+    setMessage("");
+    const res = await purchasePackage(selectedPkg);
+    setBusy(false);
+    if (res.userCancelled) return;
+    if (!res.ok) { setMessage(res.error ?? "Purchase didn't complete. Please try again."); return; }
+    setMessage("You're all set — welcome to Premium! 💛");
+    setTimeout(() => router.back(), 1200);
+  };
+
+  const onRestore = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+    const res = await restorePurchases();
+    setBusy(false);
+    if (!res.ok) { setMessage(res.error ?? "Couldn't restore purchases."); return; }
+    setMessage(res.isPremium ? "Your purchases were restored. 💛" : "No previous purchases found for this account.");
+    if (res.isPremium) setTimeout(() => router.back(), 1200);
+  };
 
   return (
     <View style={st.overlay}>
@@ -100,23 +141,47 @@ export default function PaywallScreen() {
             "All tarot spreads (Celtic Cross, Past-Present-Future, and more)",
           ]} />
 
-          {/* Pricing */}
+          {/* Pricing — real products from RevenueCat (no hardcoded prices) */}
           <Text style={st.sectionLabel}>Choose your plan</Text>
-          <PricingCard title="Monthly" price="$6.99" period="/ month" selected={selectedPlan === "monthly"} onSelect={() => setSelectedPlan("monthly")} />
-          <PricingCard title="Yearly" price="$4.99" period="/ month" savings="Save $24/yr" selected={selectedPlan === "yearly"} onSelect={() => setSelectedPlan("yearly")} />
+          {loading ? (
+            <View style={st.pricingLoading}><ActivityIndicator color={SolunaColors.warmGold} /></View>
+          ) : !available ? (
+            <Text style={st.unavailable}>Subscriptions are available in the Soluna mobile app.</Text>
+          ) : !monthlyPkg && !yearlyPkg ? (
+            <Text style={st.unavailable}>Plans aren&apos;t available right now. Please try again shortly.</Text>
+          ) : (
+            <>
+              {monthlyPkg ? (
+                <PricingCard title="Monthly" price={monthlyPkg.product.priceString} period="/ month" selected={selectedPlan === "monthly"} onSelect={() => setSelectedPlan("monthly")} />
+              ) : null}
+              {yearlyPkg ? (
+                <PricingCard title="Yearly" price={yearlyPkg.product.priceString} period="/ year" selected={selectedPlan === "yearly"} onSelect={() => setSelectedPlan("yearly")} />
+              ) : null}
+            </>
+          )}
 
           {/* CTA */}
-          <TouchableOpacity style={st.ctaBtn} activeOpacity={0.8}>
+          <TouchableOpacity style={[st.ctaBtn, (!selectedPkg || busy) && { opacity: 0.6 }]} activeOpacity={0.8} onPress={onPurchase} disabled={!selectedPkg || busy}>
             <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.ctaGradient}>
-              <Text style={st.ctaText}>Start Your Free Trial</Text>
+              {busy ? (
+                <ActivityIndicator color={SolunaColors.deepIndigo} />
+              ) : (
+                <Text style={st.ctaText}>{selectedPkg ? `Subscribe · ${selectedPkg.product.priceString}` : "Subscribe"}</Text>
+              )}
             </LinearGradient>
+          </TouchableOpacity>
+
+          {message ? <Text style={st.purchaseMsg}>{message}</Text> : null}
+
+          <TouchableOpacity style={st.restoreBtn} onPress={onRestore} disabled={busy} activeOpacity={0.7}>
+            <Text style={st.restoreText}>Restore purchases</Text>
           </TouchableOpacity>
 
           {/* Trust copy */}
           <View style={st.trustBox}>
             <ShieldCheck size={14} color={SolunaColors.warmGold} />
             <Text style={st.trustText}>
-              7-day free trial, then {selectedPlan === "yearly" ? "$4.99/month" : "$6.99/month"}. Cancel anytime in one tap — right here in the app. No dark patterns, no retention flows, no surprise charges. If Soluna isn't right for you, we want you to leave easily. Your birth data stays yours — we never sell it, never share it, and never train on your chats.
+              {selectedPkg ? `${selectedPkg.product.priceString} ${selectedPlan === "yearly" ? "per year" : "per month"}, billed through your App Store or Play account. ` : ""}Cancel anytime in your store account — no dark patterns, no retention flows. Your birth data stays yours: we never sell it, never share it, and never train on your chats.
             </Text>
           </View>
 
@@ -148,4 +213,9 @@ const st = StyleSheet.create({
   trustText: { flex: 1, fontSize: 11, color: SolunaColors.creamSubtle, lineHeight: 17, fontFamily: Fonts.body },
   comingSoon: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 },
   comingSoonText: { fontSize: 12, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, fontStyle: "italic" },
+  pricingLoading: { paddingVertical: 24, alignItems: "center" },
+  unavailable: { fontSize: 13, color: SolunaColors.creamMuted, fontFamily: Fonts.body, textAlign: "center", paddingVertical: 16, lineHeight: 19 },
+  purchaseMsg: { fontSize: 13, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, textAlign: "center", marginBottom: 8, lineHeight: 19 },
+  restoreBtn: { alignItems: "center", paddingVertical: 10, marginBottom: 6 },
+  restoreText: { fontSize: 13, color: SolunaColors.creamMuted, fontFamily: Fonts.body, textDecorationLine: "underline" },
 });

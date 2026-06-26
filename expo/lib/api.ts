@@ -133,6 +133,15 @@ export async function getMe() {
   }>("me");
 }
 
+/** Update profile: preferred name, notification prefs, and/or push token (PATCH /me) */
+export async function updateMe(payload: {
+  preferred_name?: string;
+  notification_prefs?: Record<string, unknown>;
+  push_token?: { expo_token: string; platform?: "ios" | "android" };
+}) {
+  return invokeEdgeFunction("me", payload as unknown as Record<string, unknown>, "PATCH");
+}
+
 /** Get saved items */
 export async function getSaved() {
   return invokeEdgeFunction<{ items: unknown[] }>("saved");

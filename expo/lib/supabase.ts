@@ -32,6 +32,7 @@ export const supabase = createClient(
 export async function invokeEdgeFunction<T = unknown>(
   functionName: string,
   body?: Record<string, unknown>,
+  method?: "GET" | "POST" | "PATCH" | "DELETE",
 ): Promise<{ data: T | null; error: string | null }> {
   if (!supabaseUrl || !supabaseAnonKey) {
     return {
@@ -47,7 +48,7 @@ export async function invokeEdgeFunction<T = unknown>(
     const resp = await fetch(
       `${supabaseUrl}/functions/v1/${functionName}`,
       {
-        method: body ? "POST" : "GET",
+        method: method ?? (body ? "POST" : "GET"),
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
