@@ -6,7 +6,7 @@ import { useAppState } from "@/state/useAppState";
 import { MOCK_CHAT_HISTORY, Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@/constants/mockData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
-import { askSoluna } from "@/lib/api";
+import { askSoluna, getAskHistory } from "@/lib/api";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 const nowTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
@@ -153,6 +153,7 @@ function AskContent() {
   const [lastQuestion, setLastQuestion] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const deepLinkSent = useRef(false);
+  const hydrated = useRef(false);
 
   // Build personalized prompts from user blueprint
   const personalizedPrompts = useMemo(() => {
@@ -181,6 +182,29 @@ function AskContent() {
     ];
     return prompts;
   }, [user]);
+
+  // Hydrate the prior conversation (live mode, no deep-link) so Ask resumes
+  // where the user left off; follow-ups thread onto the latest conversation.
+  useEffect(() => {
+    if (USE_MOCK_DATA || deepLinkPrompt || hydrated.current) return;
+    hydrated.current = true;
+    (async () => {
+      const { data } = await getAskHistory();
+      const msgs = data?.messages ?? [];
+      if (!msgs.length) return;
+      setMessages(msgs.map((m, i) => ({
+        id: String(m.id ?? `h${i}`),
+        sender: m.role === "assistant" ? "soluna" : "user",
+        text: m.content,
+        timestamp: m.created_at
+          ? new Date(m.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+          : nowTime(),
+      })));
+      if (data?.currentConversationId) setConversationId(data.currentConversationId);
+      setShowPrompts(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkPrompt]);
 
   // Send a question to Soluna. Live mode calls the real /ask Edge Function;
   // mock mode keeps the canned responses for EXPO_PUBLIC_USE_MOCK_DATA demos.

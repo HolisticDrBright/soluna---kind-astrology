@@ -118,7 +118,11 @@ export async function askSoluna(message: string, conversationId?: string) {
 /** Get ask conversation history */
 export async function getAskHistory(conversationId?: string) {
   const url = conversationId ? `ask/history?conversation_id=${conversationId}` : "ask/history";
-  return invokeEdgeFunction<{ conversations: unknown[]; messages: unknown[] }>(url);
+  return invokeEdgeFunction<{
+    conversations: { id: string; created_at: string }[];
+    messages: { id: string; role: "user" | "assistant"; content: string; created_at: string }[];
+    currentConversationId?: string;
+  }>(url);
 }
 
 /** Get user profile and settings */
