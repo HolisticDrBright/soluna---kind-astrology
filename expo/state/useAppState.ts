@@ -13,13 +13,24 @@ import type {
   UserData,
   ZodiacSign,
 } from "@/constants/mockData";
-import { MOCK_BAZI, MOCK_USER, PLANETS, ZODIAC } from "@/constants/mockData";
+import {
+  UNAVAILABLE_BAZI,
+  PLANETS,
+  ZODIAC,
+  NUMBER_MEANINGS,
+  CHINESE_INTERPRETATIONS,
+  HD_INTERPRETATIONS,
+} from "@/constants/mockData";
+import { MOCK_USER } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import { supabase } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
 import { setSentryUser } from "@/lib/sentry";
 
-const useMockData = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+// Demo mode (EXPO_PUBLIC_USE_MOCK_DATA=true) shows the beautiful MOCK_USER.
+// Live mode builds the user ONLY from the real /me payload — never from MOCK_USER.
+const useMockData = isDemoMode;
 
 export interface AppState {
   hasOnboarded: boolean;
@@ -40,19 +51,22 @@ function buildDisplayUser(payload: {
   if (!birthProfile) return null;
 
   const profile = payload.profile;
+  const bp = payload.blueprint ?? null;
+  // Live mode builds ONLY from the real /me payload. Any lens the backend has not
+  // produced yet stays null/unavailable so the UI shows an honest state — never
+  // another (demo) user's chart, numbers, animal, or Human Design.
   return {
-    ...MOCK_USER,
-    fullName: String(birthProfile.full_birth_name ?? profile?.full_name ?? MOCK_USER.fullName),
-    preferredName: String(profile?.preferred_name ?? profile?.full_name ?? MOCK_USER.preferredName),
-    birthDate: String(birthProfile.birth_date ?? MOCK_USER.birthDate),
+    fullName: String(birthProfile.full_birth_name ?? profile?.full_name ?? ""),
+    preferredName: String(profile?.preferred_name ?? profile?.full_name ?? birthProfile.full_birth_name ?? ""),
+    birthDate: String(birthProfile.birth_date ?? ""),
     birthTime: birthProfile.birth_time ? String(birthProfile.birth_time).slice(0, 5) : "",
     birthTimeKnown: Boolean(birthProfile.time_known ?? false),
-    birthPlace: String(birthProfile.birth_place_label ?? MOCK_USER.birthPlace),
-    chart: buildChartData(payload.blueprint?.astrology as Record<string, unknown> | undefined),
-    numerology: buildNumerologyData(payload.blueprint?.numerology as Record<string, unknown> | undefined),
-    chinese: buildChineseData(payload.blueprint?.chinese as Record<string, unknown> | undefined),
-    bazi: buildBaziData(payload.blueprint?.bazi as Record<string, unknown> | undefined),
-    humanDesign: buildHumanDesignData(payload.blueprint?.human_design as Record<string, unknown> | undefined),
+    birthPlace: String(birthProfile.birth_place_label ?? ""),
+    chart: buildChartData(toRecord(bp?.astrology)),
+    numerology: buildNumerologyData(toRecord(bp?.numerology)),
+    chinese: buildChineseData(toRecord(bp?.chinese)),
+    bazi: buildBaziData(toRecord(bp?.bazi)),
+    humanDesign: buildHumanDesignData(toRecord(bp?.human_design)),
   };
 }
 
@@ -64,68 +78,109 @@ function toFiniteNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function toZodiacSign(value: unknown, fallback: ZodiacSign): ZodiacSign {
-  return typeof value === "string" && (ZODIAC as readonly string[]).includes(value) ? value as ZodiacSign : fallback;
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
-function toPlanet(value: unknown, fallback: Planet): Planet {
-  return typeof value === "string" && (PLANETS as readonly string[]).includes(value) ? value as Planet : fallback;
+function asStringArray(value: unknown): string[] | null {
+  return Array.isArray(value) && value.every((v) => typeof v === "string") ? value as string[] : null;
 }
 
-function buildChartData(astrology?: Record<string, unknown>): ChartData {
-  const backendPlanets = Array.isArray(astrology?.planets)
-    ? astrology.planets.map(toRecord).filter(Boolean) as Record<string, unknown>[]
-    : [];
+function asZodiac(value: unknown): ZodiacSign | null {
+  return typeof value === "string" && (ZODIAC as readonly string[]).includes(value) ? value as ZodiacSign : null;
+}
 
-  const placements = MOCK_USER.chart.placements.map((fallbackPlacement) => {
-    const backendPlacement = backendPlanets.find((p) => p.planet === fallbackPlacement.planet);
-    return {
-      planet: toPlanet(backendPlacement?.planet, fallbackPlacement.planet),
-      sign: toZodiacSign(backendPlacement?.sign, fallbackPlacement.sign),
-      house: toFiniteNumber(backendPlacement?.house, fallbackPlacement.house),
-      degree: toFiniteNumber(backendPlacement?.degree, fallbackPlacement.degree),
-    };
+function asPlanet(value: unknown): Planet | null {
+  return typeof value === "string" && (PLANETS as readonly string[]).includes(value) ? value as Planet : null;
+}
+
+// ─── Per-lens builders ─────────────────────────────────────────────────────
+// Each returns REAL backend data, or null when the lens isn't available yet.
+// Generic, value-accurate descriptions come from production-safe reference
+// tables (NUMBER_MEANINGS / CHINESE_INTERPRETATIONS / HD_INTERPRETATIONS) keyed
+// by the user's REAL number/animal/type — never copied from a demo user.
+
+function buildChartData(astrology: Record<string, unknown> | null): ChartData | null {
+  if (!astrology) return null;
+  const rawPlanets = Array.isArray(astrology.planets) ? astrology.planets : [];
+  const placements: Placement[] = rawPlanets.flatMap((raw) => {
+    const p = toRecord(raw);
+    const planet = asPlanet(p?.planet);
+    const sign = asZodiac(p?.sign);
+    if (!p || !planet || !sign) return [];
+    return [{ planet, sign, house: toFiniteNumber(p.house, 0), degree: toFiniteNumber(p.degree, 0) }];
   });
 
-  const sun = placements.find((p) => p.planet === "Sun") ?? MOCK_USER.chart.sun;
-  const moon = placements.find((p) => p.planet === "Moon") ?? MOCK_USER.chart.moon;
-  const ascendant = toRecord(astrology?.ascendant);
+  const sun = placements.find((p) => p.planet === "Sun");
+  const moon = placements.find((p) => p.planet === "Moon");
+  // Without a real Sun and Moon there's no usable chart — stay honest (null).
+  if (!sun || !moon) return null;
 
+  const ascendant = toRecord(astrology.ascendant);
   return {
     sun,
     moon,
-    rising: toZodiacSign(ascendant?.sign, MOCK_USER.chart.rising),
+    rising: asZodiac(ascendant?.sign), // null when birth time is unknown
     placements,
   };
 }
 
-function buildNumerologyData(numerology?: Record<string, unknown>): NumerologyData {
+function buildNumerologyData(numerology: Record<string, unknown> | null): NumerologyData | null {
+  const lifePath = numerology?.lifePath;
+  if (typeof lifePath !== "number" || !Number.isFinite(lifePath)) return null;
+
+  // Prefer a backend-provided meaning; otherwise use the generic, accurate
+  // meaning of the REAL number (never a demo user's life-path text).
+  const meaning = (n: number, provided: unknown): string =>
+    asString(provided) ?? NUMBER_MEANINGS[n]?.description ?? "";
+
+  const expression = toFiniteNumber(numerology?.expression, 0);
+  const soulUrge = toFiniteNumber(numerology?.soulUrge, 0);
+  const personalYear = toFiniteNumber(numerology?.personalYear, 0);
+  const personalMonth = toFiniteNumber(numerology?.personalMonth, 0);
+  const personalDay = toFiniteNumber(numerology?.personalDay, 0);
   return {
-    ...MOCK_USER.numerology,
-    lifePath: toFiniteNumber(numerology?.lifePath, MOCK_USER.numerology.lifePath),
-    expression: toFiniteNumber(numerology?.expression, MOCK_USER.numerology.expression),
-    soulUrge: toFiniteNumber(numerology?.soulUrge, MOCK_USER.numerology.soulUrge),
-    personalYear: toFiniteNumber(numerology?.personalYear, MOCK_USER.numerology.personalYear),
-    personalMonth: toFiniteNumber(numerology?.personalMonth, MOCK_USER.numerology.personalMonth),
-    personalDay: toFiniteNumber(numerology?.personalDay, MOCK_USER.numerology.personalDay),
+    lifePath,
+    lifePathMeaning: meaning(lifePath, numerology?.lifePathMeaning),
+    expression,
+    expressionMeaning: meaning(expression, numerology?.expressionMeaning),
+    soulUrge,
+    soulUrgeMeaning: meaning(soulUrge, numerology?.soulUrgeMeaning),
+    personalYear,
+    personalYearMeaning: meaning(personalYear, numerology?.personalYearMeaning),
+    personalMonth,
+    personalMonthMeaning: meaning(personalMonth, numerology?.personalMonthMeaning),
+    personalDay,
+    personalDayMeaning: meaning(personalDay, numerology?.personalDayMeaning),
   };
 }
 
-function buildChineseData(chinese?: Record<string, unknown>): ChineseAstrologyData {
-  const animal = typeof chinese?.animal === "string" ? chinese.animal : MOCK_USER.chinese.animal;
-  const element = typeof chinese?.element === "string" ? chinese.element : MOCK_USER.chinese.element;
+function buildChineseData(chinese: Record<string, unknown> | null): ChineseAstrologyData | null {
+  const animal = asString(chinese?.animal);
+  const element = asString(chinese?.element);
+  if (!animal || !element) return null;
+
+  const interp = CHINESE_INTERPRETATIONS[`${element}-${animal}`];
   return {
-    ...MOCK_USER.chinese,
     animal: animal as ChineseAstrologyData["animal"],
     element: element as ChineseAstrologyData["element"],
     elementAnimalLabel: `${element} ${animal}`,
+    description: asString(chinese?.description) ?? interp?.description ?? "",
+    strengths: asStringArray(chinese?.strengths) ?? interp?.strengths ?? [],
+    growthEdge: asString(chinese?.growthEdge) ?? interp?.growthEdge ?? "",
+    // The backend doesn't compute a per-day Chinese forecast — don't invent one.
+    todayAnimal: (asString(chinese?.todayAnimal) ?? animal) as ChineseAstrologyData["todayAnimal"],
+    todayElement: (asString(chinese?.todayElement) ?? element) as ChineseAstrologyData["todayElement"],
+    todayNote: asString(chinese?.todayNote) ?? "",
+    // Real Four Pillars live in the separate `bazi` lens — never fake them here.
+    bazi: [],
   };
 }
 
-function buildBaziData(bazi?: Record<string, unknown>): BaziView {
+function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
   // Only a real provider chart (with a Day Master) is shown as BaZi. Anything
   // else renders the honest unavailable/partial state — never fabricated.
-  if (!bazi || typeof bazi !== "object") return { ...MOCK_BAZI };
+  if (!bazi) return { ...UNAVAILABLE_BAZI };
 
   const pillarsRaw = toRecord(bazi.pillars) ?? {};
   const order: [BaziView["pillars"][number]["label"], string][] = [
@@ -170,24 +225,39 @@ function buildBaziData(bazi?: Record<string, unknown>): BaziView {
     elementBalance: available ? elementBalance : [],
     favorableElements: available ? fav : [],
     luckPillars: available ? luckPillars : [],
-    notes: notes.length ? notes : MOCK_BAZI.notes,
+    notes: notes.length ? notes : UNAVAILABLE_BAZI.notes,
   };
 }
 
-function buildHumanDesignData(humanDesign?: Record<string, unknown>): HumanDesignData {
-  const definedCenters = Array.isArray(humanDesign?.definedCenters) ? humanDesign.definedCenters : [];
+const HD_CENTER_NAMES = [
+  "Head", "Ajna", "Throat", "G Center", "Heart/Ego",
+  "Sacral", "Solar Plexus", "Spleen", "Root",
+] as const;
+
+function buildHumanDesignData(humanDesign: Record<string, unknown> | null): HumanDesignData | null {
+  const type = asString(humanDesign?.type);
+  if (!type) return null;
+
+  const interp = HD_INTERPRETATIONS[type];
+  const defined = asStringArray(humanDesign?.definedCenters) ?? [];
+  const isDefined = (name: string) =>
+    defined.includes(name) || defined.includes(name.replace(" Center", ""));
 
   return {
-    ...MOCK_USER.humanDesign,
-    type: typeof humanDesign?.type === "string" ? humanDesign.type as HumanDesignData["type"] : MOCK_USER.humanDesign.type,
-    strategy: typeof humanDesign?.strategy === "string" ? humanDesign.strategy as HumanDesignData["strategy"] : MOCK_USER.humanDesign.strategy,
-    authority: typeof humanDesign?.authority === "string" ? humanDesign.authority as HumanDesignData["authority"] : MOCK_USER.humanDesign.authority,
-    profile: typeof humanDesign?.profile === "string" ? humanDesign.profile : MOCK_USER.humanDesign.profile,
-    incarnationCross: typeof humanDesign?.incarnationCross === "string" ? humanDesign.incarnationCross : MOCK_USER.humanDesign.incarnationCross,
-    centers: MOCK_USER.humanDesign.centers.map((center) => ({
-      ...center,
-      defined: definedCenters.includes(center.name) || definedCenters.includes(center.name.replace(" Center", "")),
-    })),
+    type: type as HumanDesignData["type"],
+    typeDescription: asString(humanDesign?.typeDescription) ?? interp?.description ?? "",
+    strategy: (asString(humanDesign?.strategy) ?? "") as HumanDesignData["strategy"],
+    strategyDescription: asString(humanDesign?.strategyDescription) ?? "",
+    authority: (asString(humanDesign?.authority) ?? "") as HumanDesignData["authority"],
+    authorityDescription: asString(humanDesign?.authorityDescription) ?? "",
+    profile: asString(humanDesign?.profile) ?? "",
+    profileDescription: asString(humanDesign?.profileDescription) ?? "",
+    incarnationCross: asString(humanDesign?.incarnationCross) ?? "",
+    signature: asString(humanDesign?.signature) ?? "",
+    notSelf: asString(humanDesign?.notSelf) ?? "",
+    centers: HD_CENTER_NAMES.map((name) => ({ name, defined: isDefined(name), gates: [] })),
+    strengths: asStringArray(humanDesign?.strengths) ?? interp?.strengths ?? [],
+    growthEdge: asString(humanDesign?.growthEdge) ?? interp?.growthEdge ?? "",
   };
 }
 

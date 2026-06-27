@@ -3,7 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { JOURNAL_ENTRIES, Fonts } from "@/constants/mockData";
+import { Fonts } from "@/constants/mockData";
+import { JOURNAL_ENTRIES } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import EmptyState from "@/components/EmptyState";
 import { LoadingState, ErrorState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -56,7 +58,9 @@ export default function JournalScreen() {
   const [selectedMood, setSelectedMood] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [mockEntries, setMockEntries] = useState(JOURNAL_ENTRIES);
+  const [mockEntries, setMockEntries] = useState<typeof JOURNAL_ENTRIES>(
+    isDemoMode ? JOURNAL_ENTRIES : [],
+  );
 
   const journalQuery = useAsyncData(() => getJournal(50), [], { enabled: !USE_MOCK_DATA });
 

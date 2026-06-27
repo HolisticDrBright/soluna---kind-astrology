@@ -9,9 +9,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useState, useCallback, useMemo } from "react";
 import SolunaColors from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
+import { DAILY_READINGS } from "@/constants/demoData";
 import {
   Fonts,
-  DAILY_READINGS,
   ZODIAC_SYMBOLS,
   PLANET_SYMBOLS,
   MOOD_OPTIONS,
@@ -185,11 +185,12 @@ export default function TodayScreen() {
   }, [user?.birthTimeKnown, user?.chart, todayQuery.data]);
 
   const bigThree = useMemo(() => {
-    if (!user?.chart) return null;
+    const c = user?.chart;
+    if (!c) return null;
     return [
-      { label: "Sun", sign: user.chart.sun.sign, emoji: ZODIAC_SYMBOLS[user.chart.sun.sign] },
-      { label: "Moon", sign: user.chart.moon.sign, emoji: ZODIAC_SYMBOLS[user.chart.moon.sign] },
-      { label: "Rising", sign: user.chart.rising, emoji: ZODIAC_SYMBOLS[user.chart.rising] },
+      { label: "Sun", sign: c.sun.sign as string, emoji: ZODIAC_SYMBOLS[c.sun.sign] },
+      { label: "Moon", sign: c.moon.sign as string, emoji: ZODIAC_SYMBOLS[c.moon.sign] },
+      { label: "Rising", sign: c.rising ?? "Needs birth time", emoji: c.rising ? ZODIAC_SYMBOLS[c.rising] : "✦" },
     ];
   }, [user?.chart]);
 

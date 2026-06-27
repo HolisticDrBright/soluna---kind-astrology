@@ -3,7 +3,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { SYNTHESIS_THEMES, Fonts } from "@/constants/mockData";
+import { Fonts } from "@/constants/mockData";
+import { SYNTHESIS_THEMES } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import { ChevronLeft, Sparkles, Star, Hash, Bird, Cpu } from "lucide-react-native";
 
 const systemIcons: Record<string, React.ComponentType<{ size: number; color: string }>> = {
@@ -30,6 +33,17 @@ const systemNames: Record<string, string> = {
 export default function SynthesisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const themeId: string = String(id ?? "self");
+
+  // Not wired to live synthesis yet — honest state instead of demo themes.
+  if (!isDemoMode) {
+    return (
+      <ComingSoon
+        title="Synthesis"
+        description="Your cross-system synthesis will open here once it's connected to live data."
+      />
+    );
+  }
+
   const theme = SYNTHESIS_THEMES.find((t) => t.id === themeId) ?? SYNTHESIS_THEMES[0];
   if (!theme) return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>

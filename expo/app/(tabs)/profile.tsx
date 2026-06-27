@@ -4,8 +4,9 @@ import { router } from "expo-router";
 import React, { useState, useCallback } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, MOCK_ACTIVE_FOCUSES, Fonts, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
-import { getBlueprintSummary } from "@/constants/mockData";
+import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts, getBlueprintSummary, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
+import { MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, MOCK_ACTIVE_FOCUSES } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download } from "lucide-react-native";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getEntitlements, updateMe, deleteAccount } from "@/lib/api";
@@ -107,7 +108,7 @@ const pS = StyleSheet.create({
 
 // ─── Pattern Memory Section ──────────────────────────────
 function PatternMemorySection() {
-  const [themes, setThemes] = useState<PatternTheme[]>(MOCK_PATTERN_THEMES.map(t => ({ ...t })));
+  const [themes, setThemes] = useState<PatternTheme[]>(isDemoMode ? MOCK_PATTERN_THEMES.map(t => ({ ...t })) : []);
   const [newLabel, setNewLabel] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -579,20 +580,24 @@ function ProfileContent() {
           <Text style={st.userName}>{user.preferredName}</Text>
           {user.fullName !== user.preferredName && <Text style={st.fullName}>{user.fullName}</Text>}
 
+          {/* Only render chips for lenses the live blueprint actually has. */}
           <View style={st.summaryRow}>
-            <SystemChip label="Sun" value={`${ZODIAC_SYMBOLS[bp.sunSign]} ${bp.sunSign}`} color={SolunaColors.warmGold} />
-            <SystemChip label="Moon" value={`${ZODIAC_SYMBOLS[bp.moonSign]} ${bp.moonSign}`} color={SolunaColors.gentleLavender} />
-            <SystemChip label="Rising" value={`${ZODIAC_SYMBOLS[bp.rising]} ${bp.rising}`} color={SolunaColors.softPeach} />
+            {bp.sunSign && <SystemChip label="Sun" value={`${ZODIAC_SYMBOLS[bp.sunSign]} ${bp.sunSign}`} color={SolunaColors.warmGold} />}
+            {bp.moonSign && <SystemChip label="Moon" value={`${ZODIAC_SYMBOLS[bp.moonSign]} ${bp.moonSign}`} color={SolunaColors.gentleLavender} />}
+            {bp.rising && <SystemChip label="Rising" value={`${ZODIAC_SYMBOLS[bp.rising]} ${bp.rising}`} color={SolunaColors.softPeach} />}
           </View>
           <View style={st.summaryRow}>
-            <SystemChip label="Life Path" value={String(bp.lifePath)} color={SolunaColors.gentleLavender} />
-            <SystemChip label="Chinese" value={`${CHINESE_ANIMAL_EMOJI[bp.animal]} ${bp.animal}`} color={SolunaColors.softPeach} />
-            <SystemChip label="Type" value={bp.hdType} color={SolunaColors.warmGold} />
+            {bp.lifePath != null && <SystemChip label="Life Path" value={String(bp.lifePath)} color={SolunaColors.gentleLavender} />}
+            {bp.animal && <SystemChip label="Chinese" value={`${CHINESE_ANIMAL_EMOJI[bp.animal]} ${bp.animal}`} color={SolunaColors.softPeach} />}
+            {bp.hdType && <SystemChip label="Type" value={bp.hdType} color={SolunaColors.warmGold} />}
           </View>
         </View>
 
         <PremiumBanner />
 
+        {/* Demo-only sections below — not wired to live data yet, so they only
+            render in demo mode. Live mode shows real account settings instead. */}
+        {isDemoMode && (<>
         {/* ── Your Active Focuses ── */}
         <Text style={st.sectionTitle}>Your Active Focuses</Text>
         <View style={st.card}>
@@ -642,6 +647,7 @@ function ProfileContent() {
         {WIDGET_PREVIEWS.map((widget) => (
           <WidgetPreviewCard key={widget.id} widget={widget} />
         ))}
+        </>)}
 
         {/* ── Birth Details ── */}
         <Text style={st.sectionTitle}>Your Birth Details</Text>

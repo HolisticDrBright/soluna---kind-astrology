@@ -18,11 +18,12 @@ import {
   FOCUS_CATEGORIES,
   FOCUS_SUPPORT_OPTIONS,
   FOCUS_CONTEXT_OPTIONS,
-  CONNECTIONS,
   type FocusCategory,
   type FocusSupport,
   type FocusContext,
 } from "@/constants/mockData";
+import { CONNECTIONS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import {
   ArrowLeft,
   ArrowRight,
@@ -73,10 +74,13 @@ export default function FocusSetupScreen() {
     Math.floor(Math.random() * FREETEXT_PLACEHOLDERS.length),
   );
 
+  // Demo-only sample connections; live mode shows the picker with none.
+  const connections = isDemoMode ? CONNECTIONS : [];
+
   const stepIndex = STEP_ORDER.indexOf(step);
   const totalSteps = STEP_ORDER.length;
   // Skip connections step if no connection people exist
-  const effectiveSteps = CONNECTIONS.length > 0 ? totalSteps : totalSteps - 1;
+  const effectiveSteps = connections.length > 0 ? totalSteps : totalSteps - 1;
 
   const canAdvance = useMemo(() => {
     switch (step) {
@@ -99,7 +103,7 @@ export default function FocusSetupScreen() {
     // Skip connections if no connections exist
     if (
       STEP_ORDER[nextIdx] === "connections" &&
-      CONNECTIONS.length === 0
+      connections.length === 0
     ) {
       nextIdx = nextIdx + 1;
     }
@@ -109,7 +113,7 @@ export default function FocusSetupScreen() {
       // Navigate to result
       const connectedPerson =
         selectedConnections.length > 0
-          ? CONNECTIONS.find((c) => c.id === selectedConnections[0])
+          ? connections.find((c) => c.id === selectedConnections[0])
           : undefined;
       router.push({
         pathname: "/focus/result",
@@ -131,7 +135,7 @@ export default function FocusSetupScreen() {
       let prevIdx = idx - 1;
       if (
         STEP_ORDER[prevIdx] === "connections" &&
-        CONNECTIONS.length === 0
+        connections.length === 0
       ) {
         prevIdx = prevIdx - 1;
       }
@@ -319,7 +323,7 @@ export default function FocusSetupScreen() {
                 </View>
               </TouchableOpacity>
 
-              {CONNECTIONS.map((person) => {
+              {connections.map((person) => {
                 const isSelected = selectedConnections.includes(person.id);
                 return (
                   <TouchableOpacity

@@ -375,7 +375,7 @@ export default function OnboardingScreen() {
                 </View>
                 <View style={os.bigThreeItem}>
                   <Text style={os.btLabel}>Rising</Text>
-                  <Text style={os.btSign}>{user?.birthTimeKnown ? `${ZODIAC_SYMBOLS[chart.rising]} ${chart.rising}` : "Needs birth time"}</Text>
+                  <Text style={os.btSign}>{chart.rising ? `${ZODIAC_SYMBOLS[chart.rising]} ${chart.rising}` : "Needs birth time"}</Text>
                   <Text style={os.btDesc}>{roleLine.Rising}</Text>
                 </View>
               </View>

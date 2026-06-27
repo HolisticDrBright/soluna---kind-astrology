@@ -4,7 +4,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
+import { ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
+import { CONNECTIONS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { ChevronLeft, Heart, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
 
@@ -13,7 +16,17 @@ export default function CompatibilityDetailScreen() {
   const { user } = useAppState();
   const [lens, setLens] = useState<RelationshipLens>("Romance");
 
-  if (!user || !id) return null;
+  // Demo-only detail view (uses sample connections). Live connections open from
+  // the Connections tab; this rich detail isn't wired to live data yet.
+  if (!isDemoMode) {
+    return (
+      <ComingSoon
+        title="Compatibility"
+        description="Detailed compatibility readings will open here once your connections are connected to live data."
+      />
+    );
+  }
+  if (!user || !id || !user.chart) return null;
   const person = CONNECTIONS.find((c) => c.id === id);
   if (!person) return null;
 
