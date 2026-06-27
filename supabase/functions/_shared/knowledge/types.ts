@@ -22,6 +22,7 @@ export type KnowledgeSystem =
   | "western_astrology"
   | "numerology"
   | "eastern_astrology"
+  | "bazi"
   | "human_design_inspired"
   | "tarot"
   | "tone"
@@ -137,6 +138,7 @@ const SYS_SET = new Set<string>([
   "western_astrology",
   "numerology",
   "eastern_astrology",
+  "bazi",
   "human_design_inspired",
   "tarot",
   "tone",

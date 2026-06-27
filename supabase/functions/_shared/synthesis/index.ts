@@ -18,6 +18,8 @@ import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 import type { AstrologyOutput } from "../engines/astrology.ts";
 import type { NumerologyOutput } from "../engines/numerology.ts";
 import type { ChineseOutput } from "../engines/chinese.ts";
+import type { BaziOutput } from "../engines/bazi.ts";
+import { hasRealBazi } from "../engines/bazi.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
@@ -36,6 +38,7 @@ export interface DailyContext {
   astrology: AstrologyOutput | null;
   numerology: NumerologyOutput | null;
   chinese: ChineseOutput | null;
+  bazi: BaziOutput | null;
   humanDesign: HumanDesignOutput | null;
   biorhythm: BiorhythmOutput | null;
   tarotCard: { name: string; meaning: string; arcana: string } | null;
@@ -100,6 +103,27 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
       : null,
     chinese: ctx.chinese
       ? { animal: ctx.chinese.animal, element: ctx.chinese.element, yinYang: ctx.chinese.yinYang }
+      : null,
+    // BaZi is included ONLY when a real provider chart exists — never the
+    // lightweight zodiac, never fabricated.
+    bazi: hasRealBazi(ctx.bazi)
+      ? {
+          present: true,
+          dayMaster: ctx.bazi!.dayMaster
+            ? { element: ctx.bazi!.dayMaster.element, yinYang: ctx.bazi!.dayMaster.yinYang }
+            : null,
+          dayMasterStrength: ctx.bazi!.dayMasterStrength,
+          tenGods: ctx.bazi!.tenGods,
+          favorableElements: ctx.bazi!.favorableElements,
+          fiveElementBalance: ctx.bazi!.fiveElementBalance,
+          pillars: {
+            year: !!ctx.bazi!.pillars.year,
+            month: !!ctx.bazi!.pillars.month,
+            day: !!ctx.bazi!.pillars.day,
+            hour: !!ctx.bazi!.pillars.hour,
+          },
+          hasLuckPillars: ctx.bazi!.luckPillars.length > 0,
+        }
       : null,
     humanDesign: ctx.humanDesign
       ? {

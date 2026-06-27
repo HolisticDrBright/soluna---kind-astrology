@@ -6,6 +6,7 @@
 import { computeAstrology, type AstrologyInput, type AstrologyOutput } from "./astrology.ts";
 import { computeNumerology, type NumerologyInput, type NumerologyOutput } from "./numerology.ts";
 import { computeChinese, type ChineseInput, type ChineseOutput } from "./chinese.ts";
+import { computeBazi, type BaziInput, type BaziOutput } from "./bazi.ts";
 import { computeHumanDesign, type HumanDesignInput, type HumanDesignOutput } from "./human-design.ts";
 import { computeBiorhythm, type BiorhythmInput, type BiorhythmOutput } from "./biorhythm.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
@@ -28,6 +29,8 @@ export interface ComputedBlueprint {
   astrology: AstrologyOutput;
   numerology: NumerologyOutput;
   chinese: ChineseOutput;
+  /** Full provider-backed BaZi / Four Pillars; "unavailable" when not configured. */
+  bazi: BaziOutput;
   humanDesign: HumanDesignOutput;
   biorhythmSeed: BiorhythmOutput;
   computedAt: string;
@@ -45,7 +48,10 @@ export interface PlacementRecord {
  * Compute the full blueprint from birth data.
  * Runs ALL engines.
  */
-export async function computeBlueprint(profile: BirthProfile): Promise<ComputedBlueprint> {
+export async function computeBlueprint(
+  profile: BirthProfile,
+  opts?: { cachedBazi?: BaziOutput | null },
+): Promise<ComputedBlueprint> {
   const birthDate = new Date(profile.birth_date);
 
   // Astrology
@@ -66,12 +72,24 @@ export async function computeBlueprint(profile: BirthProfile): Promise<ComputedB
   };
   const numerology = computeNumerology(numInput);
 
-  // Chinese
+  // Chinese (lightweight birth-year zodiac — always available)
   const chiInput: ChineseInput = {
     birthDate,
     birthTime: profile.birth_time,
   };
   const chinese = computeChinese(chiInput);
+
+  // BaZi / Four Pillars (provider-backed depth). Reuses the cached chart when the
+  // birth inputs are unchanged so we never pay the provider twice. Degrades to an
+  // honest "unavailable" output on failure — never fabricated.
+  const baziInput: BaziInput = {
+    date: profile.birth_date,
+    time: profile.birth_time,
+    lat: profile.lat,
+    lng: profile.lng,
+    timezone: profile.timezone,
+  };
+  const bazi = await computeBazi(baziInput, { cachedBazi: opts?.cachedBazi });
 
   // Human Design
   const hdInput: HumanDesignInput = {
@@ -90,6 +108,7 @@ export async function computeBlueprint(profile: BirthProfile): Promise<ComputedB
     astrology,
     numerology,
     chinese,
+    bazi,
     humanDesign,
     biorhythmSeed,
     computedAt: new Date().toISOString(),
@@ -216,8 +235,16 @@ export async function computeAndPersistBlueprint(
 ): Promise<{ blueprintId: string; summary: Record<string, unknown> }> {
   const sb = getSupabaseAdmin();
 
+  // Reuse an existing BaZi chart when birth inputs are unchanged (avoids re-charging
+  // the provider). computeBazi compares the stored chart's input fingerprint.
+  const { data: prior } = await sb.from("blueprints")
+    .select("bazi")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const cachedBazi = (prior?.bazi as BaziOutput | null) ?? null;
+
   // Compute blueprint
-  const bp = await computeBlueprint(profile);
+  const bp = await computeBlueprint(profile, { cachedBazi });
 
   // Upsert blueprint
   const { data: blueprintRow, error: bpErr } = await sb.from("blueprints")
@@ -226,6 +253,7 @@ export async function computeAndPersistBlueprint(
       astrology: bp.astrology,
       numerology: bp.numerology,
       chinese: bp.chinese,
+      bazi: bp.bazi,
       human_design: bp.humanDesign,
       biorhythm_seed: bp.biorhythmSeed,
       computed_at: bp.computedAt,
