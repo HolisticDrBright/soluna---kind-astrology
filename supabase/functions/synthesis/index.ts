@@ -2,8 +2,8 @@
  * GET /synthesis?theme= — expanded "where systems agree" for a theme
  */
 
-import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { requireAuth, AuthError } from "../_shared/auth.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { buildContext, detectAgreement } from "../_shared/synthesis/index.ts";
 
 Deno.serve(async (req: Request) => {

@@ -4,7 +4,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
 import { deriveReadingAccuracy } from "../_shared/accuracy.ts";
@@ -69,6 +69,12 @@ Deno.serve(async (req: Request) => {
       }, { onConflict: "user_id, reading_date" })
       .select()
       .single();
+
+    if (saveErr) {
+      // Don't fail the request — we still return the freshly generated reading
+      // via the fallback below; just surface the persistence failure in logs.
+      console.error("Failed to persist daily reading:", saveErr);
+    }
 
     await logEvent("daily_reading_generated", {
       agreementScore: agreements[0]?.score ?? 0,

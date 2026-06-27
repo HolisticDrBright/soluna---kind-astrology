@@ -25,12 +25,14 @@ Deno.serve(async (req: Request) => {
     const sb = getSupabaseAdmin();
     const today = new Date().toISOString().split("T")[0];
 
-    // Find users whose daily reading was just generated and have daily_reading enabled
+    // Find today's readings that haven't been pushed yet (pushed_at marks
+    // delivery so we never re-notify the same user on a later 5-minute run).
     const { data: users } = await sb.from("daily_readings")
       .select("user_id, hero_text")
       .eq("reading_date", today)
+      .is("pushed_at", null)
       .order("generated_at", { ascending: false })
-      .limit(20);
+      .limit(500);
 
     if (!users?.length) {
       return new Response(JSON.stringify({ ok: true, sent: 0, message: "No readings to push" }), {
@@ -73,6 +75,7 @@ Deno.serve(async (req: Request) => {
     // Send via Expo Push API in batches of 100
     let sent = 0;
     const batchSize = 100;
+    const pushedUserIds = new Set<string>();
 
     for (let i = 0; i < notifications.length; i += batchSize) {
       const batch = notifications.slice(i, i + batchSize);
@@ -94,11 +97,23 @@ Deno.serve(async (req: Request) => {
 
         if (resp.ok) {
           sent += batch.length;
+          for (const n of batch) pushedUserIds.add(n.userId);
         } else {
           console.error("Expo push batch failed:", await resp.text());
         }
       } catch (err) {
         console.error("Expo push error:", err);
+      }
+    }
+
+    // Mark delivered readings so the next run doesn't push them again.
+    if (pushedUserIds.size > 0) {
+      const { error: markErr } = await sb.from("daily_readings")
+        .update({ pushed_at: new Date().toISOString() })
+        .eq("reading_date", today)
+        .in("user_id", [...pushedUserIds]);
+      if (markErr) {
+        console.error("Failed to mark readings pushed:", markErr.message);
       }
     }
 

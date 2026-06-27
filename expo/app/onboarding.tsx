@@ -14,6 +14,13 @@ const TOTAL_STEPS = 8;
 // CITY_COORDS table is only a convenience for mock/demo mode.
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 
+// Format a Date by its LOCAL calendar parts (never UTC). birthDate is built as
+// local midnight, so .toISOString() would shift the day backward for any user
+// west of UTC (all of the Americas) and silently corrupt the whole blueprint
+// (Sun sign at cusps, Life Path, Chinese animal, BaZi, …).
+const toLocalDateString = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <View style={siS.row}>
@@ -122,7 +129,7 @@ export default function OnboardingScreen() {
     setGeoSuggestions([]);
     setResolvedPlace(null);
     setSubmitError("");
-    const dateForTz = birthDate ? birthDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+    const dateForTz = toLocalDateString(birthDate ?? new Date());
     setResolvingPlace(true);
     const { data, error } = await geoResolve(s.id, dateForTz);
     setResolvingPlace(false);
@@ -197,7 +204,7 @@ export default function OnboardingScreen() {
     const { error } = await submitOnboarding({
       full_birth_name: fullName.trim(),
       preferred_name: preferredName.trim() || fullName.trim().split(" ")[0],
-      birth_date: birthDate.toISOString().split("T")[0],
+      birth_date: toLocalDateString(birthDate),
       birth_time: birthTimeKnown ? birthTime : null,
       time_known: birthTimeKnown,
       birth_place_label: resolvedPlace?.label ?? birthPlace,
@@ -236,12 +243,12 @@ export default function OnboardingScreen() {
     let parsed: Date | null = null;
     const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (slashMatch) {
-      const [_, m, d, y] = slashMatch;
+      const [, m, d, y] = slashMatch;
       parsed = new Date(+y, +m - 1, +d);
     }
     const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (!parsed && isoMatch) {
-      const [_, y, m, d] = isoMatch;
+      const [, y, m, d] = isoMatch;
       parsed = new Date(+y, +m - 1, +d);
     }
     if (!parsed) parsed = new Date(trimmed);

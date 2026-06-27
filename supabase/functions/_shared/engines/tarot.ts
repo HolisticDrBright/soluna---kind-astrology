@@ -107,7 +107,7 @@ export function drawCards(
 
   for (let i = 0; i < count; i++) {
     const card = deck[i];
-    const reversed = i > 0 && rand() > 0.7;
+    const reversed = rand() > 0.7;
     drawn.push({
       name: card.name,
       arcana: card.arcana,

@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { SYNTHESIS_THEMES, Fonts } from "@/constants/mockData";
-import { ChevronLeft, Sparkles, Star, Moon, Hash, Bird, Cpu, Heart } from "lucide-react-native";
+import { ChevronLeft, Sparkles, Star, Hash, Bird, Cpu } from "lucide-react-native";
 
 const systemIcons: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   astrology: Star,

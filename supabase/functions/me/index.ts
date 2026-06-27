@@ -6,7 +6,7 @@
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateMeUpdate, validateBirthProfile } from "../_shared/schemas.ts";
-import { getSupabaseAdmin } from "../_shared/supabase.ts";
+import { computeAndPersistBlueprint } from "../_shared/engines/blueprint-service.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -98,7 +98,8 @@ Deno.serve(async (req: Request) => {
           .eq("id", user.userId);
       }
 
-      // Update birth profile (triggers blueprint recompute)
+      // Update birth profile, then recompute the blueprint so the chart never
+      // goes stale after a birth-data edit.
       if (updates.birth_profile) {
         const bpValidation = validateBirthProfile(updates.birth_profile);
         if (bpValidation.success && bpValidation.data) {
@@ -116,6 +117,28 @@ Deno.serve(async (req: Request) => {
             house_system: bp.house_system ?? "placidus",
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id" });
+
+          // Recompute only with REAL coordinates + timezone — never guess a
+          // location (that would fabricate chart precision). Without them the
+          // existing blueprint stays until the user resolves their birth place.
+          if (typeof bp.lat === "number" && typeof bp.lng === "number" && bp.timezone) {
+            try {
+              await computeAndPersistBlueprint({
+                user_id: user.userId,
+                full_birth_name: bp.full_birth_name,
+                birth_date: bp.birth_date,
+                birth_time: bp.birth_time ?? null,
+                time_known: bp.time_known,
+                birth_place_label: bp.birth_place_label,
+                lat: bp.lat,
+                lng: bp.lng,
+                timezone: bp.timezone,
+                house_system: (bp.house_system ?? "placidus") as "placidus" | "whole_sign" | "porphyry",
+              }, user.userId);
+            } catch (err) {
+              console.error("Blueprint recompute after /me birth update failed:", err);
+            }
+          }
         }
       }
 

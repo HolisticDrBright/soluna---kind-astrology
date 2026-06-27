@@ -10,7 +10,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validatePartnerInvite } from "../_shared/schemas.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 
@@ -208,7 +208,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // PATCH /partner/bonds/:linkId — update share prefs
-    if (req.method === "PATCH" && pathParts.includes("bonds") && pathParts.length >= 5) {
+    if (req.method === "PATCH" && pathParts[pathParts.length - 2] === "bonds") {
       const linkId = pathParts[pathParts.length - 1];
       const body = await req.json();
 
@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // DELETE /partner/bonds/:linkId — unlink
-    if (req.method === "DELETE" && pathParts.includes("bonds") && pathParts.length >= 5) {
+    if (req.method === "DELETE" && pathParts[pathParts.length - 2] === "bonds") {
       const linkId = pathParts[pathParts.length - 1];
 
       const { data: link } = await supabase.from("partner_links")

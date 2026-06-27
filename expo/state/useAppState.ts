@@ -74,7 +74,7 @@ function toPlanet(value: unknown, fallback: Planet): Planet {
 
 function buildChartData(astrology?: Record<string, unknown>): ChartData {
   const backendPlanets = Array.isArray(astrology?.planets)
-    ? astrology.planets.map(toRecord).filter(Boolean) as Array<Record<string, unknown>>
+    ? astrology.planets.map(toRecord).filter(Boolean) as Record<string, unknown>[]
     : [];
 
   const placements = MOCK_USER.chart.placements.map((fallbackPlacement) => {
@@ -128,7 +128,7 @@ function buildBaziData(bazi?: Record<string, unknown>): BaziView {
   if (!bazi || typeof bazi !== "object") return { ...MOCK_BAZI };
 
   const pillarsRaw = toRecord(bazi.pillars) ?? {};
-  const order: Array<[BaziView["pillars"][number]["label"], string]> = [
+  const order: [BaziView["pillars"][number]["label"], string][] = [
     ["Year", "year"], ["Month", "month"], ["Day", "day"], ["Hour", "hour"],
   ];
   const pillars = order.flatMap(([label, k]) => {

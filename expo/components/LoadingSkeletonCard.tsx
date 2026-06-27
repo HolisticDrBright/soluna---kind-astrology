@@ -1,4 +1,4 @@
-import { View, StyleSheet, Animated, Dimensions } from "react-native";
+import { View, StyleSheet, Animated } from "react-native";
 import { useEffect, useRef } from "react";
 import SolunaColors from "@/constants/colors";
 

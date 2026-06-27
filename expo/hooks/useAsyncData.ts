@@ -31,19 +31,36 @@ export function useAsyncData<T>(
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
+  // Track the latest run so a slow, superseded response can't overwrite a newer
+  // one, and so we never setState after the component has unmounted.
+  const runIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const run = useCallback(async (isRefetch: boolean) => {
+    const runId = ++runIdRef.current;
+    const isStale = () => !mountedRef.current || runId !== runIdRef.current;
     if (isRefetch) setReloading(true);
     else setLoading(true);
     setError(null);
     try {
       const res = await fetcherRef.current();
+      if (isStale()) return;
       if (res.error) setError(res.error);
       else setData(res.data);
     } catch (e) {
+      if (isStale()) return;
       setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
     } finally {
-      if (isRefetch) setReloading(false);
-      else setLoading(false);
+      if (!isStale()) {
+        if (isRefetch) setReloading(false);
+        else setLoading(false);
+      }
     }
   }, []);
 

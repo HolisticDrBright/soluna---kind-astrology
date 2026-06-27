@@ -1,7 +1,14 @@
 /**
- * HumanDesignEngine — computes Type, Strategy, Authority, Profile, and body-graph.
- * Input: { date, time, lat, lng } (needs time; returns flag if missing)
- * Compute from planetary longitudes at birth AND ~88° solar arc before birth.
+ * HumanDesignEngine — derives a Human Design-INSPIRED snapshot (Type, Strategy,
+ * Authority, Profile, and a defined/undefined-centers body-graph).
+ * Input: { date, time, lat, lng } (needs birth time; returns a flag if missing).
+ *
+ * NOTE: This is a deterministic, Human Design-inspired heuristic — NOT a true
+ * ephemeris bodygraph (it does not compute planetary longitudes or the ~88°
+ * solar-arc design date). Centers/gates are derived deterministically from the
+ * birth inputs so the reflective lens is stable per person. It is framed as
+ * "inspired" everywhere it surfaces and must never be presented as a literal,
+ * astronomically-calculated Human Design chart.
  */
 
 export interface HumanDesignInput {
@@ -33,7 +40,6 @@ const CENTERS = [
 // Simplified HD computation based on birth data
 function computeHDTypeAndStrategy(
   sacralDefined: boolean,
-  solarPlexusDefined: boolean,
   throatToGDefined: boolean,
   allCentersUndefined: boolean,
 ): { type: string; strategy: string } {
@@ -93,7 +99,7 @@ function computeGates(date: Date, lat: number, lng: number): number[] {
   return gates.sort((a, b) => a - b);
 }
 
-function gatesToCenters(gates: number[]): { defined: string[]; undefined: string[] } {
+function gatesToCenters(gates: number[]): { defined: string[]; undefinedCenters: string[] } {
   // Gate to center mapping (simplified)
   const gateCenterMap: Record<number, string> = {
     1: "G", 2: "G", 7: "G", 10: "G", 13: "G", 15: "G", 25: "G", 46: "G",
@@ -119,8 +125,8 @@ function gatesToCenters(gates: number[]): { defined: string[]; undefined: string
   }
 
   const defined = Array.from(centersWithGates);
-  const undefined = CENTERS.filter((c) => !centersWithGates.has(c));
-  return { defined, undefined };
+  const undefinedCenters = CENTERS.filter((c) => !centersWithGates.has(c));
+  return { defined, undefinedCenters };
 }
 
 function computeChannels(gates: number[]): string[] {
@@ -164,7 +170,7 @@ export function computeHumanDesign(input: HumanDesignInput): HumanDesignOutput {
 
   const date = new Date(input.date);
   const gates = computeGates(date, input.lat, input.lng);
-  const { defined, undefined } = gatesToCenters(gates);
+  const { defined, undefinedCenters } = gatesToCenters(gates);
   const channels = computeChannels(gates);
 
   const sacralDefined = defined.includes("Sacral");
@@ -176,7 +182,7 @@ export function computeHumanDesign(input: HumanDesignInput): HumanDesignOutput {
   const allCentersUndefined = defined.length === 0;
 
   const { type, strategy } = computeHDTypeAndStrategy(
-    sacralDefined, solarPlexusDefined, throatToGDefined, allCentersUndefined,
+    sacralDefined, throatToGDefined, allCentersUndefined,
   );
   const authority = computeAuthority(solarPlexusDefined, sacralDefined, spleenDefined, gDefined);
   const profile = computeProfile(date);
@@ -190,7 +196,7 @@ export function computeHumanDesign(input: HumanDesignInput): HumanDesignOutput {
     authority,
     profile,
     definedCenters: defined,
-    undefinedCenters: undefined,
+    undefinedCenters,
     gates,
     channels,
     incarnationCross,

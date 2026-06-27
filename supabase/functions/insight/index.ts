@@ -4,7 +4,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { generateInsight } from "../_shared/synthesis/index.ts";
 

@@ -17,15 +17,29 @@ Deno.serve(async (req: Request) => {
     const sb = getSupabaseAdmin();
     const today = new Date().toISOString().split("T")[0];
 
-    // Get users who have notification_prefs with matching hour
-    const currentHour = new Date().getUTCHours();
-    const timeFilter = `${String(currentHour).padStart(2, "0")}:00`;
+    // daily_time is the user's LOCAL time, so match it against each user's
+    // current local hour (derived from their tz) — never the server's UTC hour,
+    // which would fire every non-UTC user at the wrong time of day.
+    const now = new Date();
+    const localHour = (tz: string): number => {
+      try {
+        return Number(
+          new Intl.DateTimeFormat("en-US", { hour: "2-digit", hourCycle: "h23", timeZone: tz }).format(now),
+        );
+      } catch {
+        return now.getUTCHours(); // unknown tz → fall back to the server hour
+      }
+    };
 
-    const { data: users } = await sb.from("notification_prefs")
-      .select("user_id")
+    const { data: candidates } = await sb.from("notification_prefs")
+      .select("user_id, daily_time, tz")
       .eq("daily_reading", true)
-      .like("daily_time", `${timeFilter}%`)
-      .limit(50);
+      .limit(5000);
+
+    const users = (candidates ?? []).filter((c) => {
+      const targetHour = parseInt(String(c.daily_time ?? "").slice(0, 2), 10);
+      return !Number.isNaN(targetHour) && localHour(c.tz ?? "UTC") === targetHour;
+    });
 
     if (!users?.length) {
       return new Response(JSON.stringify({ ok: true, generated: 0 }), {

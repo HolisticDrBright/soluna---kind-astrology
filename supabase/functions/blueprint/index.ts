@@ -4,8 +4,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { getSupabaseAdmin } from "../_shared/supabase.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { computeAndPersistBlueprint } from "../_shared/engines/blueprint-service.ts";
 
 const VALID_SYSTEMS = ["astrology", "numerology", "chinese", "human_design"] as const;
@@ -95,6 +94,7 @@ Deno.serve(async (req: Request) => {
 
         return jsonResponse({ blueprint: summary, recomputed: true });
       } catch (err) {
+        console.error("Blueprint compute error:", err);
         return errorResponse("Failed to compute blueprint. Please try again.", 500);
       }
     }

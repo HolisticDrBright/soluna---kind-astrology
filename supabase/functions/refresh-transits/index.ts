@@ -3,7 +3,7 @@
  * Runs daily at midnight. Precomputes transit snapshots for /today.
  */
 
-import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
+import { logEvent } from "../_shared/supabase.ts";
 import { requireInternalSecret } from "../_shared/internal-auth.ts";
 
 Deno.serve(async (req: Request) => {

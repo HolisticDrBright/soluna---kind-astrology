@@ -141,7 +141,7 @@ export default function TodayScreen() {
     const dee = (d.do_embrace_ease ?? null) as { do?: string[]; embrace?: string[]; easeUpOn?: string[] } | null;
     const tarot = (d.tarot_card ?? null) as { name?: string; meaning?: string; arcana?: string } | null;
     const chinese = (d.chinese_daily ?? null) as { animal?: string; element?: string } | null;
-    const agreeSystems = agreement?.systems ?? [];
+    const agreeSystems = Array.isArray(agreement?.systems) ? agreement.systems : [];
     const joinSentences = (arr?: string[]) => (arr && arr.length ? arr.join(" ") : null);
 
     return {
