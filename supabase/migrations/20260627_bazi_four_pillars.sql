@@ -18,4 +18,12 @@ alter table public.blueprints
 comment on column public.blueprints.bazi is
   'Provider-backed BaZi / Four Pillars chart (BaziOutput JSON). source="provider" only with a real chart; "unavailable" otherwise. Never fabricated.';
 
+-- Cache a connection's BaZi chart too, so BaZi compatibility doesn't re-charge the
+-- provider on every compatibility view. `connections` is already owner-scoped.
+alter table public.connections
+  add column if not exists bazi jsonb not null default '{}'::jsonb;
+
+comment on column public.connections.bazi is
+  'Cached provider-backed BaZi chart for this connection (BaziOutput JSON). Used for BaZi compatibility only when both sides have a real chart. Never fabricated.';
+
 commit;

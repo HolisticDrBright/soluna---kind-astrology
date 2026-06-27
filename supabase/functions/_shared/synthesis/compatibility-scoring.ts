@@ -104,3 +104,65 @@ export function bandLabel(score: number): string {
   if (score >= 62) return "Growth pairing";
   return "Stretch & learn";
 }
+
+// ─── BaZi compatibility (deterministic; uses the real Five-Element cycles) ──────
+//
+// The generating (生) and controlling (克) cycles are fixed facts of BaZi, not
+// invented. We turn two real Day Master elements + element balances into gentle,
+// non-fatalistic reflection notes. Used ONLY when both sides have a real chart.
+
+export interface BaziCompatInput {
+  dayMasterElement?: string;            // wood/fire/earth/metal/water
+  favorableElements?: string[];
+  balance?: Record<string, number>;
+}
+export interface BaziCompatResult {
+  relation: "kindred" | "nourishing" | "dynamic" | "independent" | "unknown";
+  notes: string[];
+}
+
+const GENERATES: Record<string, string> = { wood: "fire", fire: "earth", earth: "metal", metal: "water", water: "wood" };
+const CONTROLS: Record<string, string> = { wood: "earth", earth: "water", water: "fire", fire: "metal", metal: "wood" };
+
+function topElement(balance?: Record<string, number>): string | undefined {
+  if (!balance) return undefined;
+  let best: string | undefined;
+  let max = -Infinity;
+  for (const [k, v] of Object.entries(balance)) if (v > max) { max = v; best = k; }
+  return max > 0 ? best : undefined;
+}
+
+export function baziCompatibility(a: BaziCompatInput, b: BaziCompatInput): BaziCompatResult {
+  const ae = (a.dayMasterElement ?? "").toLowerCase();
+  const be = (b.dayMasterElement ?? "").toLowerCase();
+  const notes: string[] = [];
+  let relation: BaziCompatResult["relation"] = "unknown";
+
+  if (ae && be) {
+    if (ae === be) {
+      relation = "kindred";
+      notes.push("Your Day Masters share the same element — an easy, peer-like understanding, with a gentle invitation to invite in some variety.");
+    } else if (GENERATES[ae] === be || GENERATES[be] === ae) {
+      relation = "nourishing";
+      notes.push("Your Day Master elements sit in a nourishing flow — one tends to feed and encourage the other's energy.");
+    } else if (CONTROLS[ae] === be || CONTROLS[be] === ae) {
+      relation = "dynamic";
+      notes.push("Your Day Master elements are in a more dynamic relationship — it can sharpen you both when met with patience and respect, rather than as a clash.");
+    } else {
+      relation = "independent";
+      notes.push("Your Day Master elements are fairly independent — different rhythms that leave room to learn from each other.");
+    }
+  }
+
+  // Complementarity: does one person's strongest element supply what the other
+  // could use (its favorable element)?
+  const aTop = topElement(a.balance);
+  const bTop = topElement(b.balance);
+  const aFav = (a.favorableElements ?? []).map((e) => e.toLowerCase());
+  const bFav = (b.favorableElements ?? []).map((e) => e.toLowerCase());
+  if ((bTop && aFav.includes(bTop)) || (aTop && bFav.includes(aTop))) {
+    notes.push("There's a complementary balance here — each of you tends to carry an element the other finds steadying.");
+  }
+
+  return { relation, notes };
+}
