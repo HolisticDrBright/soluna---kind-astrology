@@ -210,6 +210,34 @@ docs under `docs/soluna-knowledge-base/` and full notes in
 
 ---
 
+## 9. Resonance / Personalization ("Tune Soluna to You")
+
+A feedback loop that learns **how** to communicate with each user without ever
+changing **what** is true. No new secrets or third-party APIs. Full details in
+[`docs/RESONANCE_PERSONALIZATION.md`](docs/RESONANCE_PERSONALIZATION.md).
+
+- **New migration** `20260628_resonance_feedback.sql` — `resonance_feedback`
+  (raw, owner-authored, immutable) + `personalization_profiles` (derived, one row
+  per user). Apply it with the others in §1.
+- **RLS:** both tables are owner-scoped. The profile has **no client write
+  policy** — it is written **only** by the `resonance` Edge Function via the
+  service role, so the deterministic update rules are the single source of truth.
+- **New Edge Function** `resonance` (JWT-verified): `POST /resonance` (submit +
+  recompute), `GET /resonance/profile`, `DELETE /resonance/profile` (reset). Add
+  it to the `supabase functions deploy` in §1.
+- **Deterministic, no-LLM** profile updates (`_shared/personalization.ts`):
+  thresholded rules make changes gradual; a single tap never flips a preference.
+- **Synthesis integration:** `buildContext` injects a *Personalization Memory*
+  block (delivery guidance only) into Today / Ask / Compatibility prompts — only
+  when a profile with feedback exists.
+- **Guardrails:** feedback never alters placements, BaZi pillars, numbers, tarot,
+  transits, or compatibility math; the "reflective lenses, not fixed fate" safety
+  language is preserved; never optimizes for flattery; humble on low resonance.
+- **Demo:** `submitResonanceFeedback` is a no-op success when
+  `EXPO_PUBLIC_USE_MOCK_DATA=true` — demo stays separate from live.
+
+---
+
 ## Verification status (this iteration)
 
 Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
@@ -218,7 +246,7 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 |-------|-------------|------------|
 | Frontend `tsc` | ✅ pass | `cd expo && npx tsc --noEmit` |
 | Frontend lint | ⚠️ pre-existing warnings/`no-unescaped-entities` only; no new issues | `cd expo && npm run lint` |
-| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy, knowledge schema / selection / safety / prompt, **moon phase, transits, compatibility scoring, output QA**) | ✅ 89/89 pass | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
+| Shared backend tests (worker auth, input validators, numerology, RevenueCat webhook, RLS forgery invariant, geo, astrology providers, accuracy, knowledge schema / selection / safety / prompt, moon phase, transits, compatibility scoring, output QA, **resonance: validation / deterministic rules / no-chart-mutation / prompt-block gating / safety**) | ✅ 113/113 pass | `deno test --allow-env --allow-read supabase/functions/_shared/tests` |
 | Migration SQL grammar | ✅ both parse (265 + 6 stmts) | libpg_query / `supabase db lint` |
 | Worker internal-secret guard | ✅ enforced in all non-JWT worker functions + unit-tested (`internal_auth_test.ts`) | included in the test run above |
 | RevenueCat webhook auth + app_user_id mapping | ✅ Bearer-secret check + UUID mapping unit-tested (`revenuecat_test.ts`) | included in the test run above |
@@ -243,6 +271,7 @@ error+retry states and never silently substitutes fake data.
 | Journal | `getJournal()` / `createJournalEntry()` | title+body folded into body; mood 1-5 |
 | Connections | `getConnections()` / `addConnection()` / `getCompatibility()` | compatibility fetched per card on expand |
 | Tarot | `drawTarot()` | spread id mapped to daily / three_card / celtic_cross |
+| Resonance card | `submitResonanceFeedback()` | shown after the primary insight on Today / Ask / Focus / Compatibility / Tarot / Blueprint; demo mode = no-op success |
 | Profile | `getEntitlements()` + birth-data edit + restore purchases + delete account | real subscription state; **in-app account deletion** via `delete-account`; data export via `EXPO_PUBLIC_SUPPORT_EMAIL` |
 
 In-app account deletion is live: Profile → "Delete my account" confirms, then

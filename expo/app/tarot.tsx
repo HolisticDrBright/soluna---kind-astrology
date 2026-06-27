@@ -6,6 +6,7 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { MOCK_THREE_CARD_READING, TAROT_SPREADS, Fonts } from "@/constants/mockData";
 import { LoadingState } from "@/components/DataStates";
 import { drawTarot } from "@/lib/api";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { ChevronLeft, Sparkles, Shuffle, BookOpen } from "lucide-react-native";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
@@ -140,6 +141,11 @@ export default function TarotScreen() {
                 </View>
               </>
             ) : null}
+
+            {/* Resonance feedback once a reading is present */}
+            {((!USE_MOCK_DATA && live) || USE_MOCK_DATA) && (
+              <ResonanceFeedbackCard sourceType="tarot" systemsReferenced={["tarot"]} />
+            )}
 
             <TouchableOpacity style={ts.newBtn} onPress={() => { setShowReading(false); setLive(null); }} activeOpacity={0.8}>
               <Shuffle size={16} color={SolunaColors.warmGold} />

@@ -165,6 +165,7 @@ export async function generateCompatibility(
     `A relationship resonance score of ${score}/100 has ALREADY been computed from these real placements — do not restate or change the number; let your tone match its spirit.`,
     "",
     knowledgeBlock,
+    ctx.personalizationMemory ? `\n${ctx.personalizationMemory}` : "",
     "",
     "COMPATIBILITY GUARDRAILS (critical):",
     "- Frame every difference as a growth invitation — never doom, fear, or a verdict.",

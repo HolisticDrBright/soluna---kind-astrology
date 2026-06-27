@@ -22,6 +22,7 @@ import {
 import InsightActionBar from "@/components/InsightActionBar";
 import ConfidencePill from "@/components/ConfidencePill";
 import SolunaShiftCard from "@/components/SolunaShiftCard";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getToday } from "@/lib/api";
@@ -362,6 +363,9 @@ export default function TodayScreen() {
                 ) : null}
               </View>
             ) : null}
+
+            {/* ─── Resonance feedback on the primary daily insight ─── */}
+            <ResonanceFeedbackCard sourceType="today" />
 
             {/* ─── Soluna Shift (demo only — no live endpoint yet) ─── */}
             {USE_MOCK_DATA ? <SolunaShiftCard date="2026-06-24" /> : null}

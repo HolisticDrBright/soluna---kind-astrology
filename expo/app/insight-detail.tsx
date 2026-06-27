@@ -10,6 +10,7 @@ import {
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
 import { Sparkles, ChevronLeft, MessageCircle } from "lucide-react-native";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 
 function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number) {
   const planetMeanings: Record<Planet, string> = {
@@ -71,6 +72,7 @@ export default function InsightDetailScreen() {
           <View style={s.section}><Text style={s.interpretationTitle}>What This Gives You</Text>{info.strengths.map((sx, i) => (<View key={i} style={s.strengthRow}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>))}</View>
           <View style={s.section}><Text style={s.interpretationTitle}>Gentle Growth Edge</Text><Text style={s.growthText}>{info.growthEdge}</Text></View>
           <View style={s.section}><Text style={s.interpretationTitle}>Why You're Seeing This</Text><Text style={s.whyText}>In numerology, each number carries an archetypal vibration. Your {num} emerges from calculations based on your full birth name and birth date — it's not random, it's mathematical. This number describes a core thread in your life's pattern.</Text></View>
+          <ResonanceFeedbackCard sourceType="blueprint" sourceId={`number-${num}`} systemsReferenced={["numerology"]} />
           <TouchableOpacity style={s.askBtn} onPress={() => router.push({ pathname: "/(tabs)/ask", params: { prompt: `Tell me more about my number ${num}` } })}>
             <MessageCircle size={18} color={SolunaColors.warmGold} /><Text style={s.askBtnText}>Ask Soluna about this number</Text>
           </TouchableOpacity>
@@ -110,6 +112,7 @@ export default function InsightDetailScreen() {
               </Text>
             </View>
           )}
+          <ResonanceFeedbackCard sourceType="blueprint" sourceId="placement-rising" systemsReferenced={["astrology"]} />
           <TouchableOpacity
             style={s.askBtn}
             onPress={() =>
@@ -173,6 +176,7 @@ export default function InsightDetailScreen() {
               This placement comes from the exact position of {placement.planet} at the moment of your birth — {placement.degree}° into {placement.sign}, falling in your {placement.house}th house. Your birth time and location determine which house each planet falls into.
             </Text>
           </View>
+          <ResonanceFeedbackCard sourceType="blueprint" sourceId={`placement-${placement.planet}`} systemsReferenced={["astrology"]} />
           <TouchableOpacity
             style={s.askBtn}
             onPress={() =>

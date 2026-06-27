@@ -18,6 +18,7 @@ import {
   type FocusResult,
 } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import {
   ArrowLeft,
   Sparkles,
@@ -173,6 +174,9 @@ export default function FocusResultScreen() {
           </View>
           <Text style={st.reflectionText}>{result.reflectionPrompt}</Text>
         </View>
+
+        {/* ─── Resonance feedback on the focus guidance ─── */}
+        <ResonanceFeedbackCard sourceType="focus" sourceId={category} />
 
         {/* ─── Systems Referenced ─── */}
         <View style={st.systemsSection}>

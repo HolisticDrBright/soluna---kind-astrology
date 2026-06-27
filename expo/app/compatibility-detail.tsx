@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { CONNECTIONS, ZODIAC_SYMBOLS, Fonts, type RelationshipLens } from "@/constants/mockData";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { ChevronLeft, Heart, Sparkles, Share2, Hash, Bird } from "lucide-react-native";
 
 export default function CompatibilityDetailScreen() {
@@ -145,6 +146,13 @@ export default function CompatibilityDetailScreen() {
             but a map to navigate with care.
           </Text>
         </View>
+
+        {/* Resonance feedback on the compatibility insight */}
+        <ResonanceFeedbackCard
+          sourceType="compatibility"
+          sourceId={id}
+          systemsReferenced={["astrology", "numerology", "chinese"]}
+        />
 
         {/* Lens insight */}
         <View style={st.lensInsightCard}>

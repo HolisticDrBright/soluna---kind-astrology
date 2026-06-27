@@ -7,6 +7,7 @@ import { MOCK_CHAT_HISTORY, Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type Ch
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
 import { askSoluna } from "@/lib/api";
+import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 const nowTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
@@ -271,6 +272,14 @@ function AskContent() {
           ))}
           {isTyping && <TypingIndicator />}
           {error && !isTyping && <ErrorCard message={error.message} onRetry={() => runAsk(lastQuestion, true)} />}
+          {/* Resonance feedback under the latest Soluna answer only */}
+          {!isTyping && !error && messages.length > 0 &&
+            messages[messages.length - 1].sender === "soluna" &&
+            !messages[messages.length - 1].isError && (
+              <View style={{ paddingHorizontal: SolunaSpacing.md }}>
+                <ResonanceFeedbackCard sourceType="ask" sourceId={conversationId} compact />
+              </View>
+            )}
         </ScrollView>
 
         {/* Prompt groups */}

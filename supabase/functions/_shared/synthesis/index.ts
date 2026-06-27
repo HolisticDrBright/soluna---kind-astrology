@@ -28,6 +28,7 @@ import { selectKnowledge, type KnowledgeContext } from "../knowledge/selectKnowl
 import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.ts";
 import { tagsFromText } from "../knowledge/synthesis-rules.ts";
 import { gatherDynamicContext } from "./knowledge-context.ts";
+import { fetchPersonalizationProfile, personalizationMemoryBlock } from "../personalization.ts";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -45,6 +46,9 @@ export interface DailyContext {
   houseSystem: string;
   /** Current Moon phase for the reading date — deterministic, real astronomy. */
   moonPhase: string | null;
+  /** "Personalization memory" prompt block (how to communicate with this user).
+   *  Adjusts delivery only — never any chart fact. Empty string when none. */
+  personalizationMemory: string | null;
 }
 
 export interface AgreementResult {
@@ -167,6 +171,11 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
   // Moon phase is real astronomy derived from the date alone (no provider needed).
   const moonPhase = computeMoonPhase(new Date(`${dateStr}T12:00:00Z`)).phase;
 
+  // Personalization memory — how THIS user likes to be communicated with. It only
+  // ever adjusts delivery (tone/emphasis/examples/action), never any chart fact.
+  const personalizationProfile = await fetchPersonalizationProfile(sb, userId);
+  const personalizationMemory = personalizationMemoryBlock(personalizationProfile) || null;
+
   return {
     userId,
     date: dateStr,
@@ -179,6 +188,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     tarotCard: tarotCard ? { name: tarotCard.name, meaning: tarotCard.meaning, arcana: tarotCard.arcana } : null,
     houseSystem: (birthProfile?.house_system as string) ?? "placidus",
     moonPhase,
+    personalizationMemory,
   };
 }
 
@@ -333,7 +343,7 @@ CONTEXT:
 ${tarotText ? `- Tarot: ${tarotText}` : ""}
 
 ${dailyKnowledge}
-
+${ctx.personalizationMemory ? `\n${ctx.personalizationMemory}\n` : ""}
 Return valid JSON:
 {
   "heroText": "3-4 warm sentences blending these systems into a personal daily message",
@@ -464,6 +474,7 @@ export async function generateChatResponse(
     blueprintSummary ? `Their blueprint: ${blueprintSummary}.` : "",
     dyn.focus?.problemText ? `Active focus (${dyn.focus.category}): "${dyn.focus.problemText}".` : "",
     dyn.connection?.involved ? `A relationship is involved (lens: ${dyn.connection.lens}). Do not speculate about the other person's private thoughts or motives.` : "",
+    ctx.personalizationMemory ? `\n${ctx.personalizationMemory}` : "",
     "",
     knowledgeBlock,
     "",

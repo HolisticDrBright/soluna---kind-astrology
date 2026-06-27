@@ -3,6 +3,14 @@
  * Validates input to Edge Functions. Simple but effective.
  */
 
+import {
+  RESONANCE_VALUES,
+  SOURCE_TYPES,
+  REASON_TAGS,
+  REFRAME_REQUESTS,
+  KNOWN_SYSTEMS,
+} from "./personalization.ts";
+
 export interface ValidationResult<T> {
   success: boolean;
   data?: T;
@@ -272,4 +280,73 @@ export function validateMeUpdate(input: unknown): ValidationResult<MeUpdateInput
   }
   // MeUpdate is permissive — partial updates allowed
   return { success: true, data: input as MeUpdateInput };
+}
+
+// ─── Resonance Feedback ──────────────────────────────────────
+
+export interface ResonanceFeedbackInput {
+  sourceType: string;
+  sourceId: string | null;
+  resonance: "yes" | "partly" | "no";
+  reasonTags: string[];
+  freeText: string | null;
+  reframeRequested: string | null;
+  systemsReferenced: string[];
+}
+
+export function validateResonanceFeedback(input: unknown): ValidationResult<ResonanceFeedbackInput> {
+  if (!input || typeof input !== "object") {
+    return { success: false, error: "Invalid input" };
+  }
+  const r = input as Record<string, unknown>;
+
+  // sourceType + resonance are the two hard-validated enums.
+  if (typeof r.sourceType !== "string" || !(SOURCE_TYPES as readonly string[]).includes(r.sourceType)) {
+    return { success: false, error: `sourceType must be one of: ${SOURCE_TYPES.join(", ")}` };
+  }
+  if (typeof r.resonance !== "string" || !(RESONANCE_VALUES as readonly string[]).includes(r.resonance)) {
+    return { success: false, error: "resonance must be 'yes', 'partly', or 'no'" };
+  }
+
+  // reasonTags / systemsReferenced: arrays; unknown entries are dropped (lenient).
+  if (r.reasonTags !== undefined && !Array.isArray(r.reasonTags)) {
+    return { success: false, error: "reasonTags must be an array" };
+  }
+  if (r.systemsReferenced !== undefined && !Array.isArray(r.systemsReferenced)) {
+    return { success: false, error: "systemsReferenced must be an array" };
+  }
+  const reasonTags = ((r.reasonTags as unknown[]) ?? [])
+    .map(String).filter((t) => (REASON_TAGS as readonly string[]).includes(t));
+  const systemsReferenced = ((r.systemsReferenced as unknown[]) ?? [])
+    .map(String).filter((s) => (KNOWN_SYSTEMS as readonly string[]).includes(s));
+
+  // reframeRequested: optional; if present it must be a recognized option.
+  let reframeRequested: string | null = null;
+  if (r.reframeRequested !== undefined && r.reframeRequested !== null && r.reframeRequested !== "") {
+    if (typeof r.reframeRequested !== "string" || !(REFRAME_REQUESTS as readonly string[]).includes(r.reframeRequested)) {
+      return { success: false, error: "reframeRequested is not a recognized option" };
+    }
+    reframeRequested = r.reframeRequested;
+  }
+
+  let freeText: string | null = null;
+  if (r.freeText !== undefined && r.freeText !== null) {
+    if (typeof r.freeText !== "string") return { success: false, error: "freeText must be a string" };
+    freeText = r.freeText.trim().slice(0, 1000) || null;
+  }
+
+  const sourceId = r.sourceId !== undefined && r.sourceId !== null ? String(r.sourceId).slice(0, 200) : null;
+
+  return {
+    success: true,
+    data: {
+      sourceType: r.sourceType,
+      sourceId,
+      resonance: r.resonance as "yes" | "partly" | "no",
+      reasonTags,
+      freeText,
+      reframeRequested,
+      systemsReferenced,
+    },
+  };
 }

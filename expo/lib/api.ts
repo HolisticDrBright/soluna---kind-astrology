@@ -230,3 +230,45 @@ export async function getSynthesis(theme?: string) {
 export async function getEntitlements() {
   return invokeEdgeFunction<{ isPremium: boolean; entitlement: string }>("entitlements");
 }
+
+// ─── Resonance feedback / personalization ──────────────────────
+
+export type ResonanceSource = "today" | "ask" | "focus" | "compatibility" | "tarot" | "blueprint";
+export type ResonanceValue = "yes" | "partly" | "no";
+
+export interface ResonanceFeedbackPayload {
+  sourceType: ResonanceSource;
+  sourceId?: string;
+  resonance: ResonanceValue;
+  reasonTags?: string[];
+  freeText?: string;
+  reframeRequested?: string;
+  systemsReferenced?: string[];
+}
+
+export interface ResonanceResult {
+  ok: boolean;
+  message: string;
+  summary: string | null;
+}
+
+const RESONANCE_USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
+/**
+ * Submit "Did this resonate?" feedback. Adjusts how Soluna communicates over
+ * time — never the underlying chart facts. In demo mode this is a no-op that
+ * resolves successfully (no real write), keeping demo separate from live.
+ */
+export async function submitResonanceFeedback(payload: ResonanceFeedbackPayload) {
+  if (RESONANCE_USE_MOCK_DATA) {
+    return {
+      data: { ok: true, message: "Got it. Soluna will tune future guidance to you.", summary: null } as ResonanceResult,
+      error: null,
+    };
+  }
+  return invokeEdgeFunction<ResonanceResult>(
+    "resonance",
+    payload as unknown as Record<string, unknown>,
+    "POST",
+  );
+}
