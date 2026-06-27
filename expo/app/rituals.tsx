@@ -3,11 +3,24 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { RITUALS, Fonts } from "@/constants/mockData";
+import { Fonts } from "@/constants/mockData";
+import { RITUALS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import { ChevronLeft, Moon, Sparkles, Check } from "lucide-react-native";
 
 export default function RitualsScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Not wired to live data yet — show an honest state instead of demo rituals.
+  if (!isDemoMode) {
+    return (
+      <ComingSoon
+        title="Moon rituals"
+        description="Personalized new- and full-moon rituals will appear here once they're connected to your live data."
+      />
+    );
+  }
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>

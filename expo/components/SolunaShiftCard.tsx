@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import SolunaColors from "@/constants/colors";
-import { Fonts, SOLUNA_SHIFTS, type SolunaShiftData } from "@/constants/mockData";
+import { Fonts, type SolunaShiftData } from "@/constants/mockData";
+import { SOLUNA_SHIFTS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import { Sparkles, Heart, ArrowRight, BookOpen, Brain } from "lucide-react-native";
 import React, { useState } from "react";
 
@@ -9,12 +11,14 @@ interface SolunaShiftCardProps {
 }
 
 export default function SolunaShiftCard({ date }: SolunaShiftCardProps) {
-  const shift: SolunaShiftData | undefined = SOLUNA_SHIFTS[date];
-  if (!shift) return null;
-
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const toggle = (section: string) =>
     setExpandedSection((prev) => (prev === section ? null : section));
+
+  // Demo-only: the static Soluna Shift content is sample data. In live mode the
+  // card simply doesn't render (no fabricated shift) until it's wired to /today.
+  const shift: SolunaShiftData | undefined = isDemoMode ? SOLUNA_SHIFTS[date] : undefined;
+  if (!shift) return null;
 
   return (
     <View style={s.wrap}>

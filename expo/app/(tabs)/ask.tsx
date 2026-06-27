@@ -3,7 +3,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { MOCK_CHAT_HISTORY, Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@/constants/mockData";
+import { Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@/constants/mockData";
+import { MOCK_CHAT_HISTORY } from "@/constants/demoData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
 import { askSoluna } from "@/lib/api";
@@ -172,7 +173,7 @@ function AskContent() {
       },
       {
         label: "Self-understanding", icon: Sparkles,
-        prompts: [`Explain my ${user.numerology.lifePath} Life Path number`, "What does my rising sign mean?", "How do my systems work together?"],
+        prompts: [user.numerology ? `Explain my ${user.numerology.lifePath} Life Path number` : "Explain my Life Path number", "What does my rising sign mean?", "How do my systems work together?"],
       },
       {
         label: "Timing", icon: Clock,

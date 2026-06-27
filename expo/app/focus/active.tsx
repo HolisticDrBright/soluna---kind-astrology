@@ -12,11 +12,13 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import {
   Fonts,
-  MOCK_ACTIVE_FOCUSES,
   FOCUS_CATEGORIES,
   type FocusData,
   type FocusStatus,
 } from "@/constants/mockData";
+import { MOCK_ACTIVE_FOCUSES } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import EmptyState from "@/components/EmptyState";
 import {
   ArrowLeft,
@@ -57,7 +59,7 @@ const STATUS_CONFIG: Record<
 
 export default function ActiveFocusesScreen() {
   const { user } = useAppState();
-  const [focuses, setFocuses] = useState<FocusData[]>(MOCK_ACTIVE_FOCUSES);
+  const [focuses, setFocuses] = useState<FocusData[]>(isDemoMode ? MOCK_ACTIVE_FOCUSES : []);
 
   const toggleStatus = useCallback((id: string, current: FocusStatus) => {
     setFocuses((prev) =>
@@ -75,6 +77,14 @@ export default function ActiveFocusesScreen() {
   }, []);
 
   if (!user) return null;
+
+  if (!isDemoMode)
+    return (
+      <ComingSoon
+        title="Active focuses"
+        description="Your active focuses will appear here once they're connected to live data."
+      />
+    );
 
   const activeFocuses = focuses.filter((f) => f.status === "active");
   const pausedResolved = focuses.filter((f) => f.status !== "active");

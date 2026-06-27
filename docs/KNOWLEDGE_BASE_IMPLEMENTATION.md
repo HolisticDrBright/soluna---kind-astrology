@@ -160,13 +160,18 @@ Assigned deterministically in `synthesis-rules.ts > confidenceLabel()`:
 
 ## What is still static / demo-only
 
-Frontend wiring of these screens remains demo-gated (`EXPO_PUBLIC_USE_MOCK_DATA`)
-and is tracked in PR #1 — unchanged by this pass (no expo files were modified):
-Soluna Shift card, cosmic-weather / energy accordions, compatibility-detail
-screen, weekly report, pattern memory, widget previews, rituals, focus
-result/active screens, and Ask history hydration. The backend now produces
-richer Ask/Today/compatibility content; surfacing it on those specific screens is
-the remaining frontend task.
+Frontend demo content is now fully isolated and gated. Fake, user-specific sample
+data lives in `expo/constants/demoData.ts` and is imported only behind an
+`isDemoMode` guard (`expo/lib/runtimeMode.ts`); production-safe constants/types
+stay in `expo/constants/mockData.ts`. In **live mode**
+(`EXPO_PUBLIC_USE_MOCK_DATA=false`) no fake data is ever rendered — `useAppState`
+builds the user only from `/me`, per-lens fields are null when unavailable
+(honest "not available yet" states), and screens not yet wired to live data
+(Soluna Shift card, cosmic-weather / energy accordions, compatibility-detail,
+weekly report, pattern memory, widget previews, rituals, transit / synthesis
+detail, and the focus flow) render a "Coming soon" state instead of demo content.
+**Demo mode** still shows the full, beautiful sample experience. The
+`npm run check:demo` guard (and `DEPLOYMENT.md`) enforce and document this.
 
 ## Live APIs required
 

@@ -11,7 +11,6 @@ import React from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import {
-  MOCK_USER,
   PLANET_SYMBOLS,
   ZODIAC_SYMBOLS,
   HOUSE_NAMES,
@@ -21,6 +20,7 @@ import {
   type Planet,
   type ZodiacSign,
 } from "@/constants/mockData";
+import ComingSoon from "@/components/ComingSoon";
 import { Sparkles, ChevronLeft, MessageCircle, Star } from "lucide-react-native";
 
 // ─── Generic interpretation for placements without custom text ──
@@ -97,9 +97,18 @@ export default function PlacementDetailScreen() {
   if (!user || !planet) return null;
 
   const chart = user.chart;
+  if (!chart) return null; // no real chart computed yet — nothing to detail
 
   // Handle Rising sign
   if (planet === "Rising") {
+    if (!chart.rising) {
+      return (
+        <ComingSoon
+          title="Rising sign"
+          description="Add your birth time in Profile to reveal your Rising sign — we won't guess it."
+        />
+      );
+    }
     return (
       <LinearGradient
         colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]}

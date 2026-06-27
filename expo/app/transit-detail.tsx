@@ -10,7 +10,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import Svg, { Circle, Line } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { CURRENT_TRANSITS, ZODIAC_SYMBOLS, PLANET_SYMBOLS, Fonts } from "@/constants/mockData";
+import { ZODIAC_SYMBOLS, PLANET_SYMBOLS, Fonts } from "@/constants/mockData";
+import { CURRENT_TRANSITS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import { ChevronLeft, Sparkles, Clock } from "lucide-react-native";
 
 // ─── Mini Sky Diagram ─────────────────────────────────────────────
@@ -35,6 +38,16 @@ function MiniSkyDiagram({ planet1, sign1 }: { planet1: string; sign1: string }) 
 // ─── Transit Detail Screen ────────────────────────────────────────
 export default function TransitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Not wired to live ephemeris yet — honest state instead of demo transits.
+  if (!isDemoMode) {
+    return (
+      <ComingSoon
+        title="Transit details"
+        description="Live sky transits will open here once they're connected to real ephemeris data."
+      />
+    );
+  }
 
   const transit = CURRENT_TRANSITS.find((t) => t.id === id);
   if (!transit) return null;

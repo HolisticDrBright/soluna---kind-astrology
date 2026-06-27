@@ -229,21 +229,46 @@ Run from a machine with the Soluna project linked + `supabase`/`deno` installed:
 > Live Supabase verification (advisors, deploy, RLS smoke tests) must be run by
 > the maintainer against the actual Soluna project; the steps above are exact.
 
-## Frontend data wiring
+## Frontend data wiring (demo mode vs. live mode)
 
-Screens use the real backend by default; mock/demo content shows only when
-`EXPO_PUBLIC_USE_MOCK_DATA=true`. Each wired screen has loading / empty /
-error+retry states and never silently substitutes fake data.
+Soluna has exactly two runtime modes, controlled by `EXPO_PUBLIC_USE_MOCK_DATA`
+and centralised in **`expo/lib/runtimeMode.ts`** (`isDemoMode` / `isLiveMode`):
 
-| Screen | Source | Notes |
-|--------|--------|-------|
-| Onboarding reveal | real `/onboarding` + `/me` | shows the user's real blueprint; kind partial state if not ready |
-| Home / Today | `getToday()` | cosmic-weather & energy cards are demo-only and hidden in live mode (no fabricated transits) |
-| Ask | `askSoluna()` | conversation continuity; typing + error+retry |
-| Journal | `getJournal()` / `createJournalEntry()` | title+body folded into body; mood 1-5 |
-| Connections | `getConnections()` / `addConnection()` / `getCompatibility()` | compatibility fetched per card on expand |
-| Tarot | `drawTarot()` | spread id mapped to daily / three_card / celtic_cross |
-| Profile | `getEntitlements()` + birth-data edit + restore purchases + delete account | real subscription state; **in-app account deletion** via `delete-account`; data export via `EXPO_PUBLIC_SUPPORT_EMAIL` |
+- **Demo mode** (`EXPO_PUBLIC_USE_MOCK_DATA=true`) — for screenshots, App Store
+  preview, and local testing. Renders beautiful, fully-populated **fake** sample
+  content (the demo user "Maya", sample connections, journal entries, transits).
+  All of that fake content lives in **`expo/constants/demoData.ts`** and is
+  imported only behind an `isDemoMode` guard.
+- **Live mode** (anything else — the production default) — the commercial app.
+  It builds the user **only** from the real `/me` payload and **never**
+  substitutes fake data. When a lens isn't available yet it shows an honest state
+  instead: "Finish birth details", "Not available yet", "We're still calculating
+  this", loading / empty / error+retry, or a polished "Coming soon".
+
+Production-safe shared constants/types (zodiac symbols, number meanings, fonts,
+static option vocabularies, reference interpretation labels) stay in
+**`expo/constants/mockData.ts`** and may be imported anywhere — they are generic,
+never user-specific. `UserData`'s per-lens fields (`chart`, `numerology`,
+`chinese`, `humanDesign`) are `… | null`; `useAppState` sets them to null (not a
+mock fallback) when the backend hasn't produced them, and screens render honest
+states for null. BaZi follows the same standard via its own `available` flag
+(`UNAVAILABLE_BAZI`).
+
+| Screen | Live source | In live mode when data is missing |
+|--------|-------------|-----------------------------------|
+| Onboarding reveal | `/onboarding` + `/me` | real blueprint; "Needs birth time" for Rising; never fake signs |
+| Home / Today | `getToday()` | honest empty/loading; demo daily reading, Soluna Shift, cosmic-weather & energy cards are demo-only and hidden |
+| Blueprint | `/me` blueprint | per-lens "not available yet" for any null lens (no fake placements/numbers/type/animal) |
+| Ask | `askSoluna()` | live chat; demo chat history hidden |
+| Journal | `getJournal()` / `createJournalEntry()` | live entries + empty state; demo entries hidden |
+| Connections | `getConnections()` / `addConnection()` / `getCompatibility()` | live list + empty state; demo people & bond rituals hidden |
+| Tarot | `drawTarot()` | live draw; demo 3-card sample hidden |
+| Profile | `getEntitlements()` + birth-data edit + restore + delete account | real subscription/account; summary chips show only real lenses; Active Focuses / Weekly Report / Pattern Memory / Widget previews are demo-only and hidden |
+
+**"Coming soon" in live mode** — demo-only screens not yet wired to live data
+render `components/ComingSoon` (an honest empty state) instead of fake content:
+Rituals, Transit detail, Synthesis detail, Compatibility detail, the Focus flow
+(setup / active / result / check-in), and the Soluna Shift card.
 
 In-app account deletion is live: Profile → "Delete my account" confirms, then
 calls `POST /functions/v1/delete-account` (requires the user JWT), which hard-
@@ -251,8 +276,15 @@ deletes the auth user. Every user table is `ON DELETE CASCADE` from
 `profiles` → `auth.users`, so all of the user's data is removed (shared link
 fields are `SET NULL`). This satisfies the App Store / Play in-app deletion rule.
 
-Still demo-only / pending live wiring (tracked in PR #1): Soluna Shift card,
-compatibility-detail screen, weekly report, pattern memory, widget previews,
-rituals, and focus result/active screens; Ask history hydration. RevenueCat
-purchase/restore, push delivery, and Sentry events require a native build +
-live keys to verify on a device.
+RevenueCat purchase/restore, push delivery, and Sentry events require a native
+build + live keys to verify on a device.
+
+### Before TestFlight / App Store (live build)
+1. **`EXPO_PUBLIC_USE_MOCK_DATA=false`** (or unset) — confirm no fake data renders.
+2. `cd expo && npx tsc --noEmit` — types clean.
+3. `cd expo && npm run lint` — lint clean (allow only the known local Bun warning).
+4. `cd expo && npm run check:demo` — the demo-leak guard must pass (no ungated
+   demo imports; `useAppState` never spreads or uses `MOCK_USER` in live mode).
+5. Spot-check the search guard — every hit must be an import from
+   `@/constants/demoData` **or** sit behind an `isDemoMode` / `USE_MOCK_DATA` gate:
+   `rg -n "MOCK_|CONNECTIONS|JOURNAL_ENTRIES|CURRENT_TRANSITS|SYNTHESIS_THEMES" expo/app expo/state expo/components`

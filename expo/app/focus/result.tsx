@@ -12,11 +12,13 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import {
   Fonts,
-  MOCK_FOCUS_RESULTS,
   FOCUS_CATEGORIES,
   type FocusCategory,
   type FocusResult,
 } from "@/constants/mockData";
+import { MOCK_FOCUS_RESULTS } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
+import ComingSoon from "@/components/ComingSoon";
 import ConfidencePill from "@/components/ConfidencePill";
 import {
   ArrowLeft,
@@ -63,6 +65,14 @@ export default function FocusResultScreen() {
   const handleSave = useCallback(() => setSaved(true), []);
 
   if (!user) return null;
+
+  if (!isDemoMode)
+    return (
+      <ComingSoon
+        title="Focus"
+        description="Your focus guidance will open here once it's connected to live data."
+      />
+    );
 
   return (
     <LinearGradient

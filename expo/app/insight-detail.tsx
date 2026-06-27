@@ -9,6 +9,7 @@ import {
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
+import ComingSoon from "@/components/ComingSoon";
 import { Sparkles, ChevronLeft, MessageCircle } from "lucide-react-native";
 
 function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number) {
@@ -82,6 +83,15 @@ export default function InsightDetailScreen() {
 
   // ── Rising sign insight ──
   if (type === "placement" && planet === "Rising") {
+    const rising = user.chart?.rising;
+    if (!rising) {
+      return (
+        <ComingSoon
+          title="Rising sign"
+          description="Add your birth time in Profile to reveal your Rising sign — we won't guess it."
+        />
+      );
+    }
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
         <ScrollView contentContainerStyle={s.scrollContent}>
@@ -93,13 +103,13 @@ export default function InsightDetailScreen() {
               <Text style={[s.glyphText, { color: SolunaColors.softPeach, fontSize: 28 }]}>ASC</Text>
             </View>
             <Text style={s.heroTitle}>Rising Sign</Text>
-            <Text style={s.heroSign}>{ZODIAC_SYMBOLS[user.chart.rising]} {user.chart.rising}</Text>
+            <Text style={s.heroSign}>{ZODIAC_SYMBOLS[rising]} {rising}</Text>
             <Text style={s.heroHouse}>Ascendant · 1st House</Text>
           </View>
           <View style={s.section}>
             <Text style={s.interpretationTitle}>What This Means</Text>
             <Text style={s.interpretationText}>
-              Your rising sign (or ascendant) is the zodiac sign that was literally rising on the eastern horizon at the exact moment you were born. It changes about every two hours — which is why your birth time matters so much. Your rising sign shapes your personal style, your instinctive reactions, and the energy you bring into a room before you even say a word. Think of it as the doorway through which everything else in your chart enters the world. With {user.chart.rising} rising, you greet the world with warmth and grace — people feel at ease around you.
+              Your rising sign (or ascendant) is the zodiac sign that was literally rising on the eastern horizon at the exact moment you were born. It changes about every two hours — which is why your birth time matters so much. Your rising sign shapes your personal style, your instinctive reactions, and the energy you bring into a room before you even say a word. Think of it as the doorway through which everything else in your chart enters the world. With {rising} rising, you greet the world with warmth and grace — people feel at ease around you.
             </Text>
           </View>
           {!user.birthTimeKnown && (
@@ -126,7 +136,7 @@ export default function InsightDetailScreen() {
 
   // ── Astrology placement insight ──
   if (type === "placement" && planet) {
-    const placement = user.chart.placements.find((p) => p.planet === planet);
+    const placement = user.chart?.placements.find((p) => p.planet === planet);
     if (!placement) return null;
     const interp =
       getPlacementInterpretation(placement.planet, placement.sign, placement.house) ??

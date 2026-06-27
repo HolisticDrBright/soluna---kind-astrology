@@ -3,7 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
-import { MOCK_THREE_CARD_READING, TAROT_SPREADS, Fonts } from "@/constants/mockData";
+import { TAROT_SPREADS, Fonts } from "@/constants/mockData";
+import { MOCK_THREE_CARD_READING } from "@/constants/demoData";
+import { isDemoMode } from "@/lib/runtimeMode";
 import { LoadingState } from "@/components/DataStates";
 import { drawTarot } from "@/lib/api";
 import { ChevronLeft, Sparkles, Shuffle, BookOpen } from "lucide-react-native";
@@ -119,7 +121,7 @@ export default function TarotScreen() {
                   {live.nudge ? <Text style={[ts.overallText, { marginTop: 10, fontStyle: "italic" }]}>{live.nudge}</Text> : null}
                 </View>
               </>
-            ) : USE_MOCK_DATA ? (
+            ) : isDemoMode ? (
               <>
                 {MOCK_THREE_CARD_READING.cards.map((card, i) => (
                   <View key={i} style={ts.cardResult}>
