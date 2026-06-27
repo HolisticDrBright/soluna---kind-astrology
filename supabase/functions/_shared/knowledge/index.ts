@@ -7,6 +7,7 @@ import type { KnowledgeCard, KnowledgeSystem, SynthesisTag } from "./types.ts";
 import { westernAstrologyCards } from "./western-astrology.ts";
 import { numerologyCards } from "./numerology.ts";
 import { easternAstrologyCards } from "./eastern-astrology.ts";
+import { baziCards } from "./bazi.ts";
 import { humanDesignInspiredCards } from "./human-design-inspired.ts";
 import { tarotArchetypeCards } from "./tarot-archetypes.ts";
 import { toneSafetyCards } from "./tone-safety-rules.ts";
@@ -20,6 +21,7 @@ export const ALL_CARDS: KnowledgeCard[] = [
   ...westernAstrologyCards,
   ...numerologyCards,
   ...easternAstrologyCards,
+  ...baziCards,
   ...humanDesignInspiredCards,
   ...tarotArchetypeCards,
   ...toneSafetyCards,
@@ -30,6 +32,7 @@ export const CARDS_BY_SYSTEM: Record<KnowledgeSystem, KnowledgeCard[]> = {
   western_astrology: westernAstrologyCards,
   numerology: numerologyCards,
   eastern_astrology: easternAstrologyCards,
+  bazi: baziCards,
   human_design_inspired: humanDesignInspiredCards,
   tarot: tarotArchetypeCards,
   tone: toneSafetyCards,

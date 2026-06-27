@@ -26,9 +26,11 @@ import { selectKnowledge } from "../knowledge/selectKnowledge.ts";
 import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.ts";
 import { computeNumerology } from "../engines/numerology.ts";
 import { computeChinese } from "../engines/chinese.ts";
+import { hasRealBazi, type BaziOutput } from "../engines/bazi.ts";
 import { buildContext, dailyContextToKnowledge } from "./index.ts";
 import {
   bandLabel,
+  baziCompatibility,
   compatibilityScore,
   sunSignFromDate,
 } from "./compatibility-scoring.ts";
@@ -45,6 +47,8 @@ export interface CompatibilityResult {
   confidenceNote: string;
   /** Transparency: exactly which real signals each side contributed. */
   basis: { you: string[]; them: string[] };
+  /** BaZi compatibility note — present ONLY when BOTH sides have a real chart. */
+  baziNote?: string;
 }
 
 export interface OtherPerson {
@@ -53,6 +57,8 @@ export interface OtherPerson {
   birthTime?: string | null;
   /** Already clamped by the caller to romance | friendship | work | family. */
   lens: string;
+  /** The connection's cached provider BaZi chart, when one exists. */
+  bazi?: BaziOutput | null;
 }
 
 /** Only the prose fields the LLM is allowed to write. */
@@ -94,6 +100,19 @@ export async function generateCompatibility(
   });
   const { knowledgeBlock, responseGuide: _responseGuide, safetyDirective } =
     formatKnowledgeForPrompt(selection);
+
+  // BaZi compatibility — ONLY when BOTH sides have a real provider chart. We never
+  // fake it: if either chart is missing/partial-without-a-Day-Master, skip it.
+  let baziNote: string | undefined;
+  const userBazi = ctx.bazi;
+  const otherBazi = other.bazi;
+  if (hasRealBazi(userBazi) && hasRealBazi(otherBazi)) {
+    const compat = baziCompatibility(
+      { dayMasterElement: userBazi!.dayMaster?.element, favorableElements: userBazi!.favorableElements, balance: userBazi!.fiveElementBalance },
+      { dayMasterElement: otherBazi!.dayMaster?.element, favorableElements: otherBazi!.favorableElements, balance: otherBazi!.fiveElementBalance },
+    );
+    if (compat.notes.length) baziNote = compat.notes.join(" ");
+  }
 
   // User-side real basics.
   const youSun = ctx.astrology?.planets.find((p) => p.planet === "Sun")?.sign;
@@ -142,6 +161,7 @@ export async function generateCompatibility(
     "",
     `${ctx.userName}'s real placements: ${youBasis.join(", ") || "limited blueprint available"}.`,
     `${other.name}'s known basics (from birth date only): ${themBasis.join(", ") || "birth date only"}.`,
+    baziNote ? `BaZi / Four Pillars compatibility (both charts present): ${baziNote} Weave this in gently as a reflective lens.` : "",
     `A relationship resonance score of ${score}/100 has ALREADY been computed from these real placements — do not restate or change the number; let your tone match its spirit.`,
     "",
     knowledgeBlock,
@@ -149,9 +169,12 @@ export async function generateCompatibility(
     "COMPATIBILITY GUARDRAILS (critical):",
     "- Frame every difference as a growth invitation — never doom, fear, or a verdict.",
     "- Use repair-oriented language: curiosity over blame.",
-    `- You only know ${other.name}'s Sun sign, Life Path, and Chinese animal — NOT their full chart. Never invent their Moon, Rising, or inner world.`,
+    baziNote
+      ? `- Even with both BaZi charts, keep this a reflective lens — never a verdict, and never invent ${other.name}'s private thoughts or feelings.`
+      : `- You only know ${other.name}'s Sun sign, Life Path, and Chinese animal — NOT their full chart. Never invent their Moon, Rising, or inner world.`,
     "- Never speculate about the other person's private thoughts, feelings, or motives.",
     "- Never advise ending the relationship. Keep it a gentle, reflective lens.",
+    "- Never predict wealth, marriage, health, or fated outcomes from BaZi.",
     safetyDirective,
   ].filter(Boolean).join("\n");
 
@@ -210,6 +233,7 @@ export async function generateCompatibility(
     numerologyNote: cleanStr(prose.numerologyNote) ?? proseFallback.numerologyNote!,
     confidenceNote,
     basis: { you: youBasis, them: themBasis },
+    ...(baziNote ? { baziNote } : {}),
   };
 
   await logEvent("compatibility_generated", {
@@ -219,6 +243,7 @@ export async function generateCompatibility(
     knowledgeCards: selection.selectedKnowledgeCards.length,
     hasUserChart: !!youSun,
     themBasisCount: themBasis.length,
+    bothBazi: !!baziNote,
   }, userId);
 
   return result;

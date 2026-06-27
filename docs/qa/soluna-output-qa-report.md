@@ -1,6 +1,6 @@
 # Soluna Output QA Report
 
-_Generated: 2026-06-26 · 52 scenarios · mode: deterministic only_
+_Generated: 2026-06-27 · 62 scenarios · mode: deterministic only_
 
 This report is produced by `scripts/run-output-qa.ts`. The deterministic checks run with no network; live samples run only when an LLM key is set.
 
@@ -8,11 +8,11 @@ This report is produced by `scripts/run-output-qa.ts`. The deterministic checks 
 
 | Check | Result |
 | --- | --- |
-| Scenarios | 52 |
-| No banned language in selected cards | 52/52 (100%) |
-| No fabricated placements when chart unavailable | 52/52 (100%) |
-| Practical next-step seed available | 52/52 (100%) |
-| Distinct suggested-action sets (variety) | 35 |
+| Scenarios | 62 |
+| No banned language in selected cards | 62/62 (100%) |
+| No fabricated placements when chart unavailable | 62/62 (100%) |
+| Practical next-step seed available | 62/62 (100%) |
+| Distinct suggested-action sets (variety) | 40 |
 | Distinct confidence labels (variety) | 3 |
 
 ## Coverage by category
@@ -26,20 +26,22 @@ This report is produced by `scripts/run-output-qa.ts`. The deterministic checks 
 | ask_self_worth | 1 |
 | ask_stress | 1 |
 | ask_work | 1 |
+| bazi | 4 |
+| bazi_compatibility | 2 |
 | compatibility | 2 |
 | crisis | 2 |
 | daily | 14 |
 | missing_time | 1 |
-| out_of_scope | 4 |
+| out_of_scope | 8 |
 | partial_data | 2 |
 | provider_failure | 1 |
 | tarot | 18 |
 
 ## Confidence distribution
 
-- **mixed**: 22
-- **reflective**: 28
-- **supportive**: 2
+- **mixed**: 27
+- **reflective**: 31
+- **supportive**: 4
 
 ## Per-scenario (deterministic)
 
@@ -67,6 +69,16 @@ This report is produced by `scripts/run-output-qa.ts`. The deterministic checks 
 | provider.failure | provider_failure | 3 | mixed | — | clean | no |
 | partial.numerology_only | partial_data | 2 | supportive | — | clean | no |
 | partial.empty | partial_data | 0 | reflective | — | clean | no |
+| bazi.full | bazi | 12 | mixed | — | clean | no |
+| bazi.missing_time | bazi | 7 | supportive | — | clean | no |
+| bazi.missing_location | bazi | 6 | mixed | — | clean | no |
+| bazi.provider_failure | bazi | 4 | mixed | — | clean | no |
+| bazi_compat.both | bazi_compatibility | 5 | mixed | — | clean | no |
+| bazi_compat.one_missing | bazi_compatibility | 4 | mixed | — | clean | no |
+| fatalistic.wealth | out_of_scope | 2 | supportive | fatalistic_request | clean | no |
+| fatalistic.marriage | out_of_scope | 0 | reflective | fatalistic_request | clean | no |
+| fatalistic.death | out_of_scope | 0 | reflective | fatalistic_request | clean | no |
+| fatalistic.health | out_of_scope | 0 | reflective | fatalistic_request | clean | no |
 | daily.sign.aries | daily | 14 | mixed | — | clean | no |
 | daily.sign.taurus | daily | 14 | mixed | — | clean | no |
 | daily.sign.gemini | daily | 14 | mixed | — | clean | no |

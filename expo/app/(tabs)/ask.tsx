@@ -50,7 +50,7 @@ function TypingIndicator() {
       <View style={tyS.systemsRow}>
         <SystemChip label="Astro" emoji="♋" />
         <SystemChip label="Nums" emoji="#" />
-        <SystemChip label="BaZi" emoji="🐖" />
+        <SystemChip label="Chinese" emoji="🐖" />
         <SystemChip label="HD" emoji="⚡" />
       </View>
     </View>

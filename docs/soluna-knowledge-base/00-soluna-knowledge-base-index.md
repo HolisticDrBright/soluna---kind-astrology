@@ -119,6 +119,7 @@ the selection layer handed it. Same input, same selection, every time.
 | `07-tone-and-safety-rules.md` | Voice, banned patterns, crisis routing. |
 | `08-action-library.md` | The nine reusable, emotionally-safe action types. |
 | `09-dynamic-advice-rules.md` | How advice adapts, and the privacy rules. |
+| `10-bazi-four-pillars-primer.md` | True, provider-backed BaZi / Four Pillars (distinct from the birth-year zodiac). |
 
 ### Machine-readable data (`supabase/functions/_shared/knowledge/`)
 

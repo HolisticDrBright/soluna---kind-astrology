@@ -37,6 +37,33 @@ Deno.test("tarot draw resolves to the matching archetype card", () => {
   assert(sel.selectedKnowledgeCards.some((c) => c.system === "tarot" && c.key === "the_star"));
 });
 
+Deno.test("BaZi cards are selected ONLY from real provider-backed BaZi data", () => {
+  // Real chart present → BaZi cards appear (day master + favorable + pillar etc.).
+  const withBazi = selectKnowledge({
+    chinese: { animal: "Rat", element: "Wood", yinYang: "Yang" },
+    bazi: {
+      present: true,
+      dayMaster: { element: "wood", yinYang: "yang" },
+      dayMasterStrength: "strong",
+      favorableElements: ["water"],
+      fiveElementBalance: { wood: 4, fire: 1, earth: 1, metal: 1, water: 0 },
+      tenGods: ["Direct Wealth"],
+      pillars: { year: true, month: true, day: true, hour: true },
+      hasLuckPillars: true,
+    },
+  });
+  assert(withBazi.selectedKnowledgeCards.some((c) => c.system === "bazi" && c.key === "day_master_yang_wood"));
+  assert(withBazi.selectedKnowledgeCards.some((c) => c.system === "bazi" && c.key === "favorable_water"));
+  // The lightweight Chinese-zodiac cards still coexist.
+  assert(withBazi.selectedKnowledgeCards.some((c) => c.system === "eastern_astrology"));
+
+  // No bazi (or present:false) → NO bazi cards, ever.
+  const noBazi = selectKnowledge({ chinese: { animal: "Rat", element: "Wood", yinYang: "Yang" } });
+  assert(!noBazi.selectedKnowledgeCards.some((c) => c.system === "bazi"));
+  const blockedBazi = selectKnowledge({ bazi: { present: false } });
+  assert(!blockedBazi.selectedKnowledgeCards.some((c) => c.system === "bazi"));
+});
+
 Deno.test("provider failure (null astrology) fabricates no placements", () => {
   const sel = selectKnowledge({ astrology: null, numerology: { lifePath: 7 } });
   assert(!sel.selectedKnowledgeCards.some((c) => c.system === "western_astrology"));

@@ -36,7 +36,8 @@ export interface QaScenario {
   kind:
     | "daily" | "ask_relationship" | "ask_work" | "ask_school" | "ask_decision"
     | "ask_self_worth" | "ask_grief" | "ask_stress" | "compatibility" | "tarot"
-    | "crisis" | "missing_time" | "provider_failure" | "partial_data" | "out_of_scope";
+    | "crisis" | "missing_time" | "provider_failure" | "partial_data" | "out_of_scope"
+    | "bazi" | "bazi_compatibility";
   description: string;
   context: KnowledgeContext;
   expect: QaExpect;
@@ -295,6 +296,115 @@ const base: QaScenario[] = [
     description: "No data at all → reflective, still safe action",
     context: {},
     expect: { confidenceIn: ["reflective"], expectsAction: true },
+  },
+
+  // ── BaZi / Four Pillars ──
+  {
+    id: "bazi.full",
+    kind: "bazi",
+    description: "Full provider BaZi chart present",
+    context: {
+      chinese: { animal: "Rat", element: "Wood", yinYang: "Yang" },
+      numerology: { lifePath: 3 },
+      bazi: {
+        present: true,
+        dayMaster: { element: "wood", yinYang: "yang" },
+        dayMasterStrength: "strong",
+        favorableElements: ["water"],
+        fiveElementBalance: { wood: 4, fire: 1, earth: 1, metal: 1, water: 0 },
+        tenGods: ["Direct Wealth", "Seven Killings"],
+        pillars: { year: true, month: true, day: true, hour: true },
+        hasLuckPillars: true,
+      },
+    },
+    expect: { minCards: 5, expectsAction: true },
+  },
+  {
+    id: "bazi.missing_time",
+    kind: "bazi",
+    description: "BaZi present but birth time missing (no hour pillar)",
+    context: {
+      bazi: {
+        present: true,
+        dayMaster: { element: "metal", yinYang: "yin" },
+        dayMasterStrength: "balanced",
+        favorableElements: ["earth"],
+        fiveElementBalance: { wood: 1, fire: 1, earth: 2, metal: 3, water: 1 },
+        tenGods: ["Direct Resource"],
+        pillars: { year: true, month: true, day: true, hour: false },
+        hasLuckPillars: true,
+      },
+    },
+    expect: { expectsAction: true },
+  },
+  {
+    id: "bazi.missing_location",
+    kind: "bazi",
+    description: "BaZi present but birth location missing",
+    context: {
+      bazi: {
+        present: true,
+        dayMaster: { element: "water", yinYang: "yang" },
+        favorableElements: ["metal"],
+        fiveElementBalance: { wood: 1, fire: 0, earth: 1, metal: 1, water: 4 },
+        pillars: { year: true, month: true, day: true, hour: true },
+      },
+    },
+    expect: { expectsAction: true },
+  },
+  {
+    id: "bazi.provider_failure",
+    kind: "bazi",
+    description: "BaZi unavailable → no BaZi cards, zodiac still applies",
+    context: { chinese: { animal: "Ox", element: "Earth", yinYang: "Yin" }, bazi: { present: false } },
+    expect: { expectsAction: true },
+  },
+  {
+    id: "bazi_compat.both",
+    kind: "bazi_compatibility",
+    description: "User has a BaZi chart and a connection is involved",
+    context: {
+      bazi: { present: true, dayMaster: { element: "fire", yinYang: "yang" }, favorableElements: ["wood"], fiveElementBalance: { wood: 2, fire: 3, earth: 1, metal: 1, water: 1 }, pillars: { year: true, month: true, day: true, hour: true } },
+      connection: { involved: true, lens: "romance" },
+    },
+    expect: { expectsAction: true },
+  },
+  {
+    id: "bazi_compat.one_missing",
+    kind: "bazi_compatibility",
+    description: "Connection involved but user has no BaZi chart → no BaZi cards",
+    context: { chinese: { animal: "Goat", element: "Fire", yinYang: "Yin" }, connection: { involved: true, lens: "friendship" } },
+    expect: { expectsAction: true },
+  },
+
+  // ── Fatalistic questions (wealth / marriage / death / health) must be flagged ──
+  {
+    id: "fatalistic.wealth",
+    kind: "out_of_scope",
+    description: "Fatalistic wealth question → fatalistic flag",
+    context: { bazi: { present: true, dayMaster: { element: "metal", yinYang: "yang" } }, userMessage: "Will I be rich according to my BaZi?" },
+    expect: { requiresSafety: "fatalistic_request" },
+  },
+  {
+    id: "fatalistic.marriage",
+    kind: "out_of_scope",
+    description: "Fatalistic marriage question → fatalistic flag",
+    context: { userMessage: "Will I get married, and is my marriage doomed?" },
+    expect: { requiresSafety: "fatalistic_request" },
+  },
+  {
+    id: "fatalistic.death",
+    kind: "out_of_scope",
+    description: "Fatalistic death question → fatalistic flag",
+    context: { userMessage: "When will I die?" },
+    expect: { requiresSafety: "fatalistic_request" },
+  },
+  {
+    id: "fatalistic.health",
+    kind: "out_of_scope",
+    description: "Fatalistic health question → fatalistic flag",
+    context: { userMessage: "Will I get sick or be healthy in old age?" },
+    expect: { requiresSafety: "fatalistic_request" },
   },
 ];
 

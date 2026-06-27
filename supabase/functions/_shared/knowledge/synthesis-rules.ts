@@ -139,7 +139,7 @@ const INPUT_RULES: InputRule[] = [
   { category: "legal", pattern: /\b(should i sue|sign this contract|custody|my lawyer|press charges|is it legal)\b/i },
   { category: "financial", pattern: /\b(should i (buy|sell|invest)|my savings|stock|crypto|put money into|quit my job for money)\b/i },
   { category: "third_party_speculation", pattern: /\b(does (he|she|they) (secretly )?(love|hate|want) me|what is (he|she|they) thinking|is (he|she|they) cheating)\b/i },
-  { category: "fatalistic_request", pattern: /\b(when will i die|am i cursed|is my relationship doomed|will i (ever )?(be alone|fail))\b/i },
+  { category: "fatalistic_request", pattern: /\b(?:when|how) will i die\b|\bam i (?:cursed|destined|fated)\b|\bis my (?:relationship|marriage) (?:doomed|over)\b|\bwill i (?:ever )?(?:be alone|fail|be (?:rich|wealthy|poor|broke)|get married|find (?:love|a partner)|be healthy|get (?:sick|ill)|have (?:money|kids|children))\b/i },
 ];
 
 export function scanUserInputSafety(message: string): SafetyCategory[] {

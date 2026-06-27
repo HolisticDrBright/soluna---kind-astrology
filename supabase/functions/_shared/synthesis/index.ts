@@ -18,6 +18,8 @@ import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 import type { AstrologyOutput } from "../engines/astrology.ts";
 import type { NumerologyOutput } from "../engines/numerology.ts";
 import type { ChineseOutput } from "../engines/chinese.ts";
+import type { BaziOutput } from "../engines/bazi.ts";
+import { hasRealBazi } from "../engines/bazi.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
@@ -36,6 +38,7 @@ export interface DailyContext {
   astrology: AstrologyOutput | null;
   numerology: NumerologyOutput | null;
   chinese: ChineseOutput | null;
+  bazi: BaziOutput | null;
   humanDesign: HumanDesignOutput | null;
   biorhythm: BiorhythmOutput | null;
   tarotCard: { name: string; meaning: string; arcana: string } | null;
@@ -101,6 +104,27 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
     chinese: ctx.chinese
       ? { animal: ctx.chinese.animal, element: ctx.chinese.element, yinYang: ctx.chinese.yinYang }
       : null,
+    // BaZi is included ONLY when a real provider chart exists — never the
+    // lightweight zodiac, never fabricated.
+    bazi: hasRealBazi(ctx.bazi)
+      ? {
+          present: true,
+          dayMaster: ctx.bazi!.dayMaster
+            ? { element: ctx.bazi!.dayMaster.element, yinYang: ctx.bazi!.dayMaster.yinYang }
+            : null,
+          dayMasterStrength: ctx.bazi!.dayMasterStrength,
+          tenGods: ctx.bazi!.tenGods,
+          favorableElements: ctx.bazi!.favorableElements,
+          fiveElementBalance: ctx.bazi!.fiveElementBalance,
+          pillars: {
+            year: !!ctx.bazi!.pillars.year,
+            month: !!ctx.bazi!.pillars.month,
+            day: !!ctx.bazi!.pillars.day,
+            hour: !!ctx.bazi!.pillars.hour,
+          },
+          hasLuckPillars: ctx.bazi!.luckPillars.length > 0,
+        }
+      : null,
     humanDesign: ctx.humanDesign
       ? {
           type: ctx.humanDesign.type,
@@ -150,6 +174,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     astrology: blueprint?.astrology as AstrologyOutput | null ?? null,
     numerology: blueprint?.numerology as NumerologyOutput | null ?? null,
     chinese: blueprint?.chinese as ChineseOutput | null ?? null,
+    bazi: (blueprint?.bazi as BaziOutput | null) ?? null,
     humanDesign: blueprint?.human_design as HumanDesignOutput | null ?? null,
     biorhythm: blueprint?.biorhythm_seed as BiorhythmOutput | null ?? null,
     tarotCard: tarotCard ? { name: tarotCard.name, meaning: tarotCard.meaning, arcana: tarotCard.arcana } : null,
@@ -487,7 +512,7 @@ function systemsFromSelection(
 ): string[] {
   const fromCards = selection.selectedKnowledgeCards
     .map((c) => (c.system === "western_astrology" ? "astrology" : c.system === "eastern_astrology" ? "chinese" : c.system === "human_design_inspired" ? "human_design" : c.system))
-    .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "human_design" || s === "tarot");
+    .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "bazi" || s === "human_design" || s === "tarot");
   return [...new Set([...fromCards, ...extractSystemsReferenced(text)])];
 }
 
@@ -498,6 +523,7 @@ function extractSystemsReferenced(text: string): string[] {
     { regex: /\b(Life Path|Expression|Soul Urge|Personal (Year|Month|Day)|Number \d+)\b/gi, system: "numerology" },
     { regex: /\b(Generator|Manifestor|Projector|Reflector|Authority|Profile|Center|Gate)\b/gi, system: "human_design" },
     { regex: /\b(Rat|Ox|Tiger|Rabbit|Dragon|Snake|Horse|Goat|Monkey|Rooster|Dog|Pig|Wood|Fire|Earth|Metal|Water|Yin|Yang)\b/gi, system: "chinese" },
+    { regex: /\b(BaZi|Four Pillars|Day Master|Ten Gods|Luck Pillars)\b/gi, system: "bazi" },
   ];
   for (const p of patterns) {
     if (p.regex.test(text) && !refs.includes(p.system)) {

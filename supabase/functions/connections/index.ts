@@ -8,6 +8,7 @@ import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateConnection } from "../_shared/schemas.ts";
 import { generateCompatibility } from "../_shared/synthesis/compatibility.ts";
+import { computeBazi, type BaziOutput } from "../_shared/engines/bazi.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -97,12 +98,35 @@ Deno.serve(async (req: Request) => {
       // layer Ask and Today use), blended with the connection's date-derived basics
       // (Sun sign, Life Path, Chinese animal). We never fabricate the other person's
       // chart, and the score is computed deterministically from real signals.
+      // Compute (and cache) the connection's BaZi so BaZi compatibility can run
+      // when BOTH sides have a real chart. Cached by input fingerprint, so the
+      // provider is never charged twice. Best-effort: compatibility still works
+      // without it, and it is never fabricated.
+      let connBazi = (conn.bazi as BaziOutput | null) ?? null;
+      try {
+        const fresh = await computeBazi({
+          date: conn.birth_date,
+          time: conn.birth_time ?? null,
+          lat: conn.lat ?? null,
+          lng: conn.lng ?? null,
+          timezone: conn.timezone ?? "UTC",
+        }, { cachedBazi: connBazi });
+        if (fresh !== connBazi) {
+          connBazi = fresh;
+          await supabase.from("connections").update({ bazi: fresh })
+            .eq("id", connectionId).eq("user_id", user.userId);
+        }
+      } catch (e) {
+        console.error("Connection BaZi compute failed (compatibility continues without it):", e);
+      }
+
       try {
         const result = await generateCompatibility(user.userId, {
           name: conn.name,
           birthDate: conn.birth_date,
           birthTime: conn.birth_time ?? null,
           lens,
+          bazi: connBazi,
         });
 
         const { data: report } = await supabase.from("compatibility_reports")

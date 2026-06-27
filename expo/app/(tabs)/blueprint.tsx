@@ -6,7 +6,7 @@ import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS } from "@/constants/mockData";
-import type { ZodiacSign } from "@/constants/mockData";
+import type { ZodiacSign, BaziView } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
@@ -338,7 +338,8 @@ function BlueprintContent() {
             ))}
             <Text style={s.sectionLabel}>Gentle Growth Edge</Text>
             <Card><Text style={s.growthText}>{safeGet(user.chinese.growthEdge, "")}</Text></Card>
-            <Text style={s.sectionLabel}>BaZi Four Pillars</Text>
+            <Text style={s.sectionLabel}>Year & Month Pillars · Chinese Zodiac</Text>
+            <Text style={s.baziHint}>A light birth-year zodiac lens — not a full BaZi chart.</Text>
             {(user.chinese.bazi ?? []).map((pillar, i) => (
               <Card key={i}>
                 <View style={s.baziRow}>
@@ -351,6 +352,10 @@ function BlueprintContent() {
                 <Text style={s.baziMeaning}>{safeGet(pillar.meaning, "")}</Text>
               </Card>
             ))}
+
+            {/* True, provider-backed BaZi / Four Pillars (distinct from the zodiac above). */}
+            <Text style={s.sectionLabel}>BaZi · Four Pillars</Text>
+            <BaziFourPillars bazi={user.bazi} />
           </View>
         )}
 
@@ -389,6 +394,79 @@ function BlueprintContent() {
         <View style={{ height: 100 }} />
       </ScrollView>
     </LinearGradient>
+  );
+}
+
+function capWord(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+// True, provider-backed BaZi / Four Pillars — renders honest available / partial /
+// unavailable states. Never shows fabricated pillars.
+function BaziFourPillars({ bazi }: { bazi: BaziView }) {
+  if (!bazi?.available) {
+    const why = bazi?.missingInputs?.includes("birth_location")
+      ? "Add your birth place to unlock your full BaZi / Four Pillars chart."
+      : bazi?.missingInputs?.includes("birth_time")
+        ? "Add your birth time to unlock your full BaZi / Four Pillars chart."
+        : (bazi?.notes?.[0] ?? "Full BaZi / Four Pillars isn't available yet.");
+    return (
+      <Card>
+        <Text style={s.baziUnavailTitle}>Four Pillars not available yet</Text>
+        <Text style={s.baziMeaning}>{why}</Text>
+      </Card>
+    );
+  }
+  return (
+    <View>
+      {bazi.dayMaster && (
+        <Card>
+          <Text style={s.baziDmLabel}>Day Master</Text>
+          <Text style={s.baziDmValue}>
+            {[bazi.dayMaster.yinYang, capWord(bazi.dayMaster.element)].filter(Boolean).join(" ")}
+            {bazi.dayMaster.stem ? ` · ${bazi.dayMaster.stem}` : ""}
+          </Text>
+          {bazi.dayMasterStrength ? <Text style={s.baziMeaning}>Strength: {capWord(bazi.dayMasterStrength)}</Text> : null}
+        </Card>
+      )}
+      {bazi.pillars.map((p, i) => (
+        <Card key={i}>
+          <View style={s.baziRow}>
+            <Text style={s.baziStem}>{p.label}</Text>
+            <Text style={s.baziBranch}>{p.stem}{p.branch}{p.animal ? ` · ${p.animal}` : ""}</Text>
+            {p.element ? (
+              <View style={[s.baziElemBadge, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
+                <Text style={s.baziElemText}>{capWord(p.element)}</Text>
+              </View>
+            ) : null}
+          </View>
+        </Card>
+      ))}
+      {bazi.elementBalance.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Element Balance</Text>
+          <Card><Text style={s.baziMeaning}>{bazi.elementBalance.map((e) => `${capWord(e.element)} ${e.count}`).join("  ·  ")}</Text></Card>
+        </>
+      )}
+      {bazi.favorableElements.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Supportive Element</Text>
+          <Card><Text style={s.baziMeaning}>Lean gently into {bazi.favorableElements.map(capWord).join(", ")} energy.</Text></Card>
+        </>
+      )}
+      {bazi.luckPillars.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Luck Cycles</Text>
+          <Card><Text style={s.baziMeaning}>{bazi.luckPillars.map((l) => `${l.stem}${l.branch}${l.startAge != null ? ` (from age ${l.startAge})` : ""}`).join("  ·  ")}</Text></Card>
+        </>
+      )}
+      {bazi.partial ? (
+        <Text style={s.baziHint}>
+          {bazi.missingInputs.includes("birth_time") ? "Partial chart — add your birth time for the Hour Pillar." : "Partial chart from the data on file."}
+        </Text>
+      ) : null}
+      <Text style={s.baziHint}>A reflective lens for self-insight, not fixed fate.</Text>
+    </View>
   );
 }
 
@@ -440,6 +518,10 @@ const s = StyleSheet.create({
   baziElemBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   baziElemText: { fontSize: 14 },
   baziMeaning: { fontSize: 12, color: SolunaColors.creamMuted, lineHeight: 18, fontFamily: Fonts.body },
+  baziHint: { fontSize: 11, color: SolunaColors.creamSubtle, fontStyle: "italic", fontFamily: Fonts.body, marginBottom: 8, lineHeight: 16 },
+  baziDmLabel: { fontSize: 10, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", marginBottom: 4 },
+  baziDmValue: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 2 },
+  baziUnavailTitle: { fontSize: 14, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 4 },
   bgWrap: { alignItems: "center", marginBottom: 10 },
   hdType: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 6 },
   hdDesc: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },

@@ -23,6 +23,8 @@ export interface BlueprintData {
   astrology?: unknown;
   numerology?: unknown;
   chinese?: unknown;
+  /** Provider-backed BaZi / Four Pillars (BaziOutput); "unavailable" when absent. */
+  bazi?: unknown;
   human_design?: unknown;
   biorhythm_seed?: unknown;
   computed_at?: string;
@@ -62,6 +64,8 @@ export interface CompatibilityReport {
   confidenceNote?: string;
   /** Transparency: which real signals each side contributed. */
   basis?: { you: string[]; them: string[] };
+  /** BaZi compatibility note — present only when BOTH sides have a real chart. */
+  baziNote?: string;
 }
 
 // ─── API Functions ─────────────────────────────────────────────

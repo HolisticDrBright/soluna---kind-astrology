@@ -50,7 +50,22 @@ export interface KnowledgeContext {
     expression?: number;
     soulUrge?: number;
   } | null;
+  /** Lightweight birth-year Chinese zodiac (always available from the date). */
   chinese?: { animal?: string; element?: string; yinYang?: string } | null;
+  /**
+   * Full provider-backed BaZi / Four Pillars. `present` is true ONLY when a real
+   * provider chart exists — selection never produces BaZi cards otherwise.
+   */
+  bazi?: {
+    present: boolean;
+    dayMaster?: { element?: string; yinYang?: string } | null;
+    dayMasterStrength?: string | null;
+    tenGods?: string[];
+    favorableElements?: string[];
+    fiveElementBalance?: Record<string, number>;
+    pillars?: { year?: boolean; month?: boolean; day?: boolean; hour?: boolean };
+    hasLuckPillars?: boolean;
+  } | null;
   humanDesign?: {
     type?: string;
     authority?: string;
@@ -129,6 +144,33 @@ const HD_CENTER_KEY: Record<string, string> = {
   "head": "head_ajna", "ajna": "head_ajna", "mind": "head_ajna",
   "root": "root",
 };
+
+const ELEMENTS = ["wood", "fire", "earth", "metal", "water"];
+
+// Ten God name (provider may send English / pinyin / CJK) → BaZi card key.
+const TEN_GOD_KEY: Record<string, string> = {
+  "companion": "ten_god_companion", "friend": "ten_god_companion", "peer": "ten_god_companion", "bi jian": "ten_god_companion", "比肩": "ten_god_companion",
+  "rob wealth": "ten_god_rob_wealth", "jie cai": "ten_god_rob_wealth", "劫财": "ten_god_rob_wealth",
+  "eating god": "ten_god_eating_god", "shi shen": "ten_god_eating_god", "食神": "ten_god_eating_god",
+  "hurting officer": "ten_god_hurting_officer", "shang guan": "ten_god_hurting_officer", "伤官": "ten_god_hurting_officer",
+  "direct wealth": "ten_god_direct_wealth", "zheng cai": "ten_god_direct_wealth", "正财": "ten_god_direct_wealth",
+  "indirect wealth": "ten_god_indirect_wealth", "pian cai": "ten_god_indirect_wealth", "偏财": "ten_god_indirect_wealth",
+  "direct officer": "ten_god_direct_officer", "zheng guan": "ten_god_direct_officer", "正官": "ten_god_direct_officer",
+  "seven killings": "ten_god_seven_killings", "seven killing": "ten_god_seven_killings", "qi sha": "ten_god_seven_killings", "七杀": "ten_god_seven_killings",
+  "direct resource": "ten_god_direct_resource", "zheng yin": "ten_god_direct_resource", "正印": "ten_god_direct_resource",
+  "indirect resource": "ten_god_indirect_resource", "pian yin": "ten_god_indirect_resource", "偏印": "ten_god_indirect_resource",
+};
+
+function tenGodKey(name: string): string | undefined {
+  return TEN_GOD_KEY[name.toLowerCase().replace(/_/g, " ").trim()];
+}
+function strengthKey(s?: string | null): string | undefined {
+  const v = (s ?? "").toLowerCase();
+  if (!v) return undefined;
+  if (v.includes("strong")) return "strength_strong";
+  if (v.includes("weak")) return "strength_weak";
+  return "strength_balanced";
+}
 
 const HD_TYPE_KEY: Record<string, string> = {
   "generator": "type_generator",
@@ -277,6 +319,38 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
     }
     if (ctx.chinese.element) push(cards, seen, cardByKeyInSystem("eastern_astrology", `element_${ctx.chinese.element.toLowerCase()}`));
     if (ctx.chinese.yinYang) push(cards, seen, cardByKeyInSystem("eastern_astrology", `polarity_${ctx.chinese.yinYang.toLowerCase()}`));
+  }
+
+  // 4b. BaZi / Four Pillars — ONLY from a real provider-backed chart. Capped so
+  //     the deep Eastern layer doesn't crowd the rest. Never from the lightweight
+  //     Chinese zodiac (that's handled above).
+  if (ctx.bazi?.present) {
+    const bz: (KnowledgeCard | undefined)[] = [];
+    const get = (key: string) => cardByKeyInSystem("bazi", key);
+    bz.push(get("bazi_core"));
+    const dm = ctx.bazi.dayMaster;
+    if (dm?.element && dm?.yinYang) bz.push(get(`day_master_${dm.yinYang.toLowerCase()}_${dm.element.toLowerCase()}`));
+    const sk = strengthKey(ctx.bazi.dayMasterStrength);
+    if (sk) bz.push(get(sk));
+    // Element balance: the most over- and under-represented elements.
+    const bal = ctx.bazi.fiveElementBalance ?? {};
+    const entries = ELEMENTS.map((e) => [e, bal[e] ?? 0] as const);
+    const present = entries.filter(([, n]) => n > 0);
+    if (present.length) {
+      const max = present.reduce((a, b) => (b[1] > a[1] ? b : a));
+      const min = entries.reduce((a, b) => (b[1] < a[1] ? b : a));
+      if (max[1] >= 3) bz.push(get(`element_excess_${max[0]}`));
+      if (min[1] === 0) bz.push(get(`element_deficient_${min[0]}`));
+    }
+    for (const el of (ctx.bazi.favorableElements ?? []).slice(0, 1)) bz.push(get(`favorable_${el.toLowerCase()}`));
+    for (const g of (ctx.bazi.tenGods ?? [])) {
+      const k = tenGodKey(g);
+      if (k) bz.push(get(k));
+    }
+    if (ctx.bazi.pillars?.day) bz.push(get("pillar_day"));
+    if (ctx.bazi.hasLuckPillars) bz.push(get("luck_pillar_core"));
+    // Cap BaZi contribution so synthesis stays cross-system balanced.
+    bz.filter(Boolean).slice(0, 7).forEach((c) => push(cards, seen, c));
   }
 
   // 5. Human Design-inspired — type, authority, profile, a couple of centers.

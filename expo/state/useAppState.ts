@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import createContextHook from "@nkzw/create-context-hook";
 import type { Session, User } from "@supabase/supabase-js";
 import type {
+  BaziView,
   ChartData,
   ChineseAstrologyData,
   HumanDesignData,
@@ -12,7 +13,7 @@ import type {
   UserData,
   ZodiacSign,
 } from "@/constants/mockData";
-import { MOCK_USER, PLANETS, ZODIAC } from "@/constants/mockData";
+import { MOCK_BAZI, MOCK_USER, PLANETS, ZODIAC } from "@/constants/mockData";
 import { supabase } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
@@ -50,6 +51,7 @@ function buildDisplayUser(payload: {
     chart: buildChartData(payload.blueprint?.astrology as Record<string, unknown> | undefined),
     numerology: buildNumerologyData(payload.blueprint?.numerology as Record<string, unknown> | undefined),
     chinese: buildChineseData(payload.blueprint?.chinese as Record<string, unknown> | undefined),
+    bazi: buildBaziData(payload.blueprint?.bazi as Record<string, unknown> | undefined),
     humanDesign: buildHumanDesignData(payload.blueprint?.human_design as Record<string, unknown> | undefined),
   };
 }
@@ -117,6 +119,58 @@ function buildChineseData(chinese?: Record<string, unknown>): ChineseAstrologyDa
     animal: animal as ChineseAstrologyData["animal"],
     element: element as ChineseAstrologyData["element"],
     elementAnimalLabel: `${element} ${animal}`,
+  };
+}
+
+function buildBaziData(bazi?: Record<string, unknown>): BaziView {
+  // Only a real provider chart (with a Day Master) is shown as BaZi. Anything
+  // else renders the honest unavailable/partial state — never fabricated.
+  if (!bazi || typeof bazi !== "object") return { ...MOCK_BAZI };
+
+  const pillarsRaw = toRecord(bazi.pillars) ?? {};
+  const order: Array<[BaziView["pillars"][number]["label"], string]> = [
+    ["Year", "year"], ["Month", "month"], ["Day", "day"], ["Hour", "hour"],
+  ];
+  const pillars = order.flatMap(([label, k]) => {
+    const p = toRecord(pillarsRaw[k]);
+    if (!p) return [];
+    return [{
+      label,
+      stem: String(p.stem ?? ""),
+      branch: String(p.branch ?? ""),
+      element: String(p.element ?? ""),
+      animal: p.animal ? String(p.animal) : undefined,
+    }];
+  });
+
+  const dmRaw = toRecord(bazi.dayMaster);
+  const dayMaster = dmRaw
+    ? { stem: String(dmRaw.stem ?? ""), element: String(dmRaw.element ?? ""), yinYang: String(dmRaw.yinYang ?? "") }
+    : null;
+  const available = bazi.source === "provider" && !!dayMaster && pillars.some((p) => p.label === "Day");
+
+  const balRaw = toRecord(bazi.fiveElementBalance) ?? {};
+  const elementBalance = Object.entries(balRaw)
+    .map(([element, v]) => ({ element, count: typeof v === "number" ? v : Number(v) || 0 }))
+    .filter((e) => e.count > 0);
+  const fav = Array.isArray(bazi.favorableElements) ? bazi.favorableElements.map(String) : [];
+  const luckPillars = (Array.isArray(bazi.luckPillars) ? bazi.luckPillars : [])
+    .map(toRecord).filter(Boolean).slice(0, 3)
+    .map((l) => ({ stem: String(l!.stem ?? ""), branch: String(l!.branch ?? ""), startAge: typeof l!.startAge === "number" ? l!.startAge : null }));
+  const notes = Array.isArray(bazi.confidenceNotes) ? bazi.confidenceNotes.map(String) : [];
+
+  return {
+    available,
+    partial: Boolean(bazi.partial),
+    missingInputs: Array.isArray(bazi.missingInputs) ? bazi.missingInputs.map(String) : [],
+    unavailableReason: typeof bazi.unavailableReason === "string" ? bazi.unavailableReason : undefined,
+    dayMaster: available ? dayMaster : null,
+    dayMasterStrength: typeof bazi.dayMasterStrength === "string" ? bazi.dayMasterStrength : null,
+    pillars: available ? pillars : [],
+    elementBalance: available ? elementBalance : [],
+    favorableElements: available ? fav : [],
+    luckPillars: available ? luckPillars : [],
+    notes: notes.length ? notes : MOCK_BAZI.notes,
   };
 }
 

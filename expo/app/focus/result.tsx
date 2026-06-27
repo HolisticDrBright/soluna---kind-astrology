@@ -57,7 +57,7 @@ export default function FocusResultScreen() {
     "Human Design":
       "Your Human Design type, strategy, authority, and defined centers reveal how you're designed to make decisions and use energy. This insight draws from your Generator design and Emotional Authority.",
     Chinese:
-      "Your Chinese zodiac animal, element, and BaZi chart offer a complementary lens on your character, timing, and natural rhythms. This insight draws from your Wood Pig nature and current animal-year dynamics.",
+      "Your Chinese zodiac animal and element offer a complementary lens on your character, timing, and natural rhythms. This insight draws from your Wood Pig nature and current animal-year dynamics.",
   };
 
   const handleSave = useCallback(() => setSaved(true), []);
