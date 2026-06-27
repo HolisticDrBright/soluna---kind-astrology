@@ -39,8 +39,13 @@ framing):
   plan endpoint is confirmed (`getTransitCapability`), never fabricated.
 - **Tarot**: completed the full 78-card deck (all 56 Minor Arcana), keys matching
   the draw engine.
-- **Eastern**: added the four harmony trines + a year-cycle card; documented that
-  Soluna uses birth-year zodiac, not full BaZi / Four Pillars.
+- **Eastern (Chinese zodiac)**: added the four harmony trines + a year-cycle card.
+  This stays the lightweight birth-year lens.
+- **BaZi / Four Pillars (new "bazi" system, provider-backed)**: a true Eastern
+  depth layer via FreeAstroAPI — 44 cards (Day Masters, Ten Gods, element balance,
+  pillars, luck), selected ONLY from a real chart, cached on the blueprint,
+  partial/unavailable when inputs/provider are missing, with BaZi compatibility
+  when both sides have a chart. Never fabricated; never fixed-fate. See primer 10.
 - **Human Design-inspired**: added Identity/Heart/Spleen center cards; a test now
   forbids proprietary specifics (gates/channels/incarnation cross) and
   deterministic "you are a <type>" claims.
@@ -62,7 +67,8 @@ framing):
 | Transits — planet/retrograde/transit-to-natal | ⏳ depends on provider | capability-gated OFF until `ASTROLOGY_TRANSITS_ENABLED` + endpoint |
 | Numerology | ✅ implemented | life path (1–9 + masters), personal day, expression, soul urge |
 | Eastern — animal / element / polarity / trine / year-cycle | ✅ implemented | birth-year zodiac |
-| Eastern — full BaZi / Four Pillars | 🚫 not yet available | needs a real BaZi endpoint; documented as out of scope |
+| Eastern — full BaZi / Four Pillars | ✅ implemented (provider-backed) | FreeAstroAPI; pillars / Day Master / Ten Gods / elements / luck. Off → honest "unavailable"; missing time/place → partial, never fabricated |
+| BaZi compatibility | ✅ implemented | only when BOTH have a real chart; real Five-Element cycles |
 | Human Design-inspired (type / authority / profile / centers) | ✅ implemented | reflective framing; no gates/channels |
 | Tarot — full 78 | ✅ implemented | 22 Major + 56 Minor |
 | Compatibility | ✅ implemented | real blueprint + knowledge layer (see connections endpoint) |
@@ -85,6 +91,7 @@ supabase/functions/_shared/knowledge/
   western-astrology.ts      # 113 cards (signs, planet-in-sign, houses, aspects, phases)
   numerology.ts             # 25 cards
   eastern-astrology.ts      # 25 cards (animals, elements, polarity, trines, year-cycle)
+  bazi.ts                   # 44 cards (day masters, ten gods, elements, pillars, luck)
   human-design-inspired.ts  # 30 cards (types, authorities, profiles, centers)
   tarot-archetypes.ts       # 78 cards (full deck: 22 Major + 56 Minor)
   tone-safety-rules.ts      # tone cards + BANNED_PATTERNS + scanForBannedLanguage()
@@ -92,7 +99,7 @@ supabase/functions/_shared/knowledge/
   synthesis-rules.ts        # agreement/tension/confidence + input safety scan
   selectKnowledge.ts        # the deterministic selection layer
   formatKnowledgeForPrompt.ts  # selection -> compact prompt blocks (system-balanced)
-  index.ts                  # barrel: ALL_CARDS (285) + by-id/key/tag lookups
+  index.ts                  # barrel: ALL_CARDS (329) + by-id/key/tag lookups
 
 supabase/functions/_shared/engines/
   moon-phase.ts             # deterministic real Moon phase from a date
@@ -174,7 +181,8 @@ it never fabricates placements.
 ```bash
 # Backend unit tests (no network needed; pure TS)
 deno test --allow-env --allow-read supabase/functions/_shared/tests
-#   -> 89 passed (knowledge schema/selection/safety/prompt, moon phase, transits,
+#   -> 100 passed (knowledge schema/selection/safety/prompt, moon phase, transits,
+#      BaZi engine/normalizer/selection/compatibility,
 #      compatibility scoring, output QA, plus the pre-existing backend tests)
 
 # Generate the output-quality report (deterministic; add an LLM key + --allow-net

@@ -92,8 +92,34 @@ supabase secrets set ASTROLOGY_TRANSITS_ENABLED=true \
 ```
 
 Until both are set, `getTransitCapability()` reports disabled (with a reason) and
-the app uses Moon phase only. Soluna does **not** provide full BaZi / Four Pillars
-— Eastern astrology uses the birth-year zodiac (animal/element/polarity/trine).
+the app uses Moon phase only.
+
+## BaZi / Four Pillars (FreeAstroAPI)
+
+Soluna's **true, provider-backed** Eastern depth layer. It is distinct from the
+lightweight birth-year Chinese zodiac (which always works from the date alone).
+BaZi requires a provider and is **never fabricated**: with no provider it shows an
+honest "unavailable" state, and missing birth time/place yields a clearly-marked
+*partial* chart (no guessed Hour Pillar). Set these as Edge Function secrets
+(backend-only — the key must never reach the client):
+
+```bash
+supabase secrets set BAZI_PROVIDER=freeastroapi \
+  BAZI_API_BASE_URL=https://api.freeastroapi.com \
+  BAZI_API_KEY=<your-key> \
+  BAZI_ENABLE_TRUE_SOLAR_TIME=true \
+  BAZI_ENABLE_LUCK_CYCLES=true \
+  BAZI_ENABLE_COMPATIBILITY=true
+#   optional: BAZI_API_ENDPOINT=/bazi   (override if your plan's route differs)
+```
+
+The chart is computed in `computeBlueprint`, cached on `blueprints.bazi` (and a
+connection's chart on `connections.bazi`) by an input fingerprint so the provider
+is never charged twice for the same birth data. Run `supabase db push` to apply
+`20260627_bazi_four_pillars.sql` (adds the owner-scoped `bazi` columns), then
+`supabase functions deploy onboarding connections today ask`. BaZi is a reflective
+lens — it is never used for wealth, marriage, health, legal, or fixed-fate
+predictions.
 
 ## 4. LLM provider
 
