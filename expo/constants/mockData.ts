@@ -175,8 +175,48 @@ export interface ChineseAstrologyData {
   todayAnimal: ChineseAnimal;
   todayElement: ChineseElement;
   todayNote: string;
+  /** Lightweight birth-year zodiac pillars — NOT a true BaZi chart. */
   bazi: BaZiPillar[];
 }
+
+// ── True, provider-backed BaZi / Four Pillars (distinct from the zodiac above) ──
+export interface BaziViewPillar {
+  label: "Year" | "Month" | "Day" | "Hour";
+  stem: string;
+  branch: string;
+  element: string;
+  animal?: string;
+}
+export interface BaziView {
+  /** A real provider chart with at least a Day Master. */
+  available: boolean;
+  /** Some inputs were missing (e.g. no birth time) — partial chart. */
+  partial: boolean;
+  missingInputs: string[];
+  unavailableReason?: string;
+  dayMaster: { stem: string; element: string; yinYang: string } | null;
+  dayMasterStrength: string | null;
+  pillars: BaziViewPillar[];
+  elementBalance: { element: string; count: number }[];
+  favorableElements: string[];
+  luckPillars: { stem: string; branch: string; startAge: number | null }[];
+  notes: string[];
+}
+
+/** Honest default: BaZi is unavailable until a provider chart exists. */
+export const MOCK_BAZI: BaziView = {
+  available: false,
+  partial: false,
+  missingInputs: [],
+  unavailableReason: "provider_not_configured",
+  dayMaster: null,
+  dayMasterStrength: null,
+  pillars: [],
+  elementBalance: [],
+  favorableElements: [],
+  luckPillars: [],
+  notes: ["Full BaZi / Four Pillars unlocks when a BaZi provider is connected and your birth time and place are on file."],
+};
 
 // ══════════════════════════════════════════════════════════════════
 // HUMAN DESIGN
@@ -494,6 +534,8 @@ export interface UserData {
   chart: ChartData;
   numerology: NumerologyData;
   chinese: ChineseAstrologyData;
+  /** True provider-backed BaZi / Four Pillars (distinct from `chinese`). */
+  bazi: BaziView;
   humanDesign: HumanDesignData;
 }
 
@@ -593,6 +635,7 @@ export const MOCK_USER: UserData = {
   },
   numerology: MOCK_NUMEROLOGY,
   chinese: MOCK_CHINESE,
+  bazi: MOCK_BAZI,
   humanDesign: MOCK_HUMAN_DESIGN,
 };
 
