@@ -26,9 +26,9 @@ export interface BirthProfileInput {
   birth_time?: string | null; // HH:MM or null
   time_known: boolean;
   birth_place_label?: string;
-  lat?: number;
-  lng?: number;
-  timezone?: string;
+  lat: number;
+  lng: number;
+  timezone: string;
   house_system?: "placidus" | "whole_sign" | "porphyry";
 }
 

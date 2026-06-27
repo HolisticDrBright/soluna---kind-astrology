@@ -183,6 +183,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     astrology: blueprint?.astrology as AstrologyOutput | null ?? null,
     numerology: blueprint?.numerology as NumerologyOutput | null ?? null,
     chinese: blueprint?.chinese as ChineseOutput | null ?? null,
+    bazi: (blueprint?.bazi as BaziOutput | null) ?? null,
     humanDesign: blueprint?.human_design as HumanDesignOutput | null ?? null,
     biorhythm: blueprint?.biorhythm_seed as BiorhythmOutput | null ?? null,
     tarotCard: tarotCard ? { name: tarotCard.name, meaning: tarotCard.meaning, arcana: tarotCard.arcana } : null,
@@ -522,7 +523,7 @@ function systemsFromSelection(
 ): string[] {
   const fromCards = selection.selectedKnowledgeCards
     .map((c) => (c.system === "western_astrology" ? "astrology" : c.system === "eastern_astrology" ? "chinese" : c.system === "human_design_inspired" ? "human_design" : c.system))
-    .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "human_design" || s === "tarot");
+    .filter((s) => s === "astrology" || s === "numerology" || s === "chinese" || s === "bazi" || s === "human_design" || s === "tarot");
   return [...new Set([...fromCards, ...extractSystemsReferenced(text)])];
 }
 
@@ -533,6 +534,7 @@ function extractSystemsReferenced(text: string): string[] {
     { regex: /\b(Life Path|Expression|Soul Urge|Personal (Year|Month|Day)|Number \d+)\b/gi, system: "numerology" },
     { regex: /\b(Generator|Manifestor|Projector|Reflector|Authority|Profile|Center|Gate)\b/gi, system: "human_design" },
     { regex: /\b(Rat|Ox|Tiger|Rabbit|Dragon|Snake|Horse|Goat|Monkey|Rooster|Dog|Pig|Wood|Fire|Earth|Metal|Water|Yin|Yang)\b/gi, system: "chinese" },
+    { regex: /\b(BaZi|Four Pillars|Day Master|Ten Gods|Luck Pillars)\b/gi, system: "bazi" },
   ];
   for (const p of patterns) {
     if (p.regex.test(text) && !refs.includes(p.system)) {

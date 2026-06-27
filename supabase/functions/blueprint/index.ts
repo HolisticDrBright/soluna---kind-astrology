@@ -1,14 +1,14 @@
 /**
  * GET /blueprint — full blueprint
- * GET /blueprint/:system — one lens (astrology|numerology|chinese|human_design)
+ * GET /blueprint/:system — one lens (astrology|numerology|chinese|bazi|human_design)
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { getSupabaseAdmin } from "../_shared/supabase.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { computeAndPersistBlueprint } from "../_shared/engines/blueprint-service.ts";
 
-const VALID_SYSTEMS = ["astrology", "numerology", "chinese", "human_design"] as const;
+const VALID_SYSTEMS = ["astrology", "numerology", "chinese", "bazi", "human_design"] as const;
+type BlueprintSystem = typeof VALID_SYSTEMS[number];
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -25,9 +25,9 @@ Deno.serve(async (req: Request) => {
     const system = pathParts[pathParts.length - 1];
 
     // If blueprint/<system>, return that lens only
-    if (system && system !== "blueprint" && VALID_SYSTEMS.includes(system as typeof VALID_SYSTEMS[number])) {
+    if (system && system !== "blueprint" && VALID_SYSTEMS.includes(system as BlueprintSystem)) {
       const { data: bp } = await supabase.from("blueprints")
-        .select(`${system}, computed_at`)
+        .select("*")
         .eq("user_id", user.userId)
         .single();
 
@@ -35,10 +35,11 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ [system]: null, message: "No blueprint found. Complete onboarding first." }, 200);
       }
 
+      const row = bp as Record<string, unknown>;
       return jsonResponse({
         system,
-        data: bp[system],
-        computedAt: bp.computed_at,
+        data: row[system],
+        computedAt: row.computed_at,
       });
     }
 
