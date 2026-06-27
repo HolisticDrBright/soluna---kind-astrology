@@ -9,12 +9,12 @@ interface SolunaShiftCardProps {
 }
 
 export default function SolunaShiftCard({ date }: SolunaShiftCardProps) {
-  const shift: SolunaShiftData | undefined = SOLUNA_SHIFTS[date];
-  if (!shift) return null;
-
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const toggle = (section: string) =>
     setExpandedSection((prev) => (prev === section ? null : section));
+
+  const shift: SolunaShiftData | undefined = SOLUNA_SHIFTS[date];
+  if (!shift) return null;
 
   return (
     <View style={s.wrap}>

@@ -76,6 +76,18 @@ Deno.test("crisis input suppresses directive actions and routes to grounding", (
   assert(sel.safetyWarnings.some((w) => w.category === "self_harm_crisis"));
 });
 
+Deno.test("user-input safety detects stem-form crisis/abuse/medical words", () => {
+  // Regression: these were previously MISSED because a trailing \b after a bare
+  // stem (suicid|abus|diagnos) blocked matching the full word, so "I feel
+  // suicidal" silently got a normal reading instead of crisis routing.
+  assert(scanUserInputSafety("I feel suicidal").includes("self_harm_crisis"));
+  assert(scanUserInputSafety("thoughts of suicide").includes("self_harm_crisis"));
+  assert(scanUserInputSafety("my partner is abusive").includes("abuse_safety"));
+  assert(scanUserInputSafety("I'm dealing with emotional abuse").includes("abuse_safety"));
+  assert(scanUserInputSafety("I was just diagnosed with something").includes("medical"));
+  assert(scanUserInputSafety("these symptoms are scary").includes("medical"));
+});
+
 Deno.test("medical/financial/third-party questions raise warnings", () => {
   assert(selectKnowledge({ userMessage: "Should I stop my medication?" }).safetyWarnings.some((w) => w.category === "medical"));
   assert(selectKnowledge({ userMessage: "Should I invest my savings?" }).safetyWarnings.some((w) => w.category === "financial"));

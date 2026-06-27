@@ -41,7 +41,7 @@ function getConfig(): LLMConfig {
  * Call the LLM with the Soluna voice system prompt prepended.
  * Handles guardrail trips with a safe fallback.
  */
-export async function llmCall(
+export function llmCall(
   messages: LLMMessage[],
   options?: { maxTokens?: number; temperature?: number; jsonMode?: boolean },
 ): Promise<LLMResponse> {

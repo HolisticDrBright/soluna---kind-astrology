@@ -3,7 +3,7 @@
  * Verifies signature, upserts subscriptions/entitlements.
  */
 
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { isAuthorizedRevenueCatRequest, isUuid } from "../_shared/revenuecat.ts";
 

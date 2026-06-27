@@ -88,11 +88,15 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
 // ─── Live connection card (real list + on-demand compatibility) ──
 function LiveConnectionCard({ conn, lens }: { conn: { id: string; name: string; birth_date: string; lens: string }; lens: string }) {
   const [open, setOpen] = useState(false);
-  const compat = useAsyncData(() => getCompatibility(conn.id, lens), [conn.id, lens, open], { enabled: open });
+  // Fetch the report once on first expand, then keep it cached so collapsing and
+  // re-opening the card is instant and doesn't re-hit the network. A change to
+  // conn.id or lens still triggers a fresh fetch via the deps array.
+  const [hasOpened, setHasOpened] = useState(false);
+  const compat = useAsyncData(() => getCompatibility(conn.id, lens), [conn.id, lens], { enabled: hasOpened });
   const report = compat.data;
 
   return (
-    <TouchableOpacity style={pcS.card} onPress={() => setOpen((o) => !o)} activeOpacity={0.7}>
+    <TouchableOpacity style={pcS.card} onPress={() => { setHasOpened(true); setOpen((o) => !o); }} activeOpacity={0.7}>
       <View style={pcS.top}>
         <View style={pcS.left}>
           <View style={pcS.avatar}><Text style={pcS.avatarText}>{(conn.name[0] ?? "?").toUpperCase()}</Text></View>

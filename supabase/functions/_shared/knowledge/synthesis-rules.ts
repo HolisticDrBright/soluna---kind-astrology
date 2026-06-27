@@ -133,9 +133,9 @@ interface InputRule {
 }
 
 const INPUT_RULES: InputRule[] = [
-  { category: "self_harm_crisis", pattern: /\b(kill myself|end my life|suicid|don't want to (be alive|live)|self[- ]?harm|hurt myself|cut myself|no reason to live|want to die)\b/i },
-  { category: "abuse_safety", pattern: /\b(hits me|hitting me|abus|threatens me|afraid of (him|her|them|my partner)|not safe at home|violent)\b/i },
-  { category: "medical", pattern: /\b(diagnos|should i (take|stop)|my medication|symptom|is this (cancer|covid)|mental illness|am i (depressed|bipolar))\b/i },
+  { category: "self_harm_crisis", pattern: /\b(kill myself|end my life|suicid\w*|don't want to (be alive|live)|self[- ]?harm|hurt myself|cut myself|no reason to live|want to die)\b/i },
+  { category: "abuse_safety", pattern: /\b(hits me|hitting me|abus\w*|threatens me|afraid of (him|her|them|my partner)|not safe at home|violent)\b/i },
+  { category: "medical", pattern: /\b(diagnos\w*|should i (take|stop)|my medication|symptom\w*|is this (cancer|covid)|mental illness|am i (depressed|bipolar))\b/i },
   { category: "legal", pattern: /\b(should i sue|sign this contract|custody|my lawyer|press charges|is it legal)\b/i },
   { category: "financial", pattern: /\b(should i (buy|sell|invest)|my savings|stock|crypto|put money into|quit my job for money)\b/i },
   { category: "third_party_speculation", pattern: /\b(does (he|she|they) (secretly )?(love|hate|want) me|what is (he|she|they) thinking|is (he|she|they) cheating)\b/i },

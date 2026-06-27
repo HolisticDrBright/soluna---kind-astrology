@@ -11,7 +11,6 @@ import React from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import {
-  MOCK_USER,
   PLANET_SYMBOLS,
   ZODIAC_SYMBOLS,
   HOUSE_NAMES,

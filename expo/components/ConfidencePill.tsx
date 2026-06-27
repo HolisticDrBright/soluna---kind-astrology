@@ -1,3 +1,4 @@
+import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import SolunaColors from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
@@ -96,8 +97,6 @@ export default function ConfidencePill({ level, showDetail }: ConfidencePillProp
     </View>
   );
 }
-
-import React from "react";
 
 const s = StyleSheet.create({
   wrap: { alignSelf: "flex-start" },

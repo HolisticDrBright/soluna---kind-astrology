@@ -8,7 +8,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
-import Svg, { Circle, Line } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { CURRENT_TRANSITS, ZODIAC_SYMBOLS, PLANET_SYMBOLS, Fonts } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Clock } from "lucide-react-native";

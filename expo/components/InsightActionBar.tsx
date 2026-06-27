@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import SolunaColors from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
-import { Bookmark, BookOpen, MessageCircle, Share2 } from "lucide-react-native";
+import { Bookmark, BookOpen, MessageCircle } from "lucide-react-native";
 
 interface InsightActionBarProps {
   onSave?: () => void;

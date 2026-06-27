@@ -96,6 +96,7 @@ Deno.serve(async (req: Request) => {
 
         return jsonResponse({ blueprint: summary, recomputed: true });
       } catch (err) {
+        console.error("Blueprint compute error:", err);
         return errorResponse("Failed to compute blueprint. Please try again.", 500);
       }
     }

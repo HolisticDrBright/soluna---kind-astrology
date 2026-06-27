@@ -4,10 +4,10 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateTarotDraw } from "../_shared/schemas.ts";
 import { drawCards } from "../_shared/engines/tarot.ts";
-import { getSupabaseAdmin, hasPremiumAccess, logEvent } from "../_shared/supabase.ts";
+import { hasPremiumAccess, logEvent } from "../_shared/supabase.ts";
 import { llmCall } from "../_shared/llm-client.ts";
 
 Deno.serve(async (req: Request) => {

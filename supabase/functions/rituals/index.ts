@@ -4,7 +4,7 @@
  */
 
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
-import { corsHeaders, handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -12,7 +12,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "GET") return errorResponse("Method not allowed", 405);
 
   try {
-    const user = await requireAuth(req);
+    await requireAuth(req); // enforce auth; rituals are not user-scoped
     const supabase = createUserClient(req);
     const url = new URL(req.url);
     const phase = url.searchParams.get("phase");

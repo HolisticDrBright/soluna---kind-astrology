@@ -7,7 +7,7 @@ import { MOCK_THREE_CARD_READING, TAROT_SPREADS, Fonts } from "@/constants/mockD
 import { LoadingState } from "@/components/DataStates";
 import { drawTarot } from "@/lib/api";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
-import { ChevronLeft, Sparkles, Shuffle, BookOpen } from "lucide-react-native";
+import { ChevronLeft, Shuffle } from "lucide-react-native";
 
 const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
 const SPREAD_KEY: Record<string, string> = { "daily-reset": "daily", "three-card": "three_card", "celtic-cross": "celtic_cross" };

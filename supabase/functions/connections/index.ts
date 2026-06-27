@@ -136,7 +136,7 @@ Deno.serve(async (req: Request) => {
             lens,
             score: result.score,
             body: result,
-          })
+          }, { onConflict: "user_id,connection_id,lens" })
           .select()
           .single();
 

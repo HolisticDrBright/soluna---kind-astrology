@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import SolunaColors from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
 import { Heart, Sparkles, ChevronRight } from "lucide-react-native";
