@@ -23,7 +23,7 @@ import {
 } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
-import { supabase } from "@/lib/supabase";
+import { supabase, NO_BACKEND_ERROR } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
 import { setSentryUser } from "@/lib/sentry";
@@ -303,8 +303,16 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   useEffect(() => {
     if (useMockData) return;
 
+    // Live mode with no configured backend: fail clearly instead of hanging on a
+    // fake client. The auth gate surfaces this as a user-safe "can't connect".
+    const sb = supabase;
+    if (!sb) {
+      setState((s) => ({ ...s, authLoading: false, authError: NO_BACKEND_ERROR }));
+      return;
+    }
+
     let mounted = true;
-    supabase.auth.getSession().then(async ({ data }) => {
+    sb.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       const session = data.session ?? null;
       setState((s) => ({
@@ -320,7 +328,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
       }
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = sb.auth.onAuthStateChange((_event, session) => {
       setState((s) => ({
         ...s,
         session,
@@ -347,6 +355,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   }, [refreshUser]);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: NO_BACKEND_ERROR };
     setState((s) => ({ ...s, authLoading: true, authError: null }));
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -357,6 +366,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: NO_BACKEND_ERROR, needsConfirmation: false };
     setState((s) => ({ ...s, authLoading: true, authError: null }));
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
@@ -369,17 +379,19 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
+    if (!supabase) return { error: NO_BACKEND_ERROR };
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
     return { error: error?.message ?? null };
   }, []);
 
   const resendConfirmation = useCallback(async (email: string) => {
+    if (!supabase) return { error: NO_BACKEND_ERROR };
     const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
     return { error: error?.message ?? null };
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await supabase?.auth.signOut();
     setState({
       hasOnboarded: false,
       user: null,
@@ -409,6 +421,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const updatePreferredName = useCallback(async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return { error: "Please enter a name." };
+    if (!supabase) return { error: NO_BACKEND_ERROR };
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData.session?.user?.id;
     if (!uid) return { error: "You're not signed in." };

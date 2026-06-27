@@ -79,7 +79,7 @@ export async function configureRevenueCat(userId: string): Promise<void> {
     configuredFor = userId;
     // app_user_id === Supabase uid because we identify with it; record the mapping
     // so the webhook (and support tooling) can resolve it.
-    await supabase.from("revenuecat_user_mappings").upsert(
+    await supabase?.from("revenuecat_user_mappings").upsert(
       { user_id: userId, revenuecat_app_user_id: userId, updated_at: new Date().toISOString() },
       { onConflict: "user_id" },
     );

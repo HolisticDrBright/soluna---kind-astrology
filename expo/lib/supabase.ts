@@ -1,29 +1,63 @@
 /**
  * Supabase client for Soluna — native Supabase Auth mode.
  * Uses AsyncStorage for session persistence.
+ *
+ * Production safety: we NEVER fabricate a working-looking client in a live build.
+ * A placeholder client is created ONLY in explicit demo/dev mode (where the app
+ * runs on bundled sample data and never touches the network). In live mode
+ * without real credentials, `supabase` is `null` and every caller fails through a
+ * clear, user-safe error path instead of silently hitting a fake endpoint.
+ *
+ * Only the public anon key ever lives here (it is safe in the client). The
+ * service-role key and any private provider keys are backend-only secrets and
+ * must never be exposed through `EXPO_PUBLIC_*` env vars.
  */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase environment variables not set — API calls will fail.");
+// Demo/dev mode (sample data, no real backend) is the ONLY place a placeholder
+// client is acceptable.
+const isDemoMode = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+
+/** True only when real Supabase credentials are present. */
+export const supabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+/** User-safe message for when there is no backend to talk to. */
+export const NO_BACKEND_ERROR =
+  "Soluna isn't connected right now. Please try again in a little while.";
+
+if (!supabaseConfigured && !isDemoMode) {
+  // A live build with no Supabase credentials is a deployment misconfiguration.
+  // Fail loudly in logs; the UI surfaces a user-safe "can't connect" path.
+  console.error(
+    "[Soluna] EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY are not set. " +
+      "The app will not connect to a backend until they are configured.",
+  );
 }
 
-export const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-key",
-  {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
+const authOptions = {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
   },
-);
+} as const;
+
+/**
+ * The Supabase client, or `null` when running live without configured
+ * credentials. Callers must treat `null` as "backend unavailable" and surface
+ * {@link NO_BACKEND_ERROR} rather than assuming a client exists.
+ */
+export const supabase: SupabaseClient | null = supabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey, authOptions)
+  : isDemoMode
+    ? // Inert placeholder for demo/dev only — never used for real network calls.
+      createClient("https://demo.placeholder.supabase.co", "demo-anon-key", authOptions)
+    : null;
 
 /**
  * Invoke a Soluna Edge Function by name.
@@ -34,11 +68,8 @@ export async function invokeEdgeFunction<T = unknown>(
   body?: Record<string, unknown>,
   method?: "GET" | "POST" | "PATCH" | "DELETE",
 ): Promise<{ data: T | null; error: string | null }> {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return {
-      data: null,
-      error: "Supabase environment variables are not configured",
-    };
+  if (!supabase) {
+    return { data: null, error: NO_BACKEND_ERROR };
   }
 
   const { data: session } = await supabase.auth.getSession();
