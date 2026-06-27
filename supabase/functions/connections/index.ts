@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
           birth_place_label: input.birth_place_label ?? null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
-          timezone: input.timezone ?? "UTC",
+          timezone: input.timezone ?? null,
           lens: input.lens ?? "romance",
         })
         .select()
@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
           time: conn.birth_time ?? null,
           lat: conn.lat ?? null,
           lng: conn.lng ?? null,
-          timezone: conn.timezone ?? "UTC",
+          timezone: conn.timezone ?? null,
         }, { cachedBazi: connBazi });
         if (fresh !== connBazi) {
           connBazi = fresh;

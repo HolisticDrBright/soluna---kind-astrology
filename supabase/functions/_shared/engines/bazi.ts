@@ -20,7 +20,7 @@ export interface BaziInput {
   time: string | null;      // HH:MM or null
   lat?: number | null;
   lng?: number | null;
-  timezone: string;         // IANA, e.g. "Asia/Shanghai"
+  timezone?: string | null; // IANA, e.g. "Asia/Shanghai"; never default to UTC
 }
 
 export interface BaziPillar {
@@ -94,13 +94,13 @@ export interface BaziOutput {
 
 // ── input fingerprint (opaque; used only to detect "same birth data") ──
 export function baziInputHash(input: BaziInput): string {
-  const raw = `${input.date}|${input.time ?? ""}|${input.lat ?? ""}|${input.lng ?? ""}|${input.timezone}`;
+  const raw = `${input.date}|${input.time ?? ""}|${input.lat ?? ""}|${input.lng ?? ""}|${input.timezone ?? ""}`;
   let h = 5381;
   for (let i = 0; i < raw.length; i++) h = ((h << 5) + h + raw.charCodeAt(i)) >>> 0;
   return `bazi_${h.toString(16)}`;
 }
 
-function unavailableBazi(reason: string, hash: string, note: string): BaziOutput {
+function unavailableBazi(reason: string, hash: string, note: string, missingInputs: string[] = []): BaziOutput {
   return {
     pillars: { year: null, month: null, day: null, hour: null },
     dayMaster: null,
@@ -114,7 +114,7 @@ function unavailableBazi(reason: string, hash: string, note: string): BaziOutput
     trueSolarTime: { applied: false },
     source: "unavailable",
     partial: false,
-    missingInputs: [],
+    missingInputs,
     confidenceNotes: [note],
     unavailableReason: reason,
     sourceInputHash: hash,
@@ -143,6 +143,16 @@ export async function computeBazi(
       "provider_not_configured",
       hash,
       "A full BaZi / Four Pillars chart needs a configured provider; Soluna is using the lighter Chinese-zodiac lens for now.",
+    );
+  }
+
+  const hasTimezone = typeof input.timezone === "string" && input.timezone.trim().length > 0;
+  if (!hasTimezone) {
+    return unavailableBazi(
+      "missing_timezone",
+      hash,
+      "A full BaZi / Four Pillars chart needs a resolved birth timezone; Soluna will not default to UTC because that can create false chart precision.",
+      ["birth_timezone"],
     );
   }
 

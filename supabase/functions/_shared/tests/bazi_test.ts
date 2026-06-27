@@ -79,6 +79,18 @@ Deno.test("computeBazi returns unavailable when no provider is configured (no ne
   clearEnv();
 });
 
+Deno.test("computeBazi refuses missing timezone rather than defaulting to UTC", async () => {
+  clearEnv();
+  Deno.env.set("BAZI_PROVIDER", "freeastroapi");
+  Deno.env.set("BAZI_API_KEY", "test-key");
+  const out = await computeBazi({ date: "1990-01-15", time: "08:30", lat: 40, lng: -73, timezone: null });
+  assertEquals(out.source, "unavailable");
+  assertEquals(out.unavailableReason, "missing_timezone");
+  assert(out.missingInputs.includes("birth_timezone"));
+  assert(!hasRealBazi(out));
+  clearEnv();
+});
+
 Deno.test("getBaziCapability needs both a provider and a key", () => {
   clearEnv();
   assertEquals(getBaziCapability().enabled, false);
