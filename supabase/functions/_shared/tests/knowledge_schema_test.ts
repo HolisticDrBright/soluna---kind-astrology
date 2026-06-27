@@ -34,6 +34,24 @@ Deno.test("the full 78-card tarot deck is present (22 major + 56 minor)", () => 
   for (const s of suits) for (const r of ranks) assert(keys.has(`${r}_of_${s}`), `missing tarot ${r}_of_${s}`);
 });
 
+Deno.test("BaZi deck has day masters, strengths, elements, ten gods, pillars, favorables", () => {
+  const keys = new Set(CARDS_BY_SYSTEM.bazi.map((c) => c.key));
+  const elements = ["wood", "fire", "earth", "metal", "water"];
+  const polarities = ["yang", "yin"];
+  for (const p of polarities) for (const e of elements) assert(keys.has(`day_master_${p}_${e}`), `missing day_master_${p}_${e}`);
+  for (const s of ["strong", "weak", "balanced"]) assert(keys.has(`strength_${s}`), `missing strength_${s}`);
+  for (const e of elements) {
+    assert(keys.has(`element_excess_${e}`), `missing element_excess_${e}`);
+    assert(keys.has(`element_deficient_${e}`), `missing element_deficient_${e}`);
+    assert(keys.has(`favorable_${e}`), `missing favorable_${e}`);
+  }
+  for (const g of ["companion", "rob_wealth", "eating_god", "hurting_officer", "direct_wealth", "indirect_wealth", "direct_officer", "seven_killings", "direct_resource", "indirect_resource"]) {
+    assert(keys.has(`ten_god_${g}`), `missing ten_god_${g}`);
+  }
+  for (const p of ["year", "month", "day", "hour"]) assert(keys.has(`pillar_${p}`), `missing pillar_${p}`);
+  assert(keys.has("luck_pillar_core") && keys.has("bazi_core"));
+});
+
 Deno.test("western astrology has planet-in-sign, houses, and aspect cards", () => {
   const keys = new Set(CARDS_BY_SYSTEM.western_astrology.map((c) => c.key));
   const signs = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];

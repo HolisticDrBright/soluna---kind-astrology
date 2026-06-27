@@ -8,6 +8,7 @@
 import { assert, assertEquals } from "../test_util.ts";
 import {
   bandLabel,
+  baziCompatibility,
   compatibilityScore,
   sunSignFromDate,
 } from "../synthesis/compatibility-scoring.ts";
@@ -69,6 +70,26 @@ Deno.test("strong alignment scores higher than a stretch pairing", () => {
 Deno.test("scoring is deterministic (same input -> same output)", () => {
   const input = { youSun: "Virgo", themSun: "Capricorn", youAnimal: "Ox", themAnimal: "Snake", youLifePath: 4, themLifePath: 8 };
   assertEquals(compatibilityScore(input), compatibilityScore(input));
+});
+
+Deno.test("baziCompatibility reads the real Five-Element cycles, kindly", () => {
+  // Same element → kindred.
+  assertEquals(baziCompatibility({ dayMasterElement: "wood" }, { dayMasterElement: "wood" }).relation, "kindred");
+  // Generating cycle (water → wood, wood → fire) → nourishing.
+  assertEquals(baziCompatibility({ dayMasterElement: "wood" }, { dayMasterElement: "fire" }).relation, "nourishing");
+  assertEquals(baziCompatibility({ dayMasterElement: "wood" }, { dayMasterElement: "water" }).relation, "nourishing");
+  // Controlling cycle (wood → earth, metal → wood) → dynamic.
+  assertEquals(baziCompatibility({ dayMasterElement: "wood" }, { dayMasterElement: "earth" }).relation, "dynamic");
+  assertEquals(baziCompatibility({ dayMasterElement: "wood" }, { dayMasterElement: "metal" }).relation, "dynamic");
+  // Unknown when an element is missing; notes never empty for a known relation.
+  assertEquals(baziCompatibility({}, {}).relation, "unknown");
+  assert(baziCompatibility({ dayMasterElement: "fire" }, { dayMasterElement: "earth" }).notes.length > 0);
+  // Complementarity: one's abundant element is the other's favorable.
+  const comp = baziCompatibility(
+    { dayMasterElement: "fire", balance: { wood: 4, fire: 1, earth: 0, metal: 0, water: 0 } },
+    { dayMasterElement: "earth", favorableElements: ["wood"] },
+  );
+  assert(comp.notes.some((n) => /complementary/i.test(n)));
 });
 
 Deno.test("bandLabel matches its thresholds", () => {

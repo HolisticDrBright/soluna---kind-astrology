@@ -24,6 +24,7 @@ Deno.test("QA fixture set covers 50+ scenarios across every required category", 
     "daily", "ask_relationship", "ask_work", "ask_school", "ask_decision",
     "ask_self_worth", "ask_grief", "ask_stress", "compatibility", "tarot",
     "crisis", "missing_time", "provider_failure", "partial_data", "out_of_scope",
+    "bazi", "bazi_compatibility",
   ]) {
     assert(kinds.has(required as typeof QA_SCENARIOS[number]["kind"]), `missing category ${required}`);
   }
@@ -84,6 +85,18 @@ Deno.test("every scenario meets its quality expectations", () => {
   }
 
   assertEquals(failures, []);
+});
+
+Deno.test("BaZi cards appear if and only if a real provider chart is present", () => {
+  const offenders: string[] = [];
+  for (const s of QA_SCENARIOS) {
+    const sel = selectKnowledge(s.context);
+    const hasBaziCards = sel.selectedKnowledgeCards.some((c) => c.system === "bazi");
+    const realBazi = s.context.bazi?.present === true;
+    if (hasBaziCards && !realBazi) offenders.push(`${s.id}: BaZi cards without a real chart (fabrication)`);
+    if (realBazi && !hasBaziCards) offenders.push(`${s.id}: real BaZi chart but no BaZi cards selected`);
+  }
+  assertEquals(offenders, []);
 });
 
 Deno.test("selection is not repetitive across scenarios", () => {
