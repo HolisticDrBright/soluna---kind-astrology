@@ -7,12 +7,13 @@ import { useAppState } from "@/state/useAppState";
 import { CITIES, CITY_COORDS, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS, Fonts, type OnboardingStep, NUMBER_MEANINGS } from "@/constants/mockData";
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
 import { submitOnboarding, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
+import { isDemoMode } from "@/lib/runtimeMode";
 
 const TOTAL_STEPS = 8;
 
 // Real Google place resolution is used for the live (paid) journey; the static
 // CITY_COORDS table is only a convenience for mock/demo mode.
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 
 // Format a Date by its LOCAL calendar parts (never UTC). birthDate is built as
 // local midnight, so .toISOString() would shift the day backward for any user

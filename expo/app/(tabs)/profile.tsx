@@ -13,7 +13,7 @@ import { getEntitlements, updateMe, deleteAccount } from "@/lib/api";
 import { registerForPushNotifications } from "@/lib/push";
 import { restorePurchases, presentCustomerCenter } from "@/lib/revenuecat";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || "support@soluna.app";
 
 // ─── Setting Row / Toggle ───────────────────────────────

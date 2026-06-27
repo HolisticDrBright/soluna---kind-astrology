@@ -1,8 +1,9 @@
 // ─── Runtime mode: the single source of truth for demo vs. live ──────────────
 //
-// Soluna has exactly two modes:
+// Soluna has exactly two modes (both derived from `config`):
 //
-//   • DEMO mode  (EXPO_PUBLIC_USE_MOCK_DATA === "true")
+//   • DEMO mode  (EXPO_PUBLIC_ENABLE_DEMO_MODE=true, or legacy
+//     EXPO_PUBLIC_USE_MOCK_DATA=true)
 //       For screenshots, local testing, and App Store preview. It MAY render
 //       beautiful, fully-populated, *fake* sample content (Maya's chart, demo
 //       connections, sample journal entries, etc.).
@@ -16,11 +17,13 @@
 // Every demo-data access in the app must be gated through this module so fake
 // content is impossible to ship in a production build.
 
+import { config } from "./config";
+
 /** True only when the build is explicitly running in demo/dev mode. */
-export const isDemoMode: boolean = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+export const isDemoMode: boolean = config.demoMode;
 
 /** True for real production/live mode (the inverse of demo mode). */
-export const isLiveMode: boolean = !isDemoMode;
+export const isLiveMode: boolean = config.liveMode;
 
 /**
  * Returns `demoValue` ONLY in demo mode; in live mode returns `liveFallback`.

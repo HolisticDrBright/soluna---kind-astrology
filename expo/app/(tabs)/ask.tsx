@@ -8,9 +8,10 @@ import { MOCK_CHAT_HISTORY } from "@/constants/demoData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
 import { askSoluna } from "@/lib/api";
+import { isDemoMode } from "@/lib/runtimeMode";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 const nowTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
 type ChatError = { message: string; retryable: boolean } | null;

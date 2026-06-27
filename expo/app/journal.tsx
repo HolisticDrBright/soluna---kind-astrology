@@ -12,7 +12,7 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { getJournal, createJournalEntry } from "@/lib/api";
 import { ChevronLeft, BookOpen, Sparkles, Calendar, Plus, Smile } from "lucide-react-native";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 
 const MOOD_OPTIONS = [
   { emoji: "☀️", label: "Radiant", value: 5 },

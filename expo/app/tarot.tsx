@@ -11,7 +11,7 @@ import { drawTarot } from "@/lib/api";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { ChevronLeft, Shuffle } from "lucide-react-native";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 const SPREAD_KEY: Record<string, string> = { "daily-reset": "daily", "three-card": "three_card", "celtic-cross": "celtic_cross" };
 
 interface LiveTarotCard { name: string; arcanaLabel: string; reversed: boolean; positionMeaning: string }

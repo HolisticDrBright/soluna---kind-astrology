@@ -11,21 +11,25 @@
 import { Platform } from "react-native";
 import type { CustomerInfo } from "react-native-purchases";
 import { supabase } from "./supabase";
+import { config } from "./config";
 
 // Public SDK key (publishable — safe in the client). Prefer platform-specific
-// keys (appl_… / goog_…) in production; falls back to the shared test key.
-const API_KEY =
-  Platform.select({
-    ios: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS,
-    android: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID,
-    default: undefined,
-  }) ??
-  process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ??
-  "test_mmcZLBWDRvQaAduoydFRbsMNIsV";
+// keys (appl_… / goog_…); the shared key is a fallback.
+const CONFIGURED_KEY =
+  (Platform.select({
+    ios: config.revenueCat.iosKey,
+    android: config.revenueCat.androidKey,
+    default: "",
+  }) || "") || config.revenueCat.sharedKey;
 
-// Entitlement identifier from the RevenueCat dashboard. Set this to the exact id
-// of "Saluna: Astrology Pro" if it differs from the default.
-const ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT ?? "Saluna: Astrology Pro";
+// The shared RevenueCat sandbox/test key. It is used ONLY when no real key is set
+// AND EXPO_PUBLIC_ENABLE_BILLING_FALLBACK=true (demo/dev). In production a missing
+// key leaves billing unavailable (honest state) rather than silently using this.
+const TEST_KEY = "test_mmcZLBWDRvQaAduoydFRbsMNIsV";
+const API_KEY = CONFIGURED_KEY || (config.enableBillingFallback ? TEST_KEY : "");
+
+// Entitlement identifier from the RevenueCat dashboard (default "premium").
+const ENTITLEMENT_ID = config.revenueCat.entitlement;
 
 let configuredFor: string | null = null;
 
@@ -71,7 +75,8 @@ export function hasPremium(info: CustomerInfo): boolean {
 /** Configure + identify with the Supabase user id, and persist the mapping. */
 export async function configureRevenueCat(userId: string): Promise<void> {
   const rc = rcModule();
-  if (!rc || configuredFor === userId) return;
+  // No real key + no billing fallback → billing stays unavailable (no silent test key).
+  if (!rc || !API_KEY || configuredFor === userId) return;
   try {
     const Purchases = rc.default;
     if (__DEV__) Purchases.setLogLevel(rc.LOG_LEVEL.VERBOSE);

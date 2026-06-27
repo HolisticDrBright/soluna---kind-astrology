@@ -14,16 +14,17 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { config } from "./config";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const supabaseUrl = config.supabaseUrl;
+const supabaseAnonKey = config.supabaseAnonKey;
 
 // Demo/dev mode (sample data, no real backend) is the ONLY place a placeholder
 // client is acceptable.
-const isDemoMode = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const isDemoMode = config.demoMode;
 
 /** True only when real Supabase credentials are present. */
-export const supabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseConfigured = config.supabaseConfigured;
 
 /** User-safe message for when there is no backend to talk to. */
 export const NO_BACKEND_ERROR =

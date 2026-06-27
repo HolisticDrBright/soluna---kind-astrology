@@ -12,8 +12,9 @@ import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, H
 import { LoadingState, ErrorState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getConnections, addConnection, getCompatibility } from "@/lib/api";
+import { isDemoMode } from "@/lib/runtimeMode";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const parseBirthDate = (text: string): string | null => {

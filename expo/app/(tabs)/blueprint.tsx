@@ -239,23 +239,33 @@ function BlueprintContent() {
             <ConfidencePill level="verified" />
 
             <Text style={s.sectionLabel}>Big Three</Text>
-            {([{ planet: "Sun", sign: user.chart.sun?.sign ?? "Cancer", house: user.chart.sun?.house ?? 12, icon: Sun, color: SolunaColors.warmGold, conf: "exact" as ConfidenceLevel },
-              { planet: "Moon", sign: user.chart.moon?.sign ?? "Pisces", house: user.chart.moon?.house ?? 8, icon: Moon, color: SolunaColors.gentleLavender, conf: "exact" as ConfidenceLevel },
-              { planet: "Rising", sign: user.chart.rising ?? "Libra", icon: Sun, color: SolunaColors.softPeach, conf: timeConfidence }] as const).map((item) => {
-              const signKey = item.sign as ZodiacSign;
-              const symbol = ZODIAC_SYMBOLS[signKey] ?? "";
-              const hasHouse = "house" in item && item.house != null;
+            {([
+              { planet: "Sun", sign: user.chart.sun?.sign ?? null, house: user.chart.sun?.house ?? null, icon: Sun, color: SolunaColors.warmGold, conf: "exact" as ConfidenceLevel },
+              { planet: "Moon", sign: user.chart.moon?.sign ?? null, house: user.chart.moon?.house ?? null, icon: Moon, color: SolunaColors.gentleLavender, conf: "exact" as ConfidenceLevel },
+              { planet: "Rising", sign: user.chart.rising ?? null, house: null as number | null, icon: Sun, color: SolunaColors.softPeach, conf: timeConfidence },
+            ] as { planet: string; sign: ZodiacSign | null; house: number | null; icon: typeof Sun; color: string; conf: ConfidenceLevel }[]).map((item) => {
+              const symbol = item.sign ? (ZODIAC_SYMBOLS[item.sign] ?? "") : "";
               return (
-                <TouchableOpacity key={item.planet} style={s.bigThreeRow} onPress={() => router.push({ pathname: "/insight-detail", params: { type: "placement", planet: item.planet } })}>
+                <TouchableOpacity
+                  key={item.planet}
+                  style={s.bigThreeRow}
+                  disabled={!item.sign}
+                  onPress={() => router.push({ pathname: "/insight-detail", params: { type: "placement", planet: item.planet } })}
+                >
                   <View style={[s.bigThreeIcon, { backgroundColor: `${item.color}15` }]}><item.icon size={18} color={item.color} /></View>
                   <View style={s.bigThreeInfo}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <Text style={s.bigThreeLabel}>{item.planet}</Text>
                       <ConfidencePill level={item.conf} />
                     </View>
-                    <Text style={s.bigThreeVal}>{symbol} {item.sign}{hasHouse ? ` · ${item.house}${ordinal(item.house!)} House` : ""}</Text>
+                    {/* Never fabricate a sign: show an honest prompt when it isn't known yet. */}
+                    <Text style={s.bigThreeVal}>
+                      {item.sign
+                        ? `${symbol} ${item.sign}${item.house != null ? ` · ${item.house}${ordinal(item.house)} House` : ""}`
+                        : "Add birth time to reveal"}
+                    </Text>
                   </View>
-                  <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+                  {item.sign ? <ChevronRight size={16} color={SolunaColors.creamSubtle} /> : null}
                 </TouchableOpacity>
               );
             })}

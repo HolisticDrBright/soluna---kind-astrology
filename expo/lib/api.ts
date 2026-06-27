@@ -3,6 +3,7 @@
  * All calls go through invokeEdgeFunction which handles auth.
  */
 import { invokeEdgeFunction } from "./supabase";
+import { config } from "./config";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -252,7 +253,7 @@ export interface ResonanceResult {
   summary: string | null;
 }
 
-const RESONANCE_USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const RESONANCE_USE_MOCK_DATA = config.demoMode;
 
 /**
  * Submit "Did this resonate?" feedback. Adjusts how Soluna communicates over

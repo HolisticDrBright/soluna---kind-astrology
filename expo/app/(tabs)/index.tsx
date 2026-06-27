@@ -26,11 +26,12 @@ import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getToday } from "@/lib/api";
+import { isDemoMode } from "@/lib/runtimeMode";
 import { router } from "expo-router";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import { ChevronDown, ChevronUp, ChevronRight, Target } from "lucide-react-native";
 
-const USE_MOCK_DATA = process.env.EXPO_PUBLIC_USE_MOCK_DATA === "true";
+const USE_MOCK_DATA = isDemoMode;
 
 // ─── Section IDs for accordion ──────────────────────────────────
 type SectionKey = "cosmic" | "tarot" | "energy" | "affirm" | "dwell";

@@ -5,7 +5,7 @@ import React from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
 import { Crown, X } from "lucide-react-native";
-import { getRevenueCatUI } from "@/lib/revenuecat";
+import { getRevenueCatUI, isRevenueCatAvailable } from "@/lib/revenuecat";
 
 export default function PaywallScreen() {
   const RevenueCatUI = getRevenueCatUI();
@@ -13,7 +13,9 @@ export default function PaywallScreen() {
   // RevenueCat-hosted paywall — designed in the dashboard, renders the current
   // offering (Lifetime / Yearly / Monthly). Purchases + restore are handled by
   // RevenueCat; the billing webhook then syncs the backend entitlement.
-  if (RevenueCatUI) {
+  // Only render it when billing is actually configured (a publishable key is set);
+  // otherwise fall through to an honest "unavailable" state — never a broken paywall.
+  if (RevenueCatUI && isRevenueCatAvailable()) {
     return (
       <View style={st.full}>
         <RevenueCatUI.Paywall
@@ -26,7 +28,8 @@ export default function PaywallScreen() {
     );
   }
 
-  // Web / SDK unavailable — purchases happen in the native app.
+  // Billing unavailable — on web (purchases happen in the native app) or when no
+  // RevenueCat key is configured yet. Honest message, never a fake unlock.
   return (
     <View style={st.overlay}>
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={st.sheet}>
@@ -36,8 +39,9 @@ export default function PaywallScreen() {
         <Crown size={28} color={SolunaColors.warmGold} />
         <Text style={st.title}>Soluna Premium</Text>
         <Text style={st.body}>
-          Subscriptions are available in the Soluna mobile app. Open Soluna on your phone to unlock your
-          full Blueprint, unlimited Ask Soluna, and cross-system reports.
+          Subscriptions aren&apos;t available here right now. Please make sure you&apos;re on the latest
+          version of the Soluna app on your phone, then try again — unlock your full Blueprint, unlimited
+          Ask Soluna, and cross-system reports.
         </Text>
         <TouchableOpacity style={st.cta} onPress={() => router.back()} activeOpacity={0.85}>
           <Text style={st.ctaText}>Got it</Text>
