@@ -476,9 +476,10 @@ export default function OnboardingScreen() {
                 <TextInput style={os.input} value={preferredName} onChangeText={setPreferredName} placeholder={fullName ? fullName.split(" ")[0] : "Your preferred name"} placeholderTextColor={SolunaColors.creamSubtle} autoFocus />
               </View>
               <View style={{ height: 24 }} />
-              <TouchableOpacity style={[os.primaryButton, !isBirthTimeValid && os.primaryButtonDisabled]} onPress={goNext} activeOpacity={0.8} disabled={!isBirthTimeValid}>
-                <LinearGradient colors={isBirthTimeValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
-                  <Text style={[os.buttonText, !isBirthTimeValid && { color: SolunaColors.creamSubtle }]}>Continue</Text>
+              {/* Preferred name is optional — Continue is always enabled (skip uses first name). */}
+              <TouchableOpacity style={os.primaryButton} onPress={goNext} activeOpacity={0.8}>
+                <LinearGradient colors={[SolunaColors.warmGold, SolunaColors.softPeach]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
+                  <Text style={os.buttonText}>Continue</Text>
                 </LinearGradient>
               </TouchableOpacity>
               {preferredName ? null : (
