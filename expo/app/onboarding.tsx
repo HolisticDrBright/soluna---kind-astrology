@@ -622,7 +622,9 @@ export default function OnboardingScreen() {
               {birthPlace && !isPlaceValid ? (
                 <Text style={os.dateError}>Please choose a supported city from the list.</Text>
               ) : null}
-              <TouchableOpacity style={[os.primaryButton, !isPlaceValid && os.primaryButtonDisabled]} onPress={handleWeave} activeOpacity={0.8} disabled={!isPlaceValid}>
+              {/* Surface a failed submit here — otherwise a backend error looks like a silent "refresh". */}
+              {submitError ? <Text style={os.submitError}>{submitError}</Text> : null}
+              <TouchableOpacity style={[os.primaryButton, (!isPlaceValid || isSubmitting) && os.primaryButtonDisabled]} onPress={handleWeave} activeOpacity={0.8} disabled={!isPlaceValid || isSubmitting}>
                 <LinearGradient colors={isPlaceValid ? [SolunaColors.warmGold, SolunaColors.softPeach] : ["rgba(255,255,255,0.1)", "rgba(255,255,255,0.1)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={os.buttonGradient}>
                   <Text style={[os.buttonText, !isPlaceValid && { color: SolunaColors.creamSubtle }]}>Weave My Blueprint</Text>
                 </LinearGradient>
