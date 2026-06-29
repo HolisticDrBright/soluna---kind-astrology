@@ -248,8 +248,10 @@ export async function getInsight(system: string, key: string) {
 export interface SynthesisAgreement {
   theme: string;
   label: string;
-  /** How many systems align on this theme (≥2). */
+  /** How many DISTINCT systems align on this theme (≥2). */
   score: number;
+  /** Plain-language meaning of this convergence (reflective, not fate). */
+  takeaway?: string;
   evidence: { system: string; signal: string; detail: string }[];
 }
 

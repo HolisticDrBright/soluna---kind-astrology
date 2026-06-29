@@ -13,7 +13,7 @@
  */
 
 import { llmCall, llmCallJSON, type LLMMessage } from "../llm-client.ts";
-import { THEMES, type Theme } from "../constants.ts";
+import { THEMES, THEME_TAKEAWAYS, type Theme } from "../constants.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 import type { AstrologyOutput } from "../engines/astrology.ts";
 import type { NumerologyOutput } from "../engines/numerology.ts";
@@ -54,7 +54,9 @@ export interface DailyContext {
 export interface AgreementResult {
   theme: Theme;
   label: string;
-  score: number; // 0-3, how many systems agree
+  score: number; // how many DISTINCT systems agree (≥2)
+  /** Plain-language meaning of this cross-system convergence (reflective, not fate). */
+  takeaway: string;
   evidence: Array<{ system: string; signal: string; detail: string }>;
 }
 
@@ -290,11 +292,15 @@ export function detectAgreement(ctx: DailyContext): AgreementResult[] {
       }
     }
 
-    if (evidence.length >= 2) {
+    // Only a GENUINE cross-system convergence counts — 2+ DISTINCT systems, not
+    // two signals from the same lens. The score is the distinct-system count.
+    const systemCount = new Set(evidence.map((e) => e.system)).size;
+    if (systemCount >= 2) {
       results.push({
         theme,
         label: theme.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" & "),
-        score: evidence.length,
+        score: systemCount,
+        takeaway: THEME_TAKEAWAYS[theme],
         evidence,
       });
     }

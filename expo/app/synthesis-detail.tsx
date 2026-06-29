@@ -180,6 +180,19 @@ function LiveSynthesis() {
               </Text>
             </View>
 
+            {/* Headline: the strongest cross-system thread in your chart. */}
+            {agreements[0] && (
+              <View style={s.combinedCard}>
+                <View style={s.combinedHeader}>
+                  <Sparkles size={18} color={SolunaColors.warmGold} />
+                  <Text style={s.combinedTitle}>Your strongest thread</Text>
+                </View>
+                <Text style={s.combinedText}>
+                  Across your chart, your systems converge most on {agreements[0].label} — {agreements[0].score} independent lenses point the same way.
+                </Text>
+              </View>
+            )}
+
             {agreements.map((agreement) => (
               <View key={agreement.theme} style={s.themeSection}>
                 <View style={s.themeHeader}>
@@ -209,6 +222,12 @@ function LiveSynthesis() {
                     </View>
                   );
                 })}
+
+                {agreement.takeaway ? (
+                  <View style={s.takeawayCard}>
+                    <Text style={s.takeawayText}>{agreement.takeaway}</Text>
+                  </View>
+                ) : null}
               </View>
             ))}
 
@@ -265,6 +284,9 @@ const s = StyleSheet.create({
   combinedHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   combinedTitle: { fontSize: 17, fontWeight: "700", color: SolunaColors.cream, fontFamily: Fonts.body },
   combinedText: { fontSize: 15, color: SolunaColors.cream, lineHeight: 24, fontFamily: Fonts.body },
+  // Per-agreement plain-language takeaway ("what this convergence means").
+  takeawayCard: { backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.md, padding: 14, borderWidth: 1, borderColor: "rgba(232,184,109,0.14)", marginTop: 2 },
+  takeawayText: { fontSize: 13.5, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body, fontStyle: "italic" },
   // Ask
   askBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "rgba(232,184,109,0.08)", borderRadius: SolunaRadius.lg, paddingVertical: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.12)", marginBottom: 20 },
   askBtnText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },

@@ -53,3 +53,21 @@ export const THEME_LABELS: Record<Theme, string> = {
   focus_work: "Focus & Work",
   change_release: "Change & Release",
 };
+
+/**
+ * Plain-language "what it means when your systems converge here" — a deterministic,
+ * reflective takeaway per theme. Used to explain a cross-system agreement, not just
+ * list which lenses agree. Always framed as a leaning, never as fixed fate.
+ */
+export const THEME_TAKEAWAYS: Record<Theme, string> = {
+  rest_reflection:
+    "Several of your lenses lean the same way: you tend to do your best when you protect time to rest and reflect before acting. Honoring that rhythm usually serves you more than pushing through.",
+  action_initiative:
+    "Your systems converge on initiative — you often come alive when you start things and move first. When in doubt, a small bold step tends to fit you better than waiting.",
+  connection_love:
+    "Multiple lenses point to relationships as a core thread for you — connection and belonging aren't side themes here, they're central to how you thrive.",
+  focus_work:
+    "Your systems agree on focus and craft — you're built to go deep, build, and follow through. Meaningful work and a little structure tend to ground you.",
+  change_release:
+    "Several lenses point to change and release as your growth edge — you tend to grow most by letting go of what's complete and allowing transformation, rather than gripping.",
+};
