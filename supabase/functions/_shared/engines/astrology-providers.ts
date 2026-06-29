@@ -244,6 +244,16 @@ function prettyId(id: string): string {
   return id.split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
+/** Normalize an angle (asc/mc) node from either the Western (pos/abs_pos/sign_id
+ *  string) or Vedic (degree/absolute_degree/sign string) FreeAstroAPI shapes. */
+// deno-lint-ignore no-explicit-any
+function freeAstroAngle(a: any): { sign: string; degree: number } {
+  const abs = num(a.abs_pos ?? a.absolute_degree ?? a.degree);
+  const pos = a.pos != null ? num(a.pos) : (((abs % 30) + 30) % 30);
+  const signStr = (typeof a.sign_id === "string" ? a.sign_id : undefined) ?? (typeof a.sign === "string" ? a.sign : undefined);
+  return { sign: coerceSign(signStr, abs), degree: round1(((pos % 30) + 30) % 30) };
+}
+
 async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutput> {
   const key = Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY");
   if (!key) throw new Error("FreeAstroAPI key (FREEASTRO_API / BAZI_API_KEY) is not configured");
@@ -296,27 +306,37 @@ export function normalizeFreeAstroNatal(data: any, timeMissing: boolean): Astrol
 
   const planets: PlanetPosition[] = rawPlanets.map((raw) => {
     const p = raw as Record<string, unknown>;
-    const pos = num(p.pos ?? p.degree);
+    // Western uses pos/abs_pos/retrograde + sign_id ("pisces"); the Vedic/sidereal
+    // endpoint uses degree_in_sign/absolute_degree/is_retrograde + a numeric sign_id
+    // and a full sign string. Accept both so either natal endpoint normalizes.
+    const abs = num(p.abs_pos ?? p.absolute_degree);
+    const degInSign = p.pos ?? p.degree_in_sign ?? p.degree;
+    const pos = degInSign != null ? num(degInSign) : (((abs % 30) + 30) % 30);
+    const signStr = (typeof p.sign_id === "string" ? p.sign_id : undefined) ?? (typeof p.sign === "string" ? p.sign : undefined);
     return {
-      // FreeAstroAPI gives full sign_id ("pisces") + abbreviated sign ("Pis");
-      // prefer sign_id, fall back to abs_pos degree — coerceSign handles both.
       planet: String(p.name ?? p.id ?? ""),
-      sign: coerceSign(p.sign_id ?? p.sign, num(p.abs_pos)),
+      sign: coerceSign(signStr, abs),
       degree: round1(((pos % 30) + 30) % 30),
       house: timeMissing ? null : (p.house == null ? null : Number(p.house)),
-      retrograde: p.retrograde === true || p.retrograde === "true",
+      retrograde: p.retrograde === true || p.retrograde === "true" || p.is_retrograde === true || p.is_retrograde === "true",
     };
   }).filter((p) => p.planet);
   if (!planets.length) throw new Error("freeastroapi natal: no planets in response");
 
+  // Western nests angles under angles_details.{asc,mc}; Vedic puts the ascendant
+  // at the top level (and omits MC for whole-sign charts).
   const ad = (data?.angles_details ?? {}) as Record<string, unknown>;
-  const asc = ad.asc as Record<string, unknown> | undefined;
+  const asc = (ad.asc ?? data?.ascendant) as Record<string, unknown> | undefined;
   const mc = ad.mc as Record<string, unknown> | undefined;
 
   const houses: HouseCusp[] = ((data?.houses ?? []) as unknown[]).map((raw, i) => {
     const hh = raw as Record<string, unknown>;
     const id = hh.house != null ? Number(hh.house) : i + 1;
-    return { house: id, sign: coerceSign(hh.sign_id ?? hh.sign, num(hh.abs_pos)), degree: round1(((num(hh.pos) % 30) + 30) % 30) };
+    const abs = num(hh.abs_pos ?? hh.absolute_degree);
+    const cusp = hh.pos ?? hh.degree_cusp ?? hh.degree;
+    const pos = cusp != null ? num(cusp) : (((abs % 30) + 30) % 30);
+    const signStr = (typeof hh.sign_id === "string" ? hh.sign_id : undefined) ?? (typeof hh.sign === "string" ? hh.sign : undefined);
+    return { house: id, sign: coerceSign(signStr, abs), degree: round1(((pos % 30) + 30) % 30) };
   });
 
   const aspects: Aspect[] = ((data?.aspects ?? []) as unknown[]).map((raw) => {
@@ -333,12 +353,8 @@ export function normalizeFreeAstroNatal(data: any, timeMissing: boolean): Astrol
 
   return {
     planets,
-    ascendant: !timeMissing && asc
-      ? { sign: coerceSign(asc.sign_id ?? asc.sign, num(asc.abs_pos)), degree: round1(((num(asc.pos) % 30) + 30) % 30) }
-      : null,
-    mc: !timeMissing && mc
-      ? { sign: coerceSign(mc.sign_id ?? mc.sign, num(mc.abs_pos)), degree: round1(((num(mc.pos) % 30) + 30) % 30) }
-      : null,
+    ascendant: !timeMissing && asc ? freeAstroAngle(asc) : null,
+    mc: !timeMissing && mc ? freeAstroAngle(mc) : null,
     houses: timeMissing ? [] : houses,
     aspects,
     timeRequired: timeMissing,

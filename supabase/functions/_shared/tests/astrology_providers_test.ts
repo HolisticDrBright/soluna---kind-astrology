@@ -195,6 +195,34 @@ Deno.test("normalizeFreeAstroNatal maps planets/houses/angles/aspects + tags sou
   assertEquals(out.aspects[1].planetB, "North Node"); // in planets list → name
 });
 
+// FreeAstroAPI also serves a Vedic/sidereal natal shape (different field names,
+// numeric sign_id, top-level ascendant, no aspects) — accept it too.
+Deno.test("normalizeFreeAstroNatal accepts the Vedic/sidereal field names", () => {
+  const out = normalizeFreeAstroNatal({
+    ascendant: { degree: 79.4698, sign: "Gemini", sign_id: 3 },
+    planets: [
+      { name: "Sun", absolute_degree: 331.3393, sign: "Pisces", sign_id: 12, degree_in_sign: 1.3393, house: 10, is_retrograde: false },
+      { name: "Rahu", absolute_degree: 279.3061, sign: "Capricorn", sign_id: 10, degree_in_sign: 9.3061, house: 8, is_retrograde: true },
+    ],
+    houses: [
+      { house: 1, sign: "Gemini", sign_id: 3, degree_cusp: 0 },
+      { house: 10, sign: "Pisces", sign_id: 12, degree_cusp: 0 },
+    ],
+  }, false);
+  assertEquals(out.source, "provider");
+  assertEquals(out.planets[0].planet, "Sun");
+  assertEquals(out.planets[0].sign, "Pisces");   // from the full "sign" string
+  assertEquals(out.planets[0].degree, 1.3);       // degree_in_sign
+  assertEquals(out.planets[0].house, 10);
+  assertEquals(out.planets[1].retrograde, true);  // is_retrograde
+  assertEquals(out.ascendant?.sign, "Gemini");    // top-level ascendant
+  assertEquals(out.ascendant?.degree, 19.5);      // 79.4698 % 30
+  assertEquals(out.mc, null);                      // whole-sign Vedic omits MC
+  assertEquals(out.houses.length, 2);
+  assertEquals(out.houses[1].sign, "Pisces");
+  assertEquals(out.aspects.length, 0);            // no aspects in the Vedic payload
+});
+
 Deno.test("normalizeFreeAstroNatal hides angles/houses when birth time missing; throws on no planets", () => {
   const out = normalizeFreeAstroNatal({
     planets: [{ id: "sun", name: "Sun", sign_id: "pisces", pos: 23.5, abs_pos: 353.5, house: 9 }],
