@@ -29,7 +29,9 @@ const PROVIDER_TIMEOUT_MS = 12_000;
 /** Which provider is configured (explicit env wins, else auto-detect by creds). */
 export function getConfiguredProvider(): AstrologyProviderId | null {
   const explicit = (Deno.env.get("ASTROLOGY_PROVIDER") ?? "").trim().toLowerCase();
-  const hasAstrologyApiKey = !!Deno.env.get("ASTROLOGY_API_KEY");
+  // Accept ASTROLOGY_API_PASSWORD as an alias for the key — Basic-Auth setups
+  // are commonly stored as "user id + password", where the password IS the key.
+  const hasAstrologyApiKey = !!(Deno.env.get("ASTROLOGY_API_KEY") ?? Deno.env.get("ASTROLOGY_API_PASSWORD"));
   if (explicit === "astrologyapi") return hasAstrologyApiKey ? "astrologyapi" : null;
   if (explicit === "prokerala") return prokeralaConfigured() ? "prokerala" : null;
   if (explicit === "custom") return customConfigured() ? "custom" : null;
@@ -115,7 +117,7 @@ export function tzOffsetHours(timeZone: string, y: number, mo: number, d: number
 }
 
 async function fetchAstrologyApi(input: AstrologyInput): Promise<AstrologyOutput> {
-  const key = Deno.env.get("ASTROLOGY_API_KEY");
+  const key = Deno.env.get("ASTROLOGY_API_KEY") ?? Deno.env.get("ASTROLOGY_API_PASSWORD");
   if (!key) throw new Error("ASTROLOGY_API_KEY is not configured");
   const base = (Deno.env.get("ASTROLOGY_API_BASE_URL") || "https://json.astrologyapi.com").replace(/\/$/, "");
   const userId = Deno.env.get("ASTROLOGY_API_USER_ID");

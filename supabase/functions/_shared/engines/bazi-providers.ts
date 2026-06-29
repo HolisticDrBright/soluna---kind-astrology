@@ -36,7 +36,8 @@ export interface BaziCapability {
 /** Whether a real BaZi provider is configured (provider id + secret key). */
 export function getBaziCapability(): BaziCapability {
   const explicit = (Deno.env.get("BAZI_PROVIDER") ?? "").trim().toLowerCase();
-  const hasKey = !!Deno.env.get("BAZI_API_KEY");
+  // Accept FREEASTRO_API as an alias for BAZI_API_KEY (FreeAstroAPI's own naming).
+  const hasKey = !!(Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API"));
   const provider = explicit || (hasKey ? "freeastroapi" : "");
   if (!provider) return { enabled: false, provider: null, reason: "BAZI_PROVIDER is not set and no BAZI_API_KEY is present." };
   if (!hasKey) return { enabled: false, provider, reason: "BAZI_API_KEY is missing (provider secret, backend-only)." };
@@ -293,8 +294,9 @@ export function normalizeBazi(data: any, ctx: BaziFetchCtx): BaziOutput {
 export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<BaziOutput> {
   const cap = getBaziCapability();
   if (!cap.enabled) throw new Error(`bazi disabled: ${cap.reason}`);
-  const key = Deno.env.get("BAZI_API_KEY")!;
-  const base = (Deno.env.get("BAZI_API_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
+  // Accept FREEASTRO_API / FREEASTRO_API_BASE_URL as aliases for the BAZI_* names.
+  const key = (Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API"))!;
+  const base = (Deno.env.get("BAZI_API_BASE_URL") || Deno.env.get("FREEASTRO_API_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
   let endpoint = (Deno.env.get("BAZI_API_ENDPOINT") || "/bazi").trim();
   if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
 
