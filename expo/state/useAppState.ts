@@ -32,6 +32,19 @@ import { setSentryUser } from "@/lib/sentry";
 // Demo mode (EXPO_PUBLIC_USE_MOCK_DATA=true) shows the beautiful MOCK_USER.
 // Live mode builds the user ONLY from the real /me payload — never from MOCK_USER.
 const useMockData = isDemoMode;
+const AUTH_TIMEOUT_MS = 15000;
+
+async function withAuthTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Authentication timed out. Please try again.")), AUTH_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export interface AppState {
   hasOnboarded: boolean;
@@ -315,7 +328,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     }
 
     let mounted = true;
-    sb.auth.getSession().then(async ({ data }) => {
+    withAuthTimeout(sb.auth.getSession()).then(async ({ data }) => {
       if (!mounted) return;
       const session = data.session ?? null;
       setState((s) => ({
@@ -329,6 +342,15 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         void configureRevenueCat(session.user.id);
         await refreshUser();
       }
+    }).catch((err) => {
+      if (!mounted) return;
+      setState((s) => ({
+        ...s,
+        session: null,
+        authUser: null,
+        authLoading: false,
+        authError: err instanceof Error ? err.message : "Authentication failed. Please try again.",
+      }));
     });
 
     const { data: listener } = sb.auth.onAuthStateChange((_event, session) => {
@@ -360,18 +382,47 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: NO_BACKEND_ERROR };
     setState((s) => ({ ...s, authLoading: true, authError: null }));
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    let result: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+    try {
+      result = await withAuthTimeout(supabase.auth.signInWithPassword({ email, password }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      setState((s) => ({ ...s, authLoading: false, authError: message }));
+      return { error: message };
+    }
+    const { data, error } = result;
     if (error) {
       setState((s) => ({ ...s, authLoading: false, authError: error.message }));
       return { error: error.message };
     }
+    const session = data.session ?? null;
+    setState((s) => ({
+      ...s,
+      session,
+      authUser: session?.user ?? null,
+      authLoading: false,
+      authError: null,
+    }));
+    if (session) {
+      setSentryUser(session.user.id);
+      void configureRevenueCat(session.user.id);
+      await refreshUser();
+    }
     return { error: null };
-  }, []);
+  }, [refreshUser]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: NO_BACKEND_ERROR, needsConfirmation: false };
     setState((s) => ({ ...s, authLoading: true, authError: null }));
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    let result: Awaited<ReturnType<typeof supabase.auth.signUp>>;
+    try {
+      result = await withAuthTimeout(supabase.auth.signUp({ email, password }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      setState((s) => ({ ...s, authLoading: false, authError: message }));
+      return { error: message, needsConfirmation: false };
+    }
+    const { data, error } = result;
     if (error) {
       setState((s) => ({ ...s, authLoading: false, authError: error.message }));
       return { error: error.message, needsConfirmation: false };
