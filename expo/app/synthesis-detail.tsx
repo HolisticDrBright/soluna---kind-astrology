@@ -6,7 +6,10 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
 import { SYNTHESIS_THEMES } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
-import ComingSoon from "@/components/ComingSoon";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getSynthesis, type SynthesisAgreement } from "@/lib/api";
+import { LoadingState, ErrorState } from "@/components/DataStates";
+import EmptyState from "@/components/EmptyState";
 import { ChevronLeft, Sparkles, Star, Hash, Bird, Cpu } from "lucide-react-native";
 
 const systemIcons: Record<string, React.ComponentType<{ size: number; color: string }>> = {
@@ -30,18 +33,27 @@ const systemNames: Record<string, string> = {
   humanDesign: "Human Design says",
 };
 
+// The backend names this system "human_design"; the icon/color/name maps above
+// use the demo's "humanDesign" key, so normalize before lookup.
+function normalizeSystem(system: string): string {
+  return system === "human_design" ? "humanDesign" : system;
+}
+
+function BackButton() {
+  return (
+    <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+      <ChevronLeft size={24} color={SolunaColors.cream} />
+    </TouchableOpacity>
+  );
+}
+
 export default function SynthesisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const themeId: string = String(id ?? "self");
 
-  // Not wired to live synthesis yet — honest state instead of demo themes.
+  // LIVE mode renders real cross-system agreements from the synthesis engine.
   if (!isDemoMode) {
-    return (
-      <ComingSoon
-        title="Synthesis"
-        description="Your cross-system synthesis will open here once it's connected to live data."
-      />
-    );
+    return <LiveSynthesis />;
   }
 
   const theme = SYNTHESIS_THEMES.find((t) => t.id === themeId) ?? SYNTHESIS_THEMES[0];
@@ -133,6 +145,98 @@ export default function SynthesisDetailScreen() {
   );
 }
 
+// ─── Live synthesis (real cross-system agreements) ──────────────
+function LiveSynthesis() {
+  // Blueprint's "Where it all connects" passes id="self" (not a real theme key),
+  // so fetch the full agreement list and show every theme the systems agree on.
+  const query = useAsyncData<{ agreements?: SynthesisAgreement[] }>(() => getSynthesis(), []);
+  const agreements = query.data?.agreements ?? [];
+
+  return (
+    <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
+      <ScrollView contentContainerStyle={s.scrollContent}>
+        <BackButton />
+
+        {query.loading ? (
+          <LoadingState message="Weaving your synthesis…" />
+        ) : query.error ? (
+          <ErrorState message={query.error} onRetry={query.refetch} retrying={query.reloading} />
+        ) : agreements.length === 0 ? (
+          <EmptyState
+            icon={Sparkles}
+            title="Synthesis"
+            description="Your cross-system synthesis appears once your blueprint is complete."
+          />
+        ) : (
+          <>
+            {/* Hero */}
+            <View style={s.heroWrap}>
+              <View style={s.sysGlyph}>
+                <Sparkles size={20} color={SolunaColors.warmGold} />
+              </View>
+              <Text style={s.heroTitle}>Where it all connects</Text>
+              <Text style={s.heroSub}>
+                The themes where your systems independently point the same way.
+              </Text>
+            </View>
+
+            {agreements.map((agreement) => (
+              <View key={agreement.theme} style={s.themeSection}>
+                <View style={s.themeHeader}>
+                  <Text style={[s.sectionTitle, { marginBottom: 0, flex: 1 }]}>{agreement.label}</Text>
+                  <View style={s.agreeBadge}>
+                    <Sparkles size={14} color={SolunaColors.warmGold} />
+                    <Text style={s.agreeText}>{agreement.score} systems agree</Text>
+                  </View>
+                </View>
+
+                {agreement.evidence.map((ev, i) => {
+                  const key = normalizeSystem(ev.system);
+                  const Icon = systemIcons[key] ?? Star;
+                  const color = systemColors[key] ?? SolunaColors.warmGold;
+                  return (
+                    <View
+                      key={`${agreement.theme}-${ev.system}-${i}`}
+                      style={[s.blockCard, { borderLeftColor: color, borderLeftWidth: 3 }]}
+                    >
+                      <View style={s.blockHeader}>
+                        <Icon size={16} color={color} />
+                        <Text style={[s.blockSystemLabel, { color }]}>
+                          {systemNames[key] ?? ev.system}
+                        </Text>
+                      </View>
+                      <Text style={s.blockSignal}>{ev.detail}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={s.askBtn}
+              onPress={() =>
+                router.push({
+                  pathname: "/(tabs)/ask",
+                  params: { prompt: "Tell me more about where my systems agree." },
+                })
+              }
+            >
+              <Sparkles size={16} color={SolunaColors.warmGold} />
+              <Text style={s.askBtnText}>Ask Soluna about this insight</Text>
+            </TouchableOpacity>
+
+            <Text style={s.footerNote}>
+              When independent systems converge like this, it&apos;s not coincidence — it&apos;s your blueprint speaking clearly. The more lenses agree, the more you can trust the signal.
+            </Text>
+
+            <View style={{ height: 60 }} />
+          </>
+        )}
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
 const s = StyleSheet.create({
   gradient: { flex: 1 },
   scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
@@ -148,6 +252,8 @@ const s = StyleSheet.create({
   agreeText: { fontSize: 13, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.body },
   // Section
   sectionTitle: { fontSize: 12, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 2, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 14 },
+  themeSection: { marginBottom: 24 },
+  themeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 },
   // Block cards
   blockCard: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 10 },
   blockHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },

@@ -19,6 +19,7 @@ import {
   ZODIAC,
   NUMBER_MEANINGS,
   CHINESE_INTERPRETATIONS,
+  CHINESE_ANIMAL_INTERPRETATIONS,
   HD_INTERPRETATIONS,
 } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/demoData";
@@ -160,7 +161,9 @@ function buildChineseData(chinese: Record<string, unknown> | null): ChineseAstro
   const element = asString(chinese?.element);
   if (!animal || !element) return null;
 
-  const interp = CHINESE_INTERPRETATIONS[`${element}-${animal}`];
+  // Prefer the richer element-animal entry; fall back to the per-animal table so
+  // every one of the 12 signs has real description/strengths/growth-edge content.
+  const interp = CHINESE_INTERPRETATIONS[`${element}-${animal}`] ?? CHINESE_ANIMAL_INTERPRETATIONS[animal];
   return {
     animal: animal as ChineseAstrologyData["animal"],
     element: element as ChineseAstrologyData["element"],

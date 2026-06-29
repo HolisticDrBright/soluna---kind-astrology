@@ -508,9 +508,13 @@ export async function generateChatResponse(
       systemsReferenced: systemsFromSelection(selection, resp.content),
     };
   } catch (err) {
+    // Surface the REAL cause (LLM provider/key error, or a context-build failure)
+    // in the function logs — otherwise this is invisible and misreads as a
+    // "blueprint" problem when it's usually the AI call.
+    console.error("generateChatResponse failed (LLM call or context build):", err);
     await logEvent("ask_error", { error: String(err) }, userId);
     return {
-      content: "I'm having a moment where I can't quite access your full blueprint right now. Could you give me just a moment and try again? I want to give you a thoughtful answer.",
+      content: "I had trouble reaching my guidance just now — give me a moment and try again.",
       systemsReferenced: [],
     };
   }

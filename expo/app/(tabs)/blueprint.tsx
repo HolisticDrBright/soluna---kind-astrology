@@ -346,8 +346,15 @@ function BlueprintContent() {
             {(user.chinese.strengths ?? []).map((sx, i) => (
               <View key={i} style={s.strengthRow}><Sparkles size={12} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>
             ))}
-            <Text style={s.sectionLabel}>Gentle Growth Edge</Text>
-            <Card><Text style={s.growthText}>{safeGet(user.chinese.growthEdge, "")}</Text></Card>
+            {/* Gentle growth edge — resolved in buildChineseData from the user's REAL
+                animal (production-safe reference content, never fabricated). Rendered
+                only when present so we never show an empty card. */}
+            {user.chinese.growthEdge ? (
+              <>
+                <Text style={s.sectionLabel}>Gentle Growth Edge</Text>
+                <Card><Text style={s.growthText}>{user.chinese.growthEdge}</Text></Card>
+              </>
+            ) : null}
             <Text style={s.sectionLabel}>Year & Month Pillars · Chinese Zodiac</Text>
             <Text style={s.baziHint}>A light birth-year zodiac lens — not a full BaZi chart.</Text>
             {(user.chinese.bazi ?? []).map((pillar, i) => (

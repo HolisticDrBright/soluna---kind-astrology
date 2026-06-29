@@ -144,9 +144,25 @@ export async function getMe() {
   }>("me");
 }
 
-/** Update profile: preferred name, notification prefs, and/or push token (PATCH /me) */
+/** Birth profile fields accepted by PATCH /me — same shape onboarding sends.
+ *  When real lat/lng/timezone are present the server recomputes the blueprint. */
+export interface BirthProfileUpdate {
+  full_birth_name: string;
+  birth_date: string;
+  birth_time?: string | null;
+  time_known: boolean;
+  birth_place_label?: string;
+  lat?: number;
+  lng?: number;
+  timezone?: string;
+  house_system?: "placidus" | "whole_sign" | "porphyry";
+}
+
+/** Update profile: preferred name, birth profile, notification prefs, and/or push token (PATCH /me).
+ *  Re-sending `birth_profile` with real lat/lng/timezone triggers a server-side blueprint recompute. */
 export async function updateMe(payload: {
   preferred_name?: string;
+  birth_profile?: BirthProfileUpdate;
   notification_prefs?: Record<string, unknown>;
   push_token?: { expo_token: string; platform?: "ios" | "android" };
 }) {
@@ -221,10 +237,26 @@ export async function getInsight(system: string, key: string) {
   return invokeEdgeFunction(`insight?system=${system}&key=${key}`);
 }
 
+/** One cross-system theme where ≥2 systems point the same way. Mirrors the
+ *  `synthesis` Edge Function's `AgreementResult` (see _shared/synthesis). */
+export interface SynthesisAgreement {
+  theme: string;
+  label: string;
+  /** How many systems align on this theme (≥2). */
+  score: number;
+  evidence: { system: string; signal: string; detail: string }[];
+}
+
+export interface SynthesisResponse {
+  agreements: SynthesisAgreement[];
+  /** Present only when a `theme` filter is passed. */
+  allAgreements?: SynthesisAgreement[];
+}
+
 /** Get synthesis (where systems agree) */
 export async function getSynthesis(theme?: string) {
   const url = theme ? `synthesis?theme=${theme}` : "synthesis";
-  return invokeEdgeFunction(url);
+  return invokeEdgeFunction<SynthesisResponse>(url);
 }
 
 /** Check premium entitlements */

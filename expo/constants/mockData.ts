@@ -504,6 +504,73 @@ export const CHINESE_INTERPRETATIONS: Record<string, { description: string; stre
   },
 };
 
+// Per-animal reference interpretations (all 12 signs). Keyed by the user's REAL
+// computed zodiac animal — generic, value-accurate archetype text, never copied
+// from a demo user. Used as the fallback when the richer element-animal table
+// (CHINESE_INTERPRETATIONS) has no entry, so every blueprint shows real content.
+export const CHINESE_ANIMAL_INTERPRETATIONS: Record<string, { description: string; strengths: string[]; growthEdge: string }> = {
+  Rat: {
+    description: "The Rat opens the zodiac cycle — resourceful, perceptive, and endlessly adaptable. You read a room in seconds and find the opening others miss. Behind your quick charm is a strategic mind that's usually a few steps ahead, and a loyalty to your inner circle that runs deeper than you let on.",
+    strengths: ["Quick, resourceful thinking under pressure", "Sharp instinct for people and timing", "Adaptable — you thrive when plans change", "Quiet, fierce loyalty to those you love"],
+    growthEdge: "Your mind moves fast, and sometimes it races ahead into worry or over-planning. You don't have to secure every outcome in advance — some doors only open once you're already walking. Stillness isn't falling behind; it's where your best ideas land.",
+  },
+  Ox: {
+    description: "The Ox is steady, dependable, and quietly powerful. You build things that last — through patience, honest effort, and a backbone that doesn't bend to pressure. People lean on you because you show up, again and again, long after others have drifted.",
+    strengths: ["Remarkable patience and follow-through", "Dependability others build their lives around", "Honest, grounded, hard to rattle", "Deep inner strength and resolve"],
+    growthEdge: "Your steadiness is a gift, but you can hold so tightly to how things 'should' be done that you carry more than your share. Flexibility isn't weakness, and rest isn't laziness — letting others help you is its own kind of strength.",
+  },
+  Tiger: {
+    description: "The Tiger is bold, magnetic, and courageous — a natural leader who moves on instinct and heart. You feel things intensely and aren't afraid to act on them, drawing people in with your warmth and daring. When you believe in something, your conviction is contagious.",
+    strengths: ["Natural courage and bold initiative", "Magnetic, inspiring presence", "Passionate, wholehearted commitment", "Protective of those who can't protect themselves"],
+    growthEdge: "Your fire is beautiful, but it can flare faster than you can think it through. A breath between feeling and action lets your courage land where it's truly needed, instead of burning where it isn't.",
+  },
+  Rabbit: {
+    description: "The Rabbit is gentle, intuitive, and quietly elegant. You move through life with grace and a deep sensitivity to beauty, harmony, and the feelings of others. Your kindness is real, and so is your perceptiveness — you notice the small things that make people feel safe and seen.",
+    strengths: ["Deep empathy and emotional attunement", "Natural diplomacy and gentleness", "An eye for beauty and harmony", "A calming presence that puts others at ease"],
+    growthEdge: "You feel others so deeply that you sometimes abandon yourself to keep the peace. Your needs matter just as much as everyone else's — naming what you want isn't selfish, it's honest. Gentle people are allowed to take up space, too.",
+  },
+  Dragon: {
+    description: "The Dragon is visionary, charismatic, and full of natural force. You think big, dream bigger, and carry a confidence that lifts everyone around you. People are drawn to your energy and your sense that anything is possible — because when you commit, it often is.",
+    strengths: ["Visionary thinking and big ambition", "Natural charisma and confidence", "Generous, energizing leadership", "Resilience that bounces back from setbacks"],
+    growthEdge: "Your standards are sky-high — for the world and for yourself. You are already enough, even on the days you don't soar. Letting people see your softer, uncertain side won't diminish your magic; it makes it real.",
+  },
+  Snake: {
+    description: "The Snake is wise, intuitive, and deeply perceptive. You think before you speak and see beneath the surface of things, drawn to depth, mystery, and meaning. There's a quiet magnetism to you — a calm that comes from trusting your own inner knowing.",
+    strengths: ["Profound intuition and insight", "Calm, considered wisdom", "Natural elegance and self-possession", "The ability to see what others miss"],
+    growthEdge: "Your inner world is rich, but holding everything so close can leave you alone with it. Letting trusted people in isn't a loss of power — vulnerability shared with the right person deepens connection rather than risking it.",
+  },
+  Horse: {
+    description: "The Horse is free-spirited, energetic, and warm. You love movement, adventure, and the open road of possibility — and your enthusiasm is genuinely contagious. Independent and honest, you bring lightness wherever you go and inspire others to chase their own freedom.",
+    strengths: ["Boundless energy and enthusiasm", "Honesty and a free, open spirit", "Adventurousness — you're willing to leap", "Warmth that lifts everyone's mood"],
+    growthEdge: "You love freedom so much that staying can feel like being trapped. But not every commitment is a cage — some are the roots that let you grow taller. Slowing down long enough to finish what you start is its own adventure.",
+  },
+  Goat: {
+    description: "The Goat is gentle, creative, and compassionate. You have a tender heart and an artist's sensitivity, finding beauty and meaning where others rush past. Your kindness runs deep, and you give generously to the people and causes you care about.",
+    strengths: ["Rich creativity and imagination", "Deep compassion and tenderness", "Sensitivity to beauty and feeling", "A quiet generosity of spirit"],
+    growthEdge: "Your tender heart feels everything, and criticism can land harder on you than others realize. Your worth was never up for a vote — soothing yourself from the inside means the world's opinions stop deciding how you feel.",
+  },
+  Monkey: {
+    description: "The Monkey is clever, playful, and endlessly inventive. Your mind is quick and curious, always finding a new angle, a clever solution, or a reason to laugh. You bring intelligence and joy in equal measure, and you're rarely stumped for long.",
+    strengths: ["Sharp, inventive problem-solving", "Playfulness that lightens any room", "Curiosity and fast learning", "Charm and natural social ease"],
+    growthEdge: "Your cleverness can become a way to stay one step removed — solving or joking instead of simply feeling. The people who love you want the real you, not just the entertaining one. It's safe to be sincere.",
+  },
+  Rooster: {
+    description: "The Rooster is confident, observant, and refreshingly honest. You notice details others overlook and aren't afraid to say what's true. Hardworking and proud in the best sense, you take real care in what you do and hold yourself to a high standard.",
+    strengths: ["A keen eye for detail and quality", "Honesty and the courage to speak up", "A strong work ethic and reliability", "Confidence that steadies a group"],
+    growthEdge: "Your high standards push you toward excellence, but turned inward they can become harsh self-judgment. Try meeting your own mistakes the way you'd meet a friend's — with patience. You don't have to be flawless to be worthy of pride.",
+  },
+  Dog: {
+    description: "The Dog is loyal, honest, and deeply principled. You have a strong sense of justice and an instinct to protect the people you love. Trustworthy to the core, you'd rather be honest than easy, and the people in your life know they can count on you completely.",
+    strengths: ["Unwavering loyalty and integrity", "A strong, fair sense of justice", "Protectiveness toward loved ones", "Honesty you can build real trust on"],
+    growthEdge: "You carry the world's fairness on your shoulders, and worry can keep you on guard even when you're safe. Not every threat needs your vigilance — letting yourself rest, trusting some things will be okay without you holding them, is a gift you've earned.",
+  },
+  Pig: {
+    description: "The Pig is generous, sincere, and warmhearted. You meet life with honesty and an open, trusting nature, and you find real joy in comfort, connection, and caring for others. Your kindness is unforced — it's simply who you are.",
+    strengths: ["Genuine generosity and warmth", "Sincerity and an open heart", "The ability to enjoy and savor life", "A steady, forgiving nature"],
+    growthEdge: "Your trusting nature is beautiful, but not everyone deserves full access to your heart. Discernment is a form of self-respect — you can be kind AND protective of your energy.",
+  },
+};
+
 export const HD_INTERPRETATIONS: Record<string, { description: string; strengths: string[]; growthEdge: string }> = {
   "Generator": {
     description: "As a Generator, you are quite literally the life force of humanity. About 37% of people share your type, and together, Generators and Manifesting Generators make up about 70% of the population. You have a defined Sacral center — a powerful, consistent source of creative, life-giving energy. When you're doing work you love, you can sustain it almost endlessly. Your gift isn't speed or initiation — it's sustainable momentum and the deep satisfaction that comes from being fully engaged in what matters to you. The world literally runs on Generator energy — your joy is not frivolous, it's fuel.",

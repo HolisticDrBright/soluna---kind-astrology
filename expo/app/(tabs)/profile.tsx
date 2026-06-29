@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState, useCallback } from "react";
@@ -7,9 +7,9 @@ import { useAppState } from "@/state/useAppState";
 import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts, getBlueprintSummary, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
 import { MOCK_PATTERN_THEMES, MOCK_WEEKLY_REPORT, WIDGET_PREVIEWS, MOCK_ACTIVE_FOCUSES } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
-import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download } from "lucide-react-native";
+import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download, RefreshCw } from "lucide-react-native";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { getEntitlements, updateMe, deleteAccount } from "@/lib/api";
+import { getEntitlements, updateMe, deleteAccount, getMe, type BirthProfileUpdate } from "@/lib/api";
 import { registerForPushNotifications } from "@/lib/push";
 import { restorePurchases, presentCustomerCenter } from "@/lib/revenuecat";
 
@@ -381,12 +381,61 @@ const wpS = StyleSheet.create({
 });
 
 // ─── Account section (real auth controls) ───────────────
+// Reads the user's CURRENT stored birth profile from a /me payload and returns
+// a complete BirthProfileUpdate only when real coordinates + timezone exist.
+// Returns null when the birth place hasn't been resolved yet, so we never
+// re-send incomplete data (which would block the server-side recompute).
+function toBirthProfileUpdate(birthProfile: unknown): BirthProfileUpdate | null {
+  if (!birthProfile || typeof birthProfile !== "object") return null;
+  const b = birthProfile as Record<string, unknown>;
+  const lat = b.lat;
+  const lng = b.lng;
+  const timezone = b.timezone;
+  const fullName = b.full_birth_name;
+  const birthDate = b.birth_date;
+  if (typeof fullName !== "string" || !fullName) return null;
+  if (typeof birthDate !== "string" || !birthDate) return null;
+  if (typeof lat !== "number" || typeof lng !== "number" || typeof timezone !== "string" || !timezone) {
+    return null;
+  }
+  return {
+    full_birth_name: fullName,
+    birth_date: birthDate,
+    birth_time: typeof b.birth_time === "string" ? b.birth_time : null,
+    time_known: b.time_known !== false,
+    birth_place_label: typeof b.birth_place_label === "string" ? b.birth_place_label : undefined,
+    lat,
+    lng,
+    timezone,
+    house_system: (b.house_system as BirthProfileUpdate["house_system"]) ?? "placidus",
+  };
+}
+
 function AccountSection() {
   const { authUser, user, signOut, resetPassword, updatePreferredName, resetOnboarding, setOnboardingStep } = useAppState();
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(user?.preferredName ?? "");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState("");
+
+  // The user's current stored birth profile (real lat/lng/timezone live here, not
+  // on the display `user`). Only fetched for real accounts in live mode.
+  const meQuery = useAsyncData(() => getMe(), [], { enabled: !USE_MOCK_DATA && !!authUser });
+
+  const onRefreshBlueprint = useCallback(async () => {
+    setRefreshMsg("");
+    const birthProfile = toBirthProfileUpdate((meQuery.data as { birthProfile?: unknown } | null)?.birthProfile);
+    if (!birthProfile) {
+      setRefreshMsg("Add your birth place first so we can recompute an accurate blueprint.");
+      return;
+    }
+    setRefreshing(true);
+    const { error } = await updateMe({ birth_profile: birthProfile });
+    setRefreshing(false);
+    setRefreshMsg(error ?? "Your blueprint is refreshing with the latest data. 💛");
+  }, [meQuery.data]);
 
   // Demo/mock mode has no real account — keep the onboarding reset only.
   if (!authUser) {
@@ -529,6 +578,27 @@ function AccountSection() {
           <Text style={[rS.label, { color: SolunaColors.softPeach }]}>Sign out</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Refresh blueprint — re-sends the stored birth profile so the server
+          recomputes the chart with the latest engines/provider data. */}
+      <TouchableOpacity
+        style={st.refreshBtn}
+        onPress={onRefreshBlueprint}
+        disabled={refreshing || meQuery.loading}
+        activeOpacity={0.8}
+      >
+        {refreshing ? (
+          <ActivityIndicator color={SolunaColors.warmGold} />
+        ) : (
+          <RefreshCw size={18} color={SolunaColors.warmGold} />
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={st.refreshTitle}>Refresh my blueprint</Text>
+          <Text style={st.refreshSub}>Recompute your chart with the latest data</Text>
+        </View>
+      </TouchableOpacity>
+      {refreshMsg ? <Text style={st.accountMsg}>{refreshMsg}</Text> : null}
+
       {msg ? <Text style={st.accountMsg}>{msg}</Text> : null}
       <Text style={st.accountNote}>
         Updating birth data re-runs your blueprint. Deleting your account is immediate and permanent. Data export requests are handled by email within 30 days.
@@ -721,6 +791,9 @@ const st = StyleSheet.create({
   resetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8 },
   resetText: { fontSize: 13, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
   accountMsg: { fontSize: 13, color: SolunaColors.gentleLavender, fontFamily: Fonts.body, textAlign: "center", marginBottom: 16, lineHeight: 19 },
+  refreshBtn: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.15)", marginBottom: 12 },
+  refreshTitle: { fontSize: 15, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.body, marginBottom: 2 },
+  refreshSub: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body, lineHeight: 16 },
   accountNote: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, textAlign: "center", marginBottom: 16, lineHeight: 16, fontStyle: "italic", paddingHorizontal: 8 },
   disclaimerCard: { backgroundColor: "rgba(255,255,255,0.03)", borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", marginBottom: 16 },
   disclaimerText: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, lineHeight: 17, textAlign: "center" },
