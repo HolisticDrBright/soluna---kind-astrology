@@ -82,6 +82,18 @@ export default function OnboardingScreen() {
 
   useEffect(() => { animateIn(); }, [onboardingStep, animateIn]);
 
+  // SAFETY NET: never let the user get trapped on the "weaving" screen. If
+  // onboarding opens already at "calculating" with no weave actually running
+  // (a stale/restored state, or a weave interrupted by the app being closed),
+  // reset to the start so the flow is always navigable instead of frozen.
+  // Mount-only — does not interfere with a live weave (which sets isSubmitting).
+  useEffect(() => {
+    if (onboardingStep === "calculating" && !isSubmitting && !revealReady) {
+      setOnboardingStep("welcome");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Visual "weaving" animation only — the reveal is gated on the real blueprint
   // actually loading (see handleWeave), never on a timer.
   useEffect(() => {
