@@ -577,6 +577,26 @@ export const HD_INTERPRETATIONS: Record<string, { description: string; strengths
     strengths: ["Sustainable, powerful creative energy when aligned", "Deep gut wisdom that guides you toward the right people and opportunities", "Natural warmth and presence that energizes others", "Capacity for deep satisfaction in work and life"],
     growthEdge: "Frustration is your signal that you're out of alignment — pushing, initiating from the mind, or saying yes when your gut says no. When you feel stuck, pause and ask: 'Am I responding to life, or forcing it?'",
   },
+  "Manifesting Generator": {
+    description: "As a Manifesting Generator, you carry the powerful, sustainable energy of a Generator with an extra spark of speed and initiation. You're multi-passionate by design — you can hold several interests at once and move through them faster than almost anyone, often finding shortcuts others miss. Roughly a third of people share your type. Your gift is responding to what lights you up and then moving quickly and efficiently toward it, sometimes skipping steps that don't serve you.",
+    strengths: ["Fast, multi-passionate energy that thrives on variety", "A gift for finding shortcuts and doing things efficiently", "Sustainable drive when you're engaged with what you love", "The ability to start AND finish when your gut is a yes"],
+    growthEdge: "Your two signals are frustration and a flash of impatience — both say you've forced something or skipped the step of checking your gut. Two things steady you: letting yourself respond before you leap, and informing the people around you before you charge ahead, so they move with you instead of against you. You're allowed to drop what no longer lights you up — that's not quitting, it's correction.",
+  },
+  "Projector": {
+    description: "As a Projector, you're here to guide, not to grind. About 20% of people share your type, and unlike Generators you don't have a consistent inner motor — instead you have a gift for seeing people and systems deeply and knowing how energy could be used more wisely. When you're recognized and invited into the right rooms, your insight is extraordinary. You're designed to manage, direct, and guide — to see the whole board.",
+    strengths: ["Deep insight into people, systems, and what makes them work", "Natural wisdom and the ability to guide others well", "Seeing efficiencies and possibilities others miss", "Doing more with less when your energy is honored"],
+    growthEdge: "Bitterness is your signal — it usually means you've been over-giving, unrecognized, or pushing your way in instead of waiting to be invited. Rest is not laziness for you; it's maintenance. Wait for genuine recognition and invitation for the big things, and trust that your worth was never measured in how much you produce.",
+  },
+  "Manifestor": {
+    description: "As a Manifestor, you're an initiator — here to start things, spark change, and make an impact. About 9% of people share your type. You carry an independent, catalytic energy: when an idea moves through you, you can act on it without waiting for anyone's go-ahead. You're not designed for steady, sustained output like a Generator — you work in bursts of initiation, then rest. You're here to get things moving that others will carry forward.",
+    strengths: ["The power to initiate and make things happen", "Genuine independence and self-direction", "A catalyzing presence that sparks change", "Vision and the courage to act on it"],
+    growthEdge: "Anger is your signal — it often flares when you feel controlled or when others resist you. The thing that smooths your path is informing the people who'll be affected before you act: you don't need permission, but a heads-up turns resistance into support. Honor your rhythm of bursts and rest — you're not meant to run nonstop.",
+  },
+  "Reflector": {
+    description: "As a Reflector, you're the rarest type — only about 1% of people. With all of your energy centers open, you're a mirror: you sample and reflect the health and energy of the people and places around you. This makes you wise, perceptive, and surprisingly resilient, but also deeply affected by your environment. Who you spend time with and where you are matter more for you than for anyone else. At your best, you reflect a community back to itself with remarkable clarity.",
+    strengths: ["Profound openness and a mirror-like wisdom", "Sensitivity to the health of people and environments", "The ability to sample and understand many kinds of energy", "Surprising depth, fairness, and perspective"],
+    growthEdge: "Disappointment is your signal — often a sign your environment or company isn't right for you. Two things protect you: choosing your people and places with great care, and giving yourself a full lunar cycle (about a month) before big decisions instead of being rushed. You're not inconsistent or indecisive — you're a mirror, and mirrors need the right things to reflect.",
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════
