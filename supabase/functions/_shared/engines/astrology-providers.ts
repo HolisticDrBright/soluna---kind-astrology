@@ -20,6 +20,12 @@ const SIGNS = [
 ];
 const SIGN_SET = new Set(SIGNS);
 
+/** Max time to wait on any astrology provider HTTP call before giving up and
+ *  letting the engine degrade to a blocked chart. Without a timeout a hung or
+ *  unreachable provider freezes the ENTIRE blueprint computation — and the
+ *  onboarding "weaving" screen — until the platform kills the function. */
+const PROVIDER_TIMEOUT_MS = 12_000;
+
 /** Which provider is configured (explicit env wins, else auto-detect by creds). */
 export function getConfiguredProvider(): AstrologyProviderId | null {
   const explicit = (Deno.env.get("ASTROLOGY_PROVIDER") ?? "").trim().toLowerCase();
@@ -129,6 +135,7 @@ async function fetchAstrologyApi(input: AstrologyInput): Promise<AstrologyOutput
   const resp = await fetch(`${base}/v1/western_horoscope`, {
     method: "POST",
     headers,
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     body: JSON.stringify({
       day: d,
       month: mo,
@@ -219,6 +226,7 @@ async function fetchCustom(input: AstrologyInput): Promise<AstrologyOutput> {
       "Content-Type": "application/json",
       ...(key ? { Authorization: `Bearer ${key}` } : {}),
     },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     body: JSON.stringify({
       date: input.date,
       time: input.time,
@@ -293,6 +301,7 @@ async function prokeralaAccessToken(): Promise<string> {
   const resp = await fetch("https://api.prokerala.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     body: body.toString(),
   });
   if (!resp.ok) throw new Error(`prokerala token ${resp.status}`);
@@ -318,6 +327,7 @@ async function fetchProkerala(input: AstrologyInput): Promise<AstrologyOutput> {
   });
   const resp = await fetch(`https://api.prokerala.com/v2/astrology/western-chart-info?${params}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!resp.ok) throw new Error(`prokerala natal ${resp.status}`);
   return normalizeProkerala(await resp.json(), input.time === null);
@@ -464,6 +474,7 @@ export async function fetchCurrentTransits(input: AstrologyInput, asOf: string):
   const resp = await fetch(`${base}/${endpoint}`, {
     method: "POST",
     headers,
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
     body: JSON.stringify({ day: d, month: mo, year: y, hour: h, min: mi, lat: input.lat, lon: input.lng, tzone }),
   });
   if (!resp.ok) throw new Error(`astrology transits ${resp.status}`);

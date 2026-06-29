@@ -313,9 +313,13 @@ export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<Ba
   if (ctx.hasTime) { body.hour = h; body.minute = mi; }
   if (ctx.hasLocation) { body.latitude = input.lat; body.longitude = input.lng; }
 
+  // Bound the call so a hung/unreachable provider can't freeze the whole blueprint
+  // computation (and the onboarding "weaving" screen) — computeBazi degrades to an
+  // honest "unavailable" chart when this aborts.
   const resp = await fetch(`${base}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": key },
+    signal: AbortSignal.timeout(12_000),
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`bazi provider ${resp.status}`);

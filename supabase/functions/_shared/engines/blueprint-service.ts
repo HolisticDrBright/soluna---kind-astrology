@@ -54,7 +54,11 @@ export async function computeBlueprint(
 ): Promise<ComputedBlueprint> {
   const birthDate = new Date(profile.birth_date);
 
-  // Astrology
+  // Astrology + BaZi both call external providers. Run them CONCURRENTLY — each
+  // already degrades to its own blocked/"unavailable" result on failure or
+  // timeout (neither can reject), so the compute waits at most ONE provider
+  // timeout, never the sum of two. BaZi reuses the cached chart when birth inputs
+  // are unchanged so we never pay the provider twice.
   const astroInput: AstrologyInput = {
     date: profile.birth_date,
     time: profile.birth_time,
@@ -63,7 +67,17 @@ export async function computeBlueprint(
     timezone: profile.timezone,
     houseSystem: profile.house_system,
   };
-  const astrology = await computeAstrology(astroInput);
+  const baziInput: BaziInput = {
+    date: profile.birth_date,
+    time: profile.birth_time,
+    lat: profile.lat,
+    lng: profile.lng,
+    timezone: profile.timezone,
+  };
+  const [astrology, bazi] = await Promise.all([
+    computeAstrology(astroInput),
+    computeBazi(baziInput, { cachedBazi: opts?.cachedBazi }),
+  ]);
 
   // Numerology
   const numInput: NumerologyInput = {
@@ -78,18 +92,6 @@ export async function computeBlueprint(
     birthTime: profile.birth_time,
   };
   const chinese = computeChinese(chiInput);
-
-  // BaZi / Four Pillars (provider-backed depth). Reuses the cached chart when the
-  // birth inputs are unchanged so we never pay the provider twice. Degrades to an
-  // honest "unavailable" output on failure — never fabricated.
-  const baziInput: BaziInput = {
-    date: profile.birth_date,
-    time: profile.birth_time,
-    lat: profile.lat,
-    lng: profile.lng,
-    timezone: profile.timezone,
-  };
-  const bazi = await computeBazi(baziInput, { cachedBazi: opts?.cachedBazi });
 
   // Human Design
   const hdInput: HumanDesignInput = {
