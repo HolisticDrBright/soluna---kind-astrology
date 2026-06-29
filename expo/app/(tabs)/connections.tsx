@@ -11,7 +11,7 @@ import ConfidencePill from "@/components/ConfidencePill";
 import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle, Target } from "lucide-react-native";
 import { LoadingState, ErrorState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { getConnections, addConnection, getCompatibility } from "@/lib/api";
+import { getConnections, addConnection, getCompatibility, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
 
 const USE_MOCK_DATA = isDemoMode;
@@ -27,6 +27,28 @@ const parseBirthDate = (text: string): string | null => {
 const formatBirth = (iso: string) => {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+};
+// Parse a typed birth time into "HH:MM" (24h). Accepts "14:30" or "2:30 PM".
+// Returns null for blank (caller treats as "no time"); returns undefined for a
+// non-empty but unparseable value so the caller can prompt a correction.
+const parseBirthTime = (text: string): string | null | undefined => {
+  const t = text.trim();
+  if (!t) return null;
+  const m24 = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m24) {
+    const h = Number(m24[1]), mi = Number(m24[2]);
+    if (h >= 0 && h <= 23 && mi >= 0 && mi <= 59) return `${String(h).padStart(2, "0")}:${m24[2]}`;
+  }
+  const m12 = t.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+  if (m12) {
+    let h = Number(m12[1]); const mi = Number(m12[2]); const pm = /[Pp]/.test(m12[3]);
+    if (h >= 1 && h <= 12 && mi >= 0 && mi <= 59) {
+      if (pm && h !== 12) h += 12;
+      if (!pm && h === 12) h = 0;
+      return `${String(h).padStart(2, "0")}:${m12[2]}`;
+    }
+  }
+  return undefined;
 };
 
 // ─── Lens config ───────────────────────────────────────────
@@ -53,18 +75,63 @@ const mrS = StyleSheet.create({ ring: { alignItems: "center", gap: 2 }, score: {
 function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void; onAdded: () => void; defaultLens: string }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [birthTime, setBirthTime] = useState("");
+  // Live Google place resolution (mirrors onboarding) → real lat/lng/timezone,
+  // which the compatibility engine needs for BaZi + full natal-chart matching.
+  const [placeSearch, setPlaceSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+
+  const onPlaceQuery = (text: string) => {
+    setPlaceSearch(text);
+    setErr("");
+    setResolvedPlace(null); // typing again invalidates a prior resolution
+    if (USE_MOCK_DATA) return;
+    if (text.trim().length >= 2) {
+      geoAutocomplete(text)
+        .then(({ data }) => setSuggestions(data?.suggestions ?? []))
+        .catch(() => setSuggestions([]));
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const pickPlace = async (s: PlaceSuggestion) => {
+    setPlaceSearch(s.label);
+    setSuggestions([]);
+    setResolvedPlace(null);
+    setErr("");
+    // Timezone is date-aware (historical DST), so resolve against their birth date.
+    const dateForTz = parseBirthDate(date) ?? new Date().toISOString().split("T")[0];
+    setResolvingPlace(true);
+    const { data, error } = await geoResolve(s.id, dateForTz);
+    setResolvingPlace(false);
+    if (error || !data?.place) { setErr(error ?? "We couldn't resolve that place. Please try another."); return; }
+    setResolvedPlace(data.place);
+  };
 
   const submit = async () => {
     const n = name.trim();
     if (!n) { setErr("Add their name."); return; }
     const iso = parseBirthDate(date);
     if (!iso) { setErr("Add a valid birth date, like July 5, 1993."); return; }
+    const bt = parseBirthTime(birthTime);
+    if (bt === undefined) { setErr("That birth time looks off — use 24h like 14:30, or leave it blank."); return; }
     if (USE_MOCK_DATA) { onClose(); return; }
     setSaving(true);
     setErr("");
-    const { error } = await addConnection({ name: n, birth_date: iso, lens: defaultLens });
+    const { error } = await addConnection({
+      name: n,
+      birth_date: iso,
+      birth_time: bt,
+      lens: defaultLens,
+      ...(resolvedPlace
+        ? { birth_place_label: resolvedPlace.label, lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+        : {}),
+    });
     setSaving(false);
     if (error) { setErr(error); return; }
     onAdded();
@@ -75,7 +142,30 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
       <Text style={fS.title}>Add Someone to Your Circle</Text>
       <TextInput style={fS.input} value={name} onChangeText={setName} placeholder="Their full name" placeholderTextColor={SolunaColors.creamSubtle} />
       <TextInput style={fS.input} value={date} onChangeText={setDate} placeholder="Birth date (e.g. July 5, 1993)" placeholderTextColor={SolunaColors.creamSubtle} />
-      <Text style={fS.hint}>Just a name and birth date to get started. More details unlock deeper compatibility.</Text>
+      <TextInput style={fS.input} value={birthTime} onChangeText={setBirthTime} placeholder="Birth time (optional, e.g. 14:30)" placeholderTextColor={SolunaColors.creamSubtle} autoCapitalize="none" />
+      {!USE_MOCK_DATA && (
+        <View>
+          <TextInput
+            style={fS.input}
+            value={placeSearch}
+            onChangeText={onPlaceQuery}
+            placeholder="Birth city (optional — unlocks BaZi & full astrology)"
+            placeholderTextColor={SolunaColors.creamSubtle}
+          />
+          {resolvingPlace ? <ActivityIndicator color={SolunaColors.warmGold} style={{ marginBottom: 12 }} /> : null}
+          {suggestions.length > 0 && (
+            <View style={fS.dropdown}>
+              {suggestions.slice(0, 5).map((sug) => (
+                <TouchableOpacity key={sug.id} style={fS.suggestion} onPress={() => pickPlace(sug)}>
+                  <Text style={fS.suggestionText}>{sug.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          {resolvedPlace ? <Text style={fS.resolved}>✓ {resolvedPlace.label}</Text> : null}
+        </View>
+      )}
+      <Text style={fS.hint}>Name + birth date is enough to start. Adding birth time and city unlocks BaZi / Four Pillars and full astrology compatibility.</Text>
       {err ? <Text style={fS.err}>{err}</Text> : null}
       <View style={fS.buttons}>
         <TouchableOpacity style={fS.cancelBtn} onPress={onClose} disabled={saving}><Text style={fS.cancelText}>Cancel</Text></TouchableOpacity>
@@ -176,6 +266,10 @@ const fS = StyleSheet.create({
   addBtn: { flex: 1, paddingVertical: 14, borderRadius: SolunaRadius.md, backgroundColor: "rgba(232,184,109,0.15)", alignItems: "center", borderWidth: 1, borderColor: "rgba(232,184,109,0.2)" },
   addBtnDisabled: { backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.05)" },
   addText: { fontSize: 14, color: SolunaColors.warmGold, fontWeight: "600", fontFamily: Fonts.body },
+  dropdown: { backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SolunaRadius.md, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 12, overflow: "hidden" },
+  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
+  suggestionText: { fontSize: 14, color: SolunaColors.cream, fontFamily: Fonts.body },
+  resolved: { fontSize: 13, color: SolunaColors.warmGold, fontFamily: Fonts.body, marginBottom: 12 },
 });
 
 // ─── Bond Ritual Section ──────────────────────────────────

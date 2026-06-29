@@ -189,11 +189,17 @@ export async function getConnections() {
   return invokeEdgeFunction<{ connections: Connection[] }>("connections");
 }
 
-/** Add a connection */
+/** Add a connection. Birth time + a resolved place (lat/lng/timezone) are
+ *  optional, but sending them unlocks BaZi / Four Pillars and full-chart
+ *  astrology compatibility for this person (the backend stores + uses them). */
 export async function addConnection(input: {
   name: string;
   birth_date: string;
   birth_time?: string | null;
+  birth_place_label?: string;
+  lat?: number;
+  lng?: number;
+  timezone?: string;
   lens?: string;
 }) {
   return invokeEdgeFunction("connections", input as unknown as Record<string, unknown>);

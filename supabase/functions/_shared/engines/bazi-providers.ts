@@ -347,7 +347,16 @@ export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<Ba
     include_professional: envFlag("BAZI_ENABLE_LUCK_CYCLES", true),
   };
   if (ctx.hasTime) { body.hour = h; body.minute = mi; }
-  if (ctx.hasLocation) { body.lat = input.lat; body.lng = input.lng; }
+  if (ctx.hasLocation) {
+    // Verified field names are `lat`/`lng` (sending only `latitude`/`longitude`
+    // makes the API ignore them and geocode city "None" → 400). We send both the
+    // short and long forms as belt-and-suspenders: the working short form is
+    // always present, and the extra fields are harmlessly ignored.
+    body.lat = input.lat;
+    body.lng = input.lng;
+    body.latitude = input.lat;
+    body.longitude = input.lng;
+  }
 
   // Bound the call so a hung/unreachable provider can't freeze the whole blueprint
   // computation (and the onboarding "weaving" screen) — computeBazi degrades to an
