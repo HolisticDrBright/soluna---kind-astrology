@@ -305,17 +305,20 @@ export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<Ba
   const [y, mo, d] = input.date.split("-").map(Number);
   const [h, mi] = (input.time ?? "00:00").split(":").map(Number);
 
-  // Send both discrete fields and an ISO datetime so common FreeAstroAPI request
-  // shapes are covered; override the route with BAZI_API_ENDPOINT if your plan differs.
+  // FreeAstroAPI /api/v1/chinese/bazi body (verified from their docs): discrete
+  // date/time fields + lat/lng. NOTE: the field names are `lat`/`lng` — sending
+  // `latitude`/`longitude` makes it ignore them and try to geocode city "None"
+  // (→ 400). It derives timezone from lat/lng, so no timezone field is sent.
   const body: Record<string, unknown> = {
     year: y, month: mo, day: d,
-    datetime: ctx.hasTime ? `${input.date}T${input.time}` : input.date,
-    timezone: input.timezone,
-    true_solar_time: envFlag("BAZI_ENABLE_TRUE_SOLAR_TIME", true) && ctx.hasLocation,
-    luck_cycles: envFlag("BAZI_ENABLE_LUCK_CYCLES", true),
+    time_standard: "civil",
+    include_pinyin: true,
+    include_stars: true,
+    include_interactions: true,
+    include_professional: envFlag("BAZI_ENABLE_LUCK_CYCLES", true),
   };
   if (ctx.hasTime) { body.hour = h; body.minute = mi; }
-  if (ctx.hasLocation) { body.latitude = input.lat; body.longitude = input.lng; }
+  if (ctx.hasLocation) { body.lat = input.lat; body.lng = input.lng; }
 
   // Bound the call so a hung/unreachable provider can't freeze the whole blueprint
   // computation (and the onboarding "weaving" screen) — computeBazi degrades to an
