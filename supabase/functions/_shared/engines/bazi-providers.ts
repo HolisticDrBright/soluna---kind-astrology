@@ -324,6 +324,11 @@ export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<Ba
     signal: AbortSignal.timeout(12_000),
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`bazi provider ${resp.status}`);
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => "");
+    // Diagnostic: log the exact URL tried so a 404 reveals the wrong endpoint.
+    console.error(`bazi provider ${resp.status} at ${base}${endpoint} :: ${errBody.slice(0, 300)}`);
+    throw new Error(`bazi provider ${resp.status} (${base}${endpoint})`);
+  }
   return normalizeBazi(await resp.json(), { ...ctx, provider: cap.provider ?? "freeastroapi" });
 }

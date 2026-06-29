@@ -151,8 +151,17 @@ async function fetchAstrologyApi(input: AstrologyInput): Promise<AstrologyOutput
       is_asteroids: "false",
     }),
   });
-  if (!resp.ok) throw new Error(`astrologyapi western_horoscope ${resp.status}`);
-  return normalizeAstrologyApi(await resp.json(), timeMissing);
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => "");
+    throw new Error(`astrologyapi western_horoscope ${resp.status} :: ${errBody.slice(0, 300)}`);
+  }
+  const apiData = await resp.json();
+  if (!Array.isArray(apiData?.planets) || apiData.planets.length === 0) {
+    // Diagnostic: log the REAL response shape when planets are missing, so the
+    // connector can be matched to this account's actual payload.
+    console.error(`astrologyapi western_horoscope ${resp.status} returned no planets; raw: ${JSON.stringify(apiData).slice(0, 600)}`);
+  }
+  return normalizeAstrologyApi(apiData, timeMissing);
 }
 
 /** Pure normalizer for AstrologyAPI's western_horoscope response. Exported for tests. */
