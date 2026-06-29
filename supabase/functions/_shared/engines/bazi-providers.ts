@@ -294,10 +294,12 @@ export function normalizeBazi(data: any, ctx: BaziFetchCtx): BaziOutput {
 export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<BaziOutput> {
   const cap = getBaziCapability();
   if (!cap.enabled) throw new Error(`bazi disabled: ${cap.reason}`);
-  // Accept FREEASTRO_API / FREEASTRO_API_BASE_URL as aliases for the BAZI_* names.
+  // Accept FREEASTRO_API as an alias for the key. For the base, use the verified
+  // default and IGNORE a stray FREEASTRO_API_BASE_URL (often set to the marketing
+  // site, which 404s); only an explicit BAZI_API_BASE_URL overrides it.
   const key = (Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API"))!;
-  const base = (Deno.env.get("BAZI_API_BASE_URL") || Deno.env.get("FREEASTRO_API_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
-  let endpoint = (Deno.env.get("BAZI_API_ENDPOINT") || "/bazi").trim();
+  const base = (Deno.env.get("BAZI_API_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
+  let endpoint = (Deno.env.get("BAZI_API_ENDPOINT") || "/api/v1/chinese/bazi").trim();
   if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
 
   const [y, mo, d] = input.date.split("-").map(Number);
