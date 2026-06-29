@@ -84,6 +84,10 @@ function buildDisplayUser(payload: {
   };
 }
 
+function nonStaleOnboardingStep(step: OnboardingStep): OnboardingStep {
+  return step === "calculating" ? "welcome" : step;
+}
+
 function toRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
@@ -336,6 +340,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         session,
         authUser: session?.user ?? null,
         authLoading: false,
+        onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
       }));
       if (session) {
         setSentryUser(session.user.id);
@@ -362,7 +367,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         authError: null,
         hasOnboarded: session ? s.hasOnboarded : false,
         user: session ? s.user : null,
-        onboardingStep: session ? s.onboardingStep : "welcome",
+        onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
       }));
       if (session) {
         setSentryUser(session.user.id);
@@ -402,6 +407,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
       authUser: session?.user ?? null,
       authLoading: false,
       authError: null,
+      onboardingStep: "welcome",
     }));
     if (session) {
       setSentryUser(session.user.id);
