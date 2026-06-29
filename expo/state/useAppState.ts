@@ -215,6 +215,8 @@ function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
       branch: String(p.branch ?? ""),
       element: String(p.element ?? ""),
       animal: p.animal ? String(p.animal) : undefined,
+      nayin: p.nayin ? String(p.nayin) : undefined,
+      lifeStage: p.lifeStage ? String(p.lifeStage) : undefined,
     }];
   });
 
@@ -232,6 +234,16 @@ function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
   const luckPillars = (Array.isArray(bazi.luckPillars) ? bazi.luckPillars : [])
     .map(toRecord).filter(Boolean).slice(0, 3)
     .map((l) => ({ stem: String(l!.stem ?? ""), branch: String(l!.branch ?? ""), startAge: typeof l!.startAge === "number" ? l!.startAge : null }));
+  const structure = typeof bazi.structure === "string" ? bazi.structure : null;
+  const stars = (Array.isArray(bazi.stars) ? bazi.stars : [])
+    .map(toRecord).filter(Boolean)
+    .map((s) => ({
+      name: String(s!.name ?? ""),
+      pillar: s!.pillar ? String(s!.pillar) : undefined,
+      description: s!.description ? String(s!.description) : undefined,
+    }))
+    .filter((s) => s.name);
+  const voidBranches = Array.isArray(bazi.voidBranches) ? bazi.voidBranches.map(String) : [];
   const notes = Array.isArray(bazi.confidenceNotes) ? bazi.confidenceNotes.map(String) : [];
 
   return {
@@ -245,6 +257,9 @@ function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
     elementBalance: available ? elementBalance : [],
     favorableElements: available ? fav : [],
     luckPillars: available ? luckPillars : [],
+    structure: available ? structure : null,
+    stars: available ? stars : [],
+    voidBranches: available ? voidBranches : [],
     notes: notes.length ? notes : UNAVAILABLE_BAZI.notes,
   };
 }

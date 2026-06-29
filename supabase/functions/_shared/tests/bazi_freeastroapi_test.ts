@@ -18,6 +18,7 @@ const SAMPLE = {
       gan_info: { name: "Ji", element: "Earth", polarity: "Yin" },
       zhi_info: { element: "Wood", polarity: "Yin", zodiac: "Rabbit", hidden: ["乙"] },
       ten_gods: { stem: "Hurting Officer", hidden: [{ gan: "乙", ten_god: "Direct Resource" }] },
+      nayin: "城头土", life_stage: { chinese: "沐浴", name: "Bath" },
     },
     {
       label: "month", gan: "丁", zhi: "卯",
@@ -30,6 +31,7 @@ const SAMPLE = {
       gan_info: { name: "Bing", element: "Fire", polarity: "Yang" },
       zhi_info: { element: "Metal", zodiac: "Monkey", hidden: ["庚", "壬", "戊"] },
       ten_gods: { stem: "Day Master" },
+      nayin: "山下火", life_stage: { chinese: "病", name: "Sickness" },
     },
     {
       label: "hour", gan: "甲", zhi: "午",
@@ -70,6 +72,11 @@ const SAMPLE = {
     { id: "break_year_hour", type: "Branch Break (Po)", branches: ["卯", "午"] },
     { id: "break_month_hour", type: "Branch Break (Po)", branches: ["卯", "午"] },
   ],
+  stars: [
+    { name: "General Star", pillar: "year", zhi: "卯", desc: "Leadership, authority, and command" },
+    { name: "Academic Star", pillar: "day", zhi: "申", desc: "Intelligence, learning, and literary talent" },
+  ],
+  xun_kong: { void_branches: ["辰", "巳"], xun_name: "甲午" },
   astro_debug: { effective_solar_time_local: "1879-03-14T11:30:00" },
 };
 
@@ -127,6 +134,23 @@ Deno.test("FreeAstroAPI: luck cycle + interactions + true solar time", () => {
 
   assert(b.trueSolarTime.applied);
   assertEquals(b.trueSolarTime.adjustedTime, "1879-03-14T11:30:00");
+});
+
+Deno.test("FreeAstroAPI: rich extras — structure, symbolic stars, void branches, na yin, life stage", () => {
+  const b = normalizeBazi(SAMPLE, FULL_CTX);
+  assertEquals(b.structure, "Direct Resource Structure");
+  assertEquals(b.voidBranches, ["辰", "巳"]);
+
+  assertEquals(b.stars?.length, 2);
+  assertEquals(b.stars?.[0].name, "General Star");
+  assertEquals(b.stars?.[0].pillar, "year");
+  assert((b.stars?.[1].description ?? "").includes("Intelligence"));
+
+  // Na Yin + 12 Life Stage map onto the pillars ({ chinese, name } → name).
+  assertEquals(b.pillars.year?.nayin, "城头土");
+  assertEquals(b.pillars.year?.lifeStage, "Bath");
+  assertEquals(b.pillars.day?.nayin, "山下火");
+  assertEquals(b.pillars.day?.lifeStage, "Sickness");
 });
 
 Deno.test("FreeAstroAPI: no birth time → hour pillar is never fabricated", () => {

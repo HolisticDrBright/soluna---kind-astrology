@@ -444,6 +444,7 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
             {bazi.dayMaster.stem ? ` · ${bazi.dayMaster.stem}` : ""}
           </Text>
           {bazi.dayMasterStrength ? <Text style={s.baziMeaning}>Strength: {capWord(bazi.dayMasterStrength)}</Text> : null}
+          {bazi.structure ? <Text style={s.baziMeaning}>Structure: {bazi.structure}</Text> : null}
         </Card>
       )}
       {bazi.pillars.map((p, i) => (
@@ -457,6 +458,11 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
               </View>
             ) : null}
           </View>
+          {(p.lifeStage || p.nayin) ? (
+            <Text style={s.baziMeaning}>
+              {[p.lifeStage ? `Stage: ${p.lifeStage}` : "", p.nayin ? `Na Yin: ${p.nayin}` : ""].filter(Boolean).join("  ·  ")}
+            </Text>
+          ) : null}
         </Card>
       ))}
       {bazi.elementBalance.length > 0 && (
@@ -475,6 +481,23 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
         <>
           <Text style={s.sectionLabel}>Luck Cycles</Text>
           <Card><Text style={s.baziMeaning}>{bazi.luckPillars.map((l) => `${l.stem}${l.branch}${l.startAge != null ? ` (from age ${l.startAge})` : ""}`).join("  ·  ")}</Text></Card>
+        </>
+      )}
+      {(bazi.stars?.length ?? 0) > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Symbolic Stars</Text>
+          {bazi.stars!.map((star, i) => (
+            <Card key={i}>
+              <Text style={s.baziStem}>{star.name}{star.pillar ? ` · ${capWord(star.pillar)}` : ""}</Text>
+              {star.description ? <Text style={s.baziMeaning}>{star.description}</Text> : null}
+            </Card>
+          ))}
+        </>
+      )}
+      {(bazi.voidBranches?.length ?? 0) > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Void Branches</Text>
+          <Card><Text style={s.baziMeaning}>{bazi.voidBranches!.join("  ·  ")} — life areas that ask for extra grounding (xun kong).</Text></Card>
         </>
       )}
       {bazi.partial ? (

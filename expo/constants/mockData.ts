@@ -202,6 +202,15 @@ export interface BaziViewPillar {
   branch: string;
   element: string;
   animal?: string;
+  /** Na Yin (sound element), e.g. "城头土". */
+  nayin?: string;
+  /** 12 Life Stage of the Day Master at this branch, e.g. "Peak". */
+  lifeStage?: string;
+}
+export interface BaziViewStar {
+  name: string;
+  pillar?: string;
+  description?: string;
 }
 export interface BaziView {
   /** A real provider chart with at least a Day Master. */
@@ -216,6 +225,12 @@ export interface BaziView {
   elementBalance: { element: string; count: number }[];
   favorableElements: string[];
   luckPillars: { stem: string; branch: string; startAge: number | null }[];
+  /** Chart structure / pattern, e.g. "Direct Resource Structure". */
+  structure?: string | null;
+  /** Symbolic stars (shen sha) across the chart. */
+  stars?: BaziViewStar[];
+  /** Void / empty branches (xun kong). */
+  voidBranches?: string[];
   notes: string[];
 }
 

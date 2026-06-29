@@ -100,6 +100,11 @@ function normalizePillar(raw: any): BaziPillar | null {
   if (!tenGod && tenGodsObj && typeof tenGodsObj === "object") tenGod = str(pick(tenGodsObj, "stem")) || undefined;
   else if (!tenGod && typeof tenGodsObj === "string") tenGod = tenGodsObj;
 
+  // Na Yin (sound element) + 12 Life Stage. FreeAstroAPI nests life_stage as
+  // { chinese, name }; accept a plain string too.
+  const lifeStageRaw = pick(raw, "life_stage", "lifeStage", "twelve_stage");
+  const lifeStage = (str(pick(lifeStageRaw, "name", "english")) || (typeof lifeStageRaw === "string" ? lifeStageRaw : "")) || undefined;
+
   return {
     stem,
     branch,
@@ -108,6 +113,8 @@ function normalizePillar(raw: any): BaziPillar | null {
     animal: (str(pick(zhiInfo, "zodiac") ?? pick(raw, "animal", "zodiac", "branch_animal")) || undefined),
     hiddenStems: strArr(pick(zhiInfo, "hidden") ?? pick(raw, "hidden_stems", "hiddenStems", "hidden", "hidden_gan")),
     tenGod,
+    nayin: (str(pick(raw, "nayin", "na_yin", "sound_element")) || undefined),
+    lifeStage,
   };
 }
 
@@ -248,6 +255,25 @@ export function normalizeBazi(data: any, ctx: BaziFetchCtx): BaziOutput {
     pick(professional, "dm_strength", "day_master_strength", "strength"),
   ) || null;
 
+  // Chart structure / pattern (e.g. "Direct Resource Structure").
+  const structure = (str(pick(root, "structure", "pattern")) || str(pick(professional, "structure", "pattern"))) || null;
+
+  // Symbolic stars (shen sha) — FreeAstroAPI returns stars[] with name/pillar/desc.
+  const starsRaw = pick(root, "stars", "symbolic_stars", "shen_sha");
+  const stars = Array.isArray(starsRaw)
+    ? starsRaw
+        .map((s) => ({
+          name: str(pick(s, "name", "star")),
+          pillar: (str(pick(s, "pillar", "position")) || undefined),
+          description: (str(pick(s, "desc", "description", "meaning")) || undefined),
+        }))
+        .filter((s) => s.name)
+    : [];
+
+  // Void / empty branches (xun kong / 空亡).
+  const xunKong = pick(root, "xun_kong", "xunKong", "void");
+  const voidBranches = dedupe(strArr(pick(xunKong, "void_branches", "voidBranches", "branches")));
+
   // True solar time: explicit field, else FreeAstroAPI's astro_debug.
   const astroDebug = pick(root, "astro_debug", "astroDebug") as Record<string, unknown> | undefined;
   const tstRaw = pick(root, "true_solar_time", "trueSolarTime", "solar_time") as Record<string, unknown> | undefined;
@@ -276,6 +302,9 @@ export function normalizeBazi(data: any, ctx: BaziFetchCtx): BaziOutput {
     unfavorableElements,
     interactions: { clashes, combinations, harms, punishments },
     luckPillars,
+    structure,
+    stars,
+    voidBranches,
     trueSolarTime: {
       applied: ctx.hasLocation && (!!tstRaw || !!astroDebug),
       adjustedTime,

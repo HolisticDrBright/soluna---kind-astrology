@@ -38,6 +38,20 @@ export interface BaziPillar {
   hiddenStems: string[];
   /** Ten God of this pillar's stem relative to the Day Master, if provided. */
   tenGod?: string;
+  /** Na Yin (sound element) of the pillar, e.g. "城头土" / "City Wall Earth", if provided. */
+  nayin?: string;
+  /** 12 Life Stage of the Day Master at this branch, e.g. "Peak", if provided. */
+  lifeStage?: string;
+}
+
+/** A symbolic star (shen sha), e.g. "Academic Star" on the Day pillar. */
+export interface BaziStar {
+  /** Star name, e.g. "Academic Star". */
+  name: string;
+  /** Which pillar it sits on (year/month/day/hour), if provided. */
+  pillar?: string;
+  /** Short meaning, e.g. "Intelligence, learning, and literary talent". */
+  description?: string;
 }
 
 export interface BaziLuckPillar {
@@ -76,6 +90,12 @@ export interface BaziOutput {
   };
   /** Luck pillars / Da Yun (decade luck), when enabled and returned. */
   luckPillars: BaziLuckPillar[];
+  /** Chart structure / pattern, e.g. "Direct Resource Structure", when provided. */
+  structure?: string | null;
+  /** Symbolic stars (shen sha) across the chart, when provided. */
+  stars?: BaziStar[];
+  /** Void / empty branches (xun kong / 空亡), when provided. */
+  voidBranches?: string[];
   trueSolarTime: { applied: boolean; adjustedTime?: string | null; note?: string };
   // ── provenance ──
   source: BaziSource;
@@ -111,6 +131,9 @@ function unavailableBazi(reason: string, hash: string, note: string, missingInpu
     unfavorableElements: [],
     interactions: { clashes: [], combinations: [], harms: [], punishments: [] },
     luckPillars: [],
+    structure: null,
+    stars: [],
+    voidBranches: [],
     trueSolarTime: { applied: false },
     source: "unavailable",
     partial: false,
