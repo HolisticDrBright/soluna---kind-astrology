@@ -7,7 +7,7 @@
 //
 // Do NOT add real per-user logic here, and do NOT import this file into a code
 // path that runs in live mode.
-import { UNAVAILABLE_BAZI } from "./mockData";
+import { UNAVAILABLE_BAZI, UNAVAILABLE_VEDIC } from "./mockData";
 import type {
   BondRitualData,
   ChatMessage,
@@ -251,6 +251,7 @@ export const MOCK_USER: UserData = {
   numerology: MOCK_NUMEROLOGY,
   chinese: MOCK_CHINESE,
   bazi: UNAVAILABLE_BAZI,
+  vedic: UNAVAILABLE_VEDIC,
   humanDesign: MOCK_HUMAN_DESIGN,
 };
 

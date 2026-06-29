@@ -38,8 +38,12 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user.userId)
         .single();
 
+      // select("*") returns every blueprint column that exists (astrology …, bazi,
+      // and vedic once its migration is applied). Selecting "*" instead of a fixed
+      // list means a not-yet-migrated `vedic` column is simply absent, never an
+      // error — and it also fixes BaZi, which a fixed list had been omitting.
       const { data: blueprint } = await supabase.from("blueprints")
-        .select("astrology, numerology, chinese, human_design")
+        .select("*")
         .eq("user_id", user.userId)
         .single();
 

@@ -6,14 +6,14 @@ import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS } from "@/constants/mockData";
-import type { ZodiacSign, BaziView } from "@/constants/mockData";
+import type { ZodiacSign, BaziView, VedicView } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
 import { Sun, Moon, ChevronRight, Sparkles, ArrowRight, MessageCircle, Bookmark, Compass } from "lucide-react-native";
 import InsightActionBar from "@/components/InsightActionBar";
 
-type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
+type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign" | "vedic";
 
 function ordinal(n: number): string {
   if (!Number.isFinite(n)) return "th";
@@ -230,8 +230,8 @@ function BlueprintContent() {
 
         {/* Lens switcher */}
         <View style={s.lensWrap}>
-          {(["astrology", "numerology", "chinese", "humanDesign"] as const).map((key) => {
-            const labels: Record<SystemLens, string> = { astrology: "Astro", numerology: "Nums", chinese: "Chinese", humanDesign: "HD" };
+          {(["astrology", "numerology", "chinese", "humanDesign", "vedic"] as const).map((key) => {
+            const labels: Record<SystemLens, string> = { astrology: "Astro", numerology: "Nums", chinese: "Chinese", humanDesign: "HD", vedic: "Vedic" };
             const isActive = lens === key;
             return (
               <TouchableOpacity key={key} style={[s.lensTab, isActive && s.lensTabActive]} onPress={() => setLens(key)}>
@@ -415,6 +415,14 @@ function BlueprintContent() {
           </View>
         )}
 
+        {/* ── Vedic / sidereal (a distinct lens from the Western chart) ── */}
+        {lens === "vedic" && (
+          <View>
+            <Text style={s.sectionLabel}>Vedic · Sidereal Chart</Text>
+            <VedicChart vedic={user.vedic} />
+          </View>
+        )}
+
         {/* Premium gate */}
         <PremiumGateCard title="Full Blueprint Depth" description="Unlock comprehensive BaZi analysis, deeper Human Design center insights, and full cross-system synthesis reports." feature="Includes all four lenses with complete interpretations" />
         <View style={{ height: 100 }} />
@@ -513,6 +521,66 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
         <Text style={s.baziHint}>
           {bazi.missingInputs.includes("birth_time") ? "Partial chart — add your birth time for the Hour Pillar." : "Partial chart from the data on file."}
         </Text>
+      ) : null}
+      <Text style={s.baziHint}>A reflective lens for self-insight, not fixed fate.</Text>
+    </View>
+  );
+}
+
+// Vedic / sidereal chart — its own lens, clearly distinct from the Western chart.
+// Renders honest available / partial / unavailable states; never fabricated.
+function VedicChart({ vedic }: { vedic: VedicView }) {
+  if (!vedic?.available) {
+    const why = vedic?.missingInputs?.includes("birth_location")
+      ? "Add your birth place to unlock your Vedic / sidereal chart."
+      : vedic?.missingInputs?.includes("birth_time")
+        ? "Add your birth time to unlock your full Vedic chart."
+        : (vedic?.notes?.[0] ?? "Your Vedic chart isn't available yet.");
+    return (
+      <Card>
+        <Text style={s.baziUnavailTitle}>Vedic chart not available yet</Text>
+        <Text style={s.baziMeaning}>{why}</Text>
+      </Card>
+    );
+  }
+  return (
+    <View>
+      <Card><Text style={s.baziHint}>Sidereal{vedic.ayanamsha ? ` (${capWord(vedic.ayanamsha)})` : ""} — a separate tradition from your Western chart above. Its signs are intentionally shifted, and its heart is the nakshatras (lunar mansions).</Text></Card>
+      {vedic.ascendant && (
+        <Card>
+          <Text style={s.baziDmLabel}>Ascendant · Lagna</Text>
+          <Text style={s.baziDmValue}>{vedic.ascendant.sign}{vedic.ascendant.degree ? ` · ${vedic.ascendant.degree}°` : ""}</Text>
+          {vedic.ascendant.nakshatra ? <Text style={s.baziMeaning}>Nakshatra: {vedic.ascendant.nakshatra}</Text> : null}
+        </Card>
+      )}
+      {vedic.moonNakshatra ? (
+        <>
+          <Text style={s.sectionLabel}>Moon Nakshatra</Text>
+          <Card><Text style={s.baziMeaning}>{vedic.moonNakshatra} — the lunar mansion of your Moon, central to a Vedic reading.</Text></Card>
+        </>
+      ) : null}
+      {vedic.planets.length > 0 && (
+        <>
+          <Text style={s.sectionLabel}>Planets · Sidereal</Text>
+          {vedic.planets.map((p, i) => (
+            <Card key={i}>
+              <View style={s.baziRow}>
+                <Text style={s.baziStem}>{p.planet}</Text>
+                <Text style={s.baziBranch}>{p.sign}{p.house != null ? ` · House ${p.house}` : ""}{p.retrograde ? " ℞" : ""}</Text>
+              </View>
+              {p.nakshatra ? <Text style={s.baziMeaning}>{p.nakshatra}{p.nakshatraLord ? ` · ruled by ${p.nakshatraLord}` : ""}</Text> : null}
+            </Card>
+          ))}
+        </>
+      )}
+      {vedic.sadeSati ? (
+        <>
+          <Text style={s.sectionLabel}>Sade Sati · Saturn cycle</Text>
+          <Card><Text style={s.baziMeaning}>{vedic.sadeSati.note}</Text></Card>
+        </>
+      ) : null}
+      {vedic.partial ? (
+        <Text style={s.baziHint}>{vedic.missingInputs.includes("birth_time") ? "Partial — add your birth time for the Ascendant and houses." : "Partial chart from the data on file."}</Text>
       ) : null}
       <Text style={s.baziHint}>A reflective lens for self-insight, not fixed fate.</Text>
     </View>

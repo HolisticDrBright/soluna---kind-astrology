@@ -9,6 +9,7 @@ import { computeChinese, type ChineseInput, type ChineseOutput } from "./chinese
 import { computeBazi, type BaziInput, type BaziOutput } from "./bazi.ts";
 import { computeHumanDesign, type HumanDesignInput, type HumanDesignOutput } from "./human-design.ts";
 import { computeBiorhythm, type BiorhythmInput, type BiorhythmOutput } from "./biorhythm.ts";
+import { computeVedic, type VedicInput, type VedicOutput } from "./vedic.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 
 export interface BirthProfile {
@@ -31,6 +32,8 @@ export interface ComputedBlueprint {
   chinese: ChineseOutput;
   /** Full provider-backed BaZi / Four Pillars; "unavailable" when not configured. */
   bazi: BaziOutput;
+  /** Vedic / sidereal chart — a distinct lens from Western astrology. */
+  vedic: VedicOutput;
   humanDesign: HumanDesignOutput;
   biorhythmSeed: BiorhythmOutput;
   computedAt: string;
@@ -50,7 +53,7 @@ export interface PlacementRecord {
  */
 export async function computeBlueprint(
   profile: BirthProfile,
-  opts?: { cachedBazi?: BaziOutput | null },
+  opts?: { cachedBazi?: BaziOutput | null; cachedVedic?: VedicOutput | null },
 ): Promise<ComputedBlueprint> {
   const birthDate = new Date(profile.birth_date);
 
@@ -74,9 +77,20 @@ export async function computeBlueprint(
     lng: profile.lng,
     timezone: profile.timezone,
   };
-  const [astrology, bazi] = await Promise.all([
+  const vedicInput: VedicInput = {
+    date: profile.birth_date,
+    time: profile.birth_time,
+    lat: profile.lat,
+    lng: profile.lng,
+    timezone: profile.timezone,
+  };
+  // Astrology, BaZi, and Vedic all call external providers concurrently — each
+  // degrades to its own blocked/"unavailable" result on failure or timeout (none
+  // can reject), so the compute waits at most ONE provider timeout, never the sum.
+  const [astrology, bazi, vedic] = await Promise.all([
     computeAstrology(astroInput),
     computeBazi(baziInput, { cachedBazi: opts?.cachedBazi }),
+    computeVedic(vedicInput, { cachedVedic: opts?.cachedVedic }),
   ]);
 
   // Numerology
@@ -111,6 +125,7 @@ export async function computeBlueprint(
     numerology,
     chinese,
     bazi,
+    vedic,
     humanDesign,
     biorhythmSeed,
     computedAt: new Date().toISOString(),
@@ -239,16 +254,21 @@ export async function computeAndPersistBlueprint(
 
   // Reuse an existing BaZi chart when birth inputs are unchanged (avoids re-charging
   // the provider). computeBazi compares the stored chart's input fingerprint.
+  // select("*") so a not-yet-migrated `vedic` column can't error this read
+  // (it just comes back absent → cachedVedic null).
   const { data: prior } = await sb.from("blueprints")
-    .select("bazi")
+    .select("*")
     .eq("user_id", userId)
     .maybeSingle();
   const cachedBazi = (prior?.bazi as BaziOutput | null) ?? null;
+  const cachedVedic = (prior?.vedic as VedicOutput | null) ?? null;
 
   // Compute blueprint
-  const bp = await computeBlueprint(profile, { cachedBazi });
+  const bp = await computeBlueprint(profile, { cachedBazi, cachedVedic });
 
-  // Upsert blueprint
+  // Upsert the core blueprint. Vedic is deliberately NOT in this upsert — it's
+  // persisted best-effort below so a not-yet-applied `vedic` migration can never
+  // break onboarding (it would only leave the Vedic lens "unavailable").
   const { data: blueprintRow, error: bpErr } = await sb.from("blueprints")
     .upsert({
       user_id: userId,
@@ -266,6 +286,10 @@ export async function computeAndPersistBlueprint(
   if (bpErr || !blueprintRow) {
     throw new Error(`Failed to persist blueprint: ${bpErr?.message ?? "no row returned"}`);
   }
+
+  // Best-effort Vedic persist — no-ops with a log if the column isn't migrated yet.
+  const { error: vedicErr } = await sb.from("blueprints").update({ vedic: bp.vedic }).eq("user_id", userId);
+  if (vedicErr) console.error("Vedic persist skipped (apply the vedic column migration to enable it):", vedicErr.message);
 
   const blueprintId = blueprintRow.id;
 

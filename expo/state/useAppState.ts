@@ -3,6 +3,7 @@ import createContextHook from "@nkzw/create-context-hook";
 import type { Session, User } from "@supabase/supabase-js";
 import type {
   BaziView,
+  VedicView,
   ChartData,
   ChineseAstrologyData,
   HumanDesignData,
@@ -15,6 +16,7 @@ import type {
 } from "@/constants/mockData";
 import {
   UNAVAILABLE_BAZI,
+  UNAVAILABLE_VEDIC,
   PLANETS,
   ZODIAC,
   NUMBER_MEANINGS,
@@ -80,6 +82,7 @@ function buildDisplayUser(payload: {
     numerology: buildNumerologyData(toRecord(bp?.numerology)),
     chinese: buildChineseData(toRecord(bp?.chinese)),
     bazi: buildBaziData(toRecord(bp?.bazi)),
+    vedic: buildVedicData(toRecord(bp?.vedic)),
     humanDesign: buildHumanDesignData(toRecord(bp?.human_design)),
   };
 }
@@ -261,6 +264,54 @@ function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
     stars: available ? stars : [],
     voidBranches: available ? voidBranches : [],
     notes: notes.length ? notes : UNAVAILABLE_BAZI.notes,
+  };
+}
+
+// Vedic / sidereal lens — only a real provider chart is shown; otherwise the
+// honest unavailable/partial state. Never fabricated.
+function buildVedicData(vedic: Record<string, unknown> | null): VedicView {
+  if (!vedic) return { ...UNAVAILABLE_VEDIC };
+
+  const ascRaw = toRecord(vedic.ascendant);
+  const ascendant = ascRaw
+    ? {
+        sign: String(ascRaw.sign ?? ""),
+        degree: typeof ascRaw.degree === "number" ? ascRaw.degree : Number(ascRaw.degree) || 0,
+        nakshatra: ascRaw.nakshatra ? String(ascRaw.nakshatra) : undefined,
+      }
+    : null;
+
+  const planets = (Array.isArray(vedic.planets) ? vedic.planets : [])
+    .map(toRecord).filter(Boolean)
+    .map((p) => ({
+      planet: String(p!.planet ?? ""),
+      sign: String(p!.sign ?? ""),
+      degree: typeof p!.degree === "number" ? p!.degree : Number(p!.degree) || 0,
+      house: typeof p!.house === "number" ? p!.house : null,
+      retrograde: Boolean(p!.retrograde),
+      nakshatra: p!.nakshatra ? String(p!.nakshatra) : undefined,
+      nakshatraLord: p!.nakshatraLord ? String(p!.nakshatraLord) : undefined,
+    }))
+    .filter((p) => p.planet);
+
+  const available = vedic.source === "provider" && planets.length > 0;
+  const sadeRaw = toRecord(vedic.sadeSati);
+  const sadeSati = sadeRaw
+    ? { active: Boolean(sadeRaw.active), phase: sadeRaw.phase != null ? String(sadeRaw.phase) : null, note: String(sadeRaw.note ?? "") }
+    : null;
+  const notes = Array.isArray(vedic.confidenceNotes) ? vedic.confidenceNotes.map(String) : [];
+
+  return {
+    available,
+    partial: Boolean(vedic.partial),
+    missingInputs: Array.isArray(vedic.missingInputs) ? vedic.missingInputs.map(String) : [],
+    unavailableReason: typeof vedic.unavailableReason === "string" ? vedic.unavailableReason : undefined,
+    ascendant: available ? ascendant : null,
+    planets: available ? planets : [],
+    moonNakshatra: available && typeof vedic.moonNakshatra === "string" ? vedic.moonNakshatra : undefined,
+    sadeSati: available ? sadeSati : null,
+    ayanamsha: typeof vedic.ayanamsha === "string" ? vedic.ayanamsha : undefined,
+    notes: notes.length ? notes : UNAVAILABLE_VEDIC.notes,
   };
 }
 

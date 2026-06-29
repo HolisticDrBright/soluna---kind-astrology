@@ -249,6 +249,41 @@ export const UNAVAILABLE_BAZI: BaziView = {
   notes: ["Full BaZi / Four Pillars unlocks when a BaZi provider is connected and your birth time and place are on file."],
 };
 
+// ── Vedic / sidereal (Jyotish) — a distinct lens from the Western chart above ──
+export interface VedicViewPlanet {
+  planet: string;
+  sign: string;
+  degree: number;
+  house: number | null;
+  retrograde: boolean;
+  nakshatra?: string;
+  nakshatraLord?: string;
+}
+export interface VedicView {
+  available: boolean;
+  partial: boolean;
+  missingInputs: string[];
+  unavailableReason?: string;
+  ascendant: { sign: string; degree: number; nakshatra?: string } | null;
+  planets: VedicViewPlanet[];
+  /** The Moon's nakshatra — the heart of a Vedic reading. */
+  moonNakshatra?: string;
+  sadeSati?: { active: boolean; phase: string | null; note: string } | null;
+  ayanamsha?: string;
+  notes: string[];
+}
+
+/** Honest default: Vedic is unavailable until a provider chart exists. */
+export const UNAVAILABLE_VEDIC: VedicView = {
+  available: false,
+  partial: false,
+  missingInputs: [],
+  unavailableReason: "provider_not_configured",
+  ascendant: null,
+  planets: [],
+  notes: ["Your Vedic / sidereal chart unlocks when a provider is connected and your birth time and place are on file. It's a separate tradition from your Western chart — its signs are intentionally different."],
+};
+
 // ══════════════════════════════════════════════════════════════════
 // HUMAN DESIGN
 // ══════════════════════════════════════════════════════════════════
@@ -448,6 +483,7 @@ export interface UserData {
   /** True provider-backed BaZi / Four Pillars (distinct from `chinese`). Carries
    *  its own availability flag, so it is never null. */
   bazi: BaziView;
+  vedic: VedicView;
   humanDesign: HumanDesignData | null;
 }
 
