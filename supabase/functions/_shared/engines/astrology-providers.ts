@@ -12,7 +12,7 @@
 
 import type { AstrologyInput, AstrologyOutput, Aspect, HouseCusp, PlanetPosition, TransitAspect, TransitOutput } from "./astrology.ts";
 
-export type AstrologyProviderId = "astrologyapi" | "prokerala" | "custom";
+export type AstrologyProviderId = "astrologyapi" | "freeastroapi" | "prokerala" | "custom";
 
 const SIGNS = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -32,11 +32,16 @@ export function getConfiguredProvider(): AstrologyProviderId | null {
   // Accept ASTROLOGY_API_PASSWORD as an alias for the key — Basic-Auth setups
   // are commonly stored as "user id + password", where the password IS the key.
   const hasAstrologyApiKey = !!(Deno.env.get("ASTROLOGY_API_KEY") ?? Deno.env.get("ASTROLOGY_API_PASSWORD"));
+  // FreeAstroAPI computes Western natal charts too — with the SAME key as BaZi.
+  const hasFreeAstroKey = !!(Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY"));
   if (explicit === "astrologyapi") return hasAstrologyApiKey ? "astrologyapi" : null;
+  if (explicit === "freeastroapi") return hasFreeAstroKey ? "freeastroapi" : null;
   if (explicit === "prokerala") return prokeralaConfigured() ? "prokerala" : null;
   if (explicit === "custom") return customConfigured() ? "custom" : null;
-  // Auto-detect when ASTROLOGY_PROVIDER is unset/blank.
+  // Auto-detect when ASTROLOGY_PROVIDER is unset/blank. Prefer FreeAstroAPI when
+  // its key is present: one working key serves BOTH BaZi and Western charts.
   if (!explicit) {
+    if (hasFreeAstroKey) return "freeastroapi";
     if (hasAstrologyApiKey && astrologyApiAutoDetect()) return "astrologyapi";
     if (prokeralaConfigured()) return "prokerala";
     if (customConfigured()) return "custom";
@@ -63,6 +68,7 @@ export async function fetchFromProvider(
   input: AstrologyInput,
 ): Promise<AstrologyOutput> {
   if (provider === "astrologyapi") return await fetchAstrologyApi(input);
+  if (provider === "freeastroapi") return await fetchFreeAstroNatal(input);
   if (provider === "prokerala") return await fetchProkerala(input);
   return await fetchCustom(input);
 }
@@ -223,6 +229,122 @@ export function normalizeAstrologyApi(data: any, timeMissing: boolean): Astrolog
     timeMissingNote: timeMissing ? NORMALIZE_TIME_NOTE : undefined,
     source: "provider",
     provider: "astrologyapi",
+  };
+}
+
+// ─── FreeAstroAPI Western natal provider ────────────────────────────
+//
+// The SAME FreeAstroAPI account/key used for BaZi also computes Western natal
+// charts (planets, houses, angles, aspects). Auth is the x-api-key header; the
+// request mirrors the proven BaZi shape (discrete date + lat/lng, with the
+// timezone derived server-side). Endpoint is env-overridable in case it changes.
+
+/** Pretty-print a planet id like "north_node" → "North Node" for aspect labels. */
+function prettyId(id: string): string {
+  return id.split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutput> {
+  const key = Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY");
+  if (!key) throw new Error("FreeAstroAPI key (FREEASTRO_API / BAZI_API_KEY) is not configured");
+  const base = (Deno.env.get("FREEASTRO_ASTRO_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
+  let endpoint = (Deno.env.get("FREEASTRO_NATAL_ENDPOINT") || "/api/v1/natal/chart/").trim();
+  if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
+  const url = `${base}${endpoint}`;
+
+  const [y, mo, d] = input.date.split("-").map(Number);
+  const timeMissing = input.time === null;
+  const [h, mi] = (input.time ?? "12:00").split(":").map(Number);
+
+  // Mirror the proven BaZi request: discrete date + lat/lng (timezone derived
+  // server-side). Both lat/lng and latitude/longitude are sent belt-and-suspenders.
+  const body: Record<string, unknown> = {
+    year: y, month: mo, day: d,
+    lat: input.lat, lng: input.lng,
+    latitude: input.lat, longitude: input.lng,
+    house_system: input.houseSystem ?? "placidus",
+  };
+  if (!timeMissing) { body.hour = h; body.minute = mi; }
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": key },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => "");
+    // Log the exact URL + status so a 404/422 reveals the wrong endpoint or field.
+    console.error(`freeastroapi natal POST ${url} → ${resp.status} :: ${errBody.slice(0, 300)}`);
+    throw new Error(`freeastroapi natal ${resp.status} :: ${errBody.slice(0, 300)}`);
+  }
+  return normalizeFreeAstroNatal(await resp.json(), timeMissing);
+}
+
+/** Pure normalizer for FreeAstroAPI's /natal/chart response. Exported for tests. */
+// deno-lint-ignore no-explicit-any
+export function normalizeFreeAstroNatal(data: any, timeMissing: boolean): AstrologyOutput {
+  const rawPlanets: unknown[] = data?.planets ?? [];
+  // Map id → display name so aspects (which reference lowercase ids) read nicely.
+  const idToName: Record<string, string> = {};
+  for (const raw of rawPlanets) {
+    const p = raw as Record<string, unknown>;
+    const id = String(p.id ?? "").toLowerCase();
+    const name = String(p.name ?? "");
+    if (id && name) idToName[id] = name;
+  }
+
+  const planets: PlanetPosition[] = rawPlanets.map((raw) => {
+    const p = raw as Record<string, unknown>;
+    const pos = num(p.pos ?? p.degree);
+    return {
+      // FreeAstroAPI gives full sign_id ("pisces") + abbreviated sign ("Pis");
+      // prefer sign_id, fall back to abs_pos degree — coerceSign handles both.
+      planet: String(p.name ?? p.id ?? ""),
+      sign: coerceSign(p.sign_id ?? p.sign, num(p.abs_pos)),
+      degree: round1(((pos % 30) + 30) % 30),
+      house: timeMissing ? null : (p.house == null ? null : Number(p.house)),
+      retrograde: p.retrograde === true || p.retrograde === "true",
+    };
+  }).filter((p) => p.planet);
+  if (!planets.length) throw new Error("freeastroapi natal: no planets in response");
+
+  const ad = (data?.angles_details ?? {}) as Record<string, unknown>;
+  const asc = ad.asc as Record<string, unknown> | undefined;
+  const mc = ad.mc as Record<string, unknown> | undefined;
+
+  const houses: HouseCusp[] = ((data?.houses ?? []) as unknown[]).map((raw, i) => {
+    const hh = raw as Record<string, unknown>;
+    const id = hh.house != null ? Number(hh.house) : i + 1;
+    return { house: id, sign: coerceSign(hh.sign_id ?? hh.sign, num(hh.abs_pos)), degree: round1(((num(hh.pos) % 30) + 30) % 30) };
+  });
+
+  const aspects: Aspect[] = ((data?.aspects ?? []) as unknown[]).map((raw) => {
+    const a = raw as Record<string, unknown>;
+    const p1 = String(a.p1 ?? a.planet_a ?? "");
+    const p2 = String(a.p2 ?? a.planet_b ?? "");
+    return {
+      planetA: idToName[p1.toLowerCase()] ?? prettyId(p1),
+      planetB: idToName[p2.toLowerCase()] ?? prettyId(p2),
+      type: String(a.type ?? "").toLowerCase(),
+      orb: round1(num(a.orb)),
+    };
+  }).filter((a) => a.planetA && a.planetB && a.type);
+
+  return {
+    planets,
+    ascendant: !timeMissing && asc
+      ? { sign: coerceSign(asc.sign_id ?? asc.sign, num(asc.abs_pos)), degree: round1(((num(asc.pos) % 30) + 30) % 30) }
+      : null,
+    mc: !timeMissing && mc
+      ? { sign: coerceSign(mc.sign_id ?? mc.sign, num(mc.abs_pos)), degree: round1(((num(mc.pos) % 30) + 30) % 30) }
+      : null,
+    houses: timeMissing ? [] : houses,
+    aspects,
+    timeRequired: timeMissing,
+    timeMissingNote: timeMissing ? NORMALIZE_TIME_NOTE : undefined,
+    source: "provider",
+    provider: "freeastroapi",
   };
 }
 

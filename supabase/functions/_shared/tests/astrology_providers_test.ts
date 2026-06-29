@@ -9,6 +9,7 @@ import {
   getConfiguredProvider,
   normalizeAstrologyApi,
   normalizeCustom,
+  normalizeFreeAstroNatal,
   normalizeProkerala,
 } from "../engines/astrology-providers.ts";
 
@@ -76,13 +77,13 @@ Deno.test("normalizeProkerala maps western chart + tags source", () => {
 });
 
 Deno.test("getConfiguredProvider honors env + auto-detects by creds", () => {
-  const keys = ["ASTROLOGY_PROVIDER", "PROKERALA_CLIENT_ID", "PROKERALA_CLIENT_SECRET", "ASTROLOGY_API_BASE_URL", "ASTROLOGY_API_KEY", "ASTROLOGY_API_USER_ID"];
+  const keys = ["ASTROLOGY_PROVIDER", "PROKERALA_CLIENT_ID", "PROKERALA_CLIENT_SECRET", "ASTROLOGY_API_BASE_URL", "ASTROLOGY_API_KEY", "ASTROLOGY_API_USER_ID", "FREEASTRO_API", "FREEASTRO_API_KEY", "BAZI_API_KEY"];
   const clear = () => keys.forEach((k) => Deno.env.delete(k));
 
   clear();
   assertEquals(getConfiguredProvider(), null);
 
-  // AstrologyAPI is the production provider: explicit needs a key; also auto-detected by key.
+  // AstrologyAPI: explicit needs a key; also auto-detected by key (when no FreeAstro key).
   Deno.env.set("ASTROLOGY_PROVIDER", "astrologyapi"); // explicit but no key
   assertEquals(getConfiguredProvider(), null);
   Deno.env.set("ASTROLOGY_API_KEY", "secret-token");
@@ -90,6 +91,19 @@ Deno.test("getConfiguredProvider honors env + auto-detects by creds", () => {
   clear();
   Deno.env.set("ASTROLOGY_API_KEY", "secret-token"); // no explicit → auto-detect astrologyapi
   assertEquals(getConfiguredProvider(), "astrologyapi");
+  clear();
+
+  // FreeAstroAPI: explicit needs its (BaZi) key; auto-detect PREFERS it when present.
+  Deno.env.set("ASTROLOGY_PROVIDER", "freeastroapi"); // explicit but no key
+  assertEquals(getConfiguredProvider(), null);
+  Deno.env.set("FREEASTRO_API", "fa-key");
+  assertEquals(getConfiguredProvider(), "freeastroapi");
+  clear();
+  Deno.env.set("FREEASTRO_API", "fa-key"); // no explicit → auto-detect freeastroapi
+  assertEquals(getConfiguredProvider(), "freeastroapi");
+  // Preferred over astrologyapi when both keys exist (one working key for both systems).
+  Deno.env.set("ASTROLOGY_API_KEY", "secret-token");
+  assertEquals(getConfiguredProvider(), "freeastroapi");
   clear();
 
   Deno.env.set("ASTROLOGY_PROVIDER", "prokerala"); // explicit but no creds
@@ -138,4 +152,58 @@ Deno.test("normalizeAstrologyApi hides angles/houses when birth time missing; th
   assertEquals(out.planets[0].house, null);
   assertEquals(out.timeRequired, true);
   assertThrows(() => normalizeAstrologyApi({ planets: [] }, false));
+});
+
+// A representative slice of a real FreeAstroAPI /natal/chart response (Einstein).
+Deno.test("normalizeFreeAstroNatal maps planets/houses/angles/aspects + tags source", () => {
+  const out = normalizeFreeAstroNatal({
+    planets: [
+      { id: "sun", name: "Sun", sign: "Pis", sign_id: "pisces", pos: 23.535, abs_pos: 353.535, retrograde: false, house: 9 },
+      { id: "uranus", name: "Uranus", sign: "Vir", sign_id: "virgo", pos: 1.287, abs_pos: 151.287, retrograde: true, house: 3 },
+      { id: "north_node", name: "North Node", sign: "Aqu", sign_id: "aquarius", pos: 1.479, abs_pos: 301.479, retrograde: true, house: 7 },
+    ],
+    houses: [
+      { house: 1, sign: "Can", sign_id: "cancer", pos: 19.67, abs_pos: 109.67 },
+      { house: 10, sign: "Pis", sign_id: "pisces", pos: 23.681, abs_pos: 353.681 },
+    ],
+    angles_details: {
+      asc: { sign: "Can", sign_id: "cancer", pos: 19.67, abs_pos: 109.67, house: 1 },
+      mc: { sign: "Pis", sign_id: "pisces", pos: 23.681, abs_pos: 353.681, house: 10 },
+    },
+    aspects: [
+      { p1: "mars", p2: "sun", type: "sextile", orb: 3.4 },
+      { p1: "chiron", p2: "north_node", type: "square", orb: 4.07 },
+    ],
+  }, false);
+  assertEquals(out.source, "provider");
+  assertEquals(out.provider, "freeastroapi");
+  assertEquals(out.planets[0].planet, "Sun");
+  assertEquals(out.planets[0].sign, "Pisces"); // sign_id "pisces" → "Pisces"
+  assertEquals(out.planets[0].degree, 23.5);
+  assertEquals(out.planets[0].house, 9);
+  assertEquals(out.planets[1].retrograde, true);
+  assertEquals(out.ascendant?.sign, "Cancer");
+  assertEquals(out.ascendant?.degree, 19.7);
+  assertEquals(out.mc?.sign, "Pisces");
+  assertEquals(out.houses.length, 2);
+  assertEquals(out.houses[0].sign, "Cancer");
+  // aspects reference lowercase ids → resolved to display names
+  assertEquals(out.aspects[0].planetA, "Mars");
+  assertEquals(out.aspects[0].planetB, "Sun");
+  assertEquals(out.aspects[0].type, "sextile");
+  assertEquals(out.aspects[1].planetA, "Chiron");     // not in planets list → prettyId
+  assertEquals(out.aspects[1].planetB, "North Node"); // in planets list → name
+});
+
+Deno.test("normalizeFreeAstroNatal hides angles/houses when birth time missing; throws on no planets", () => {
+  const out = normalizeFreeAstroNatal({
+    planets: [{ id: "sun", name: "Sun", sign_id: "pisces", pos: 23.5, abs_pos: 353.5, house: 9 }],
+    houses: [{ house: 1, sign_id: "cancer", pos: 19.67, abs_pos: 109.67 }],
+    angles_details: { asc: { sign_id: "cancer", pos: 19.67, abs_pos: 109.67 } },
+  }, true);
+  assertEquals(out.ascendant, null);
+  assertEquals(out.houses.length, 0);
+  assertEquals(out.planets[0].house, null);
+  assertEquals(out.timeRequired, true);
+  assertThrows(() => normalizeFreeAstroNatal({ planets: [] }, false));
 });
