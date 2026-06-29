@@ -60,6 +60,12 @@ export const supabase: SupabaseClient | null = supabaseConfigured
       createClient("https://demo.placeholder.supabase.co", "demo-anon-key", authOptions)
     : null;
 
+/** Max time any single Edge Function call may take before we give up. Without
+ *  this a hung or very slow backend freezes the UI forever — e.g. the onboarding
+ *  "weaving" screen. Every caller handles the { error } shape, so a timeout just
+ *  becomes a normal, retryable error instead of an endless spinner. */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 /**
  * Invoke a Soluna Edge Function by name.
  * Automatically attaches the auth token from the current session.
@@ -76,6 +82,12 @@ export async function invokeEdgeFunction<T = unknown>(
   const { data: session } = await supabase.auth.getSession();
   const token = session?.session?.access_token;
 
+  // Abort if the request outlives REQUEST_TIMEOUT_MS so the UI can never hang
+  // forever. AbortController + setTimeout is used (not AbortSignal.timeout) for
+  // broad React Native compatibility.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const resp = await fetch(
       `${supabaseUrl}/functions/v1/${functionName}`,
@@ -86,6 +98,7 @@ export async function invokeEdgeFunction<T = unknown>(
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         ...(body ? { body: JSON.stringify(body) } : {}),
+        signal: controller.signal,
       },
     );
 
@@ -95,6 +108,11 @@ export async function invokeEdgeFunction<T = unknown>(
     }
     return { data: json as T, error: null };
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { data: null, error: "This is taking longer than usual. Please check your connection and try again." };
+    }
     return { data: null, error: err instanceof Error ? err.message : "Network error" };
+  } finally {
+    clearTimeout(timer);
   }
 }
