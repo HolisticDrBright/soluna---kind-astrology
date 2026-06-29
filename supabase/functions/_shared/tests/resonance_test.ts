@@ -9,6 +9,7 @@ import { validateResonanceFeedback } from "../schemas.ts";
 import {
   recomputePersonalization,
   personalizationMemoryBlock,
+  systemFitRanking,
   type DerivedProfile,
   type PersonalizationProfile,
   type Resonance,
@@ -28,6 +29,29 @@ function mk(resonance: Resonance, opts: Partial<ResonanceRow> = {}): ResonanceRo
 function profile(d: DerivedProfile): PersonalizationProfile {
   return { user_id: "u1", updated_at: "2026-06-28T00:00:00Z", ...d };
 }
+
+Deno.test("systemFitRanking ranks lenses by resonance rate, best-fit first", () => {
+  const rows: ResonanceRow[] = [
+    mk("yes", { systems_referenced: ["astrology"] }),
+    mk("yes", { systems_referenced: ["astrology"] }),
+    mk("yes", { systems_referenced: ["astrology"] }),
+    mk("no", { systems_referenced: ["numerology"] }),
+    mk("partly", { systems_referenced: ["numerology"] }),
+    mk("yes", { systems_referenced: ["bazi"] }),
+  ];
+  const fit = systemFitRanking(rows);
+  // Only systems with feedback appear.
+  assertEquals(fit.map((f) => f.system), ["astrology", "bazi", "numerology"]);
+  // astrology: 3/3 = 1.0, enough signal (>=3); numerology: 0/2 = 0.0.
+  assertEquals(fit[0].system, "astrology");
+  assertEquals(fit[0].score, 1);
+  assertEquals(fit[0].enoughSignal, true);
+  const numerology = fit.find((f) => f.system === "numerology")!;
+  assertEquals(numerology.score, 0);
+  assertEquals(numerology.enoughSignal, false); // only 2 appearances
+  // Unknown systems are ignored entirely.
+  assertEquals(systemFitRanking([mk("yes", { systems_referenced: ["tea_leaves"] })]).length, 0);
+});
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 

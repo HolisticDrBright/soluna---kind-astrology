@@ -19,6 +19,7 @@ import { validateResonanceFeedback } from "../_shared/schemas.ts";
 import {
   recomputePersonalization,
   fetchPersonalizationProfile,
+  systemFitRanking,
   type ResonanceRow,
 } from "../_shared/personalization.ts";
 
@@ -35,10 +36,17 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const isProfile = url.pathname.endsWith("/profile");
 
-    // GET /resonance/profile — owner-scoped read (RLS).
+    // GET /resonance/profile — owner-scoped read (RLS). Also returns the
+    // per-system fit ranking computed live from the user's own feedback rows.
     if (req.method === "GET" && isProfile) {
       const profile = await fetchPersonalizationProfile(supabase, user.userId);
-      return jsonResponse({ profile });
+      const { data: rows } = await supabase.from("resonance_feedback")
+        .select("resonance, reason_tags, reframe_requested, systems_referenced, free_text")
+        .eq("user_id", user.userId)
+        .order("created_at", { ascending: false })
+        .limit(RECENT_LIMIT);
+      const systemFit = systemFitRanking((rows ?? []) as ResonanceRow[]);
+      return jsonResponse({ profile, systemFit });
     }
 
     // DELETE /resonance/profile — let the user reset their personalization.

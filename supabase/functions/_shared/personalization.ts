@@ -63,6 +63,21 @@ export interface PersonalizationProfile {
 /** The fields the deterministic rules derive (everything except user_id/updated_at). */
 export type DerivedProfile = Omit<PersonalizationProfile, "user_id" | "updated_at">;
 
+/** Per-system "fit" — how strongly a lens resonates with this user, for display. */
+export interface SystemFit {
+  system: string;
+  /** Feedbacks where the user said this lens resonated. */
+  yes: number;
+  /** Feedbacks where it landed "partly" or "no". */
+  low: number;
+  /** Total feedbacks that referenced this lens. */
+  total: number;
+  /** Resonance rate 0..1 (yes / total). */
+  score: number;
+  /** True once there's enough feedback to trust the signal. */
+  enoughSignal: boolean;
+}
+
 // A signal must appear at least this many times to shift a standing preference —
 // keeps the profile gradual, never overfit to a single tap.
 const REPEAT_THRESHOLD = 3;
@@ -184,6 +199,36 @@ export function recomputePersonalization(rows: ResonanceRow[]): DerivedProfile {
   };
   derived.summary = buildPersonalizationSummary(derived);
   return derived;
+}
+
+/**
+ * Per-system fit ranking from a user's resonance feedback — which lenses they say
+ * resonate most. Pure; mirrors the per-system tally in recomputePersonalization.
+ * Returns only systems with at least one feedback, best-fit first (by score, then
+ * by sample size). This is for honest display ("you resonate most with X"), never
+ * to change any chart fact.
+ */
+export function systemFitRanking(rows: ResonanceRow[]): SystemFit[] {
+  const yes: Record<string, number> = {};
+  const low: Record<string, number> = {};
+  const total: Record<string, number> = {};
+  for (const row of rows) {
+    for (const raw of row.systems_referenced ?? []) {
+      const sys = String(raw);
+      if (!(KNOWN_SYSTEMS as readonly string[]).includes(sys)) continue;
+      inc(total, sys);
+      if (row.resonance === "yes") inc(yes, sys);
+      else inc(low, sys); // "partly" or "no" → low resonance
+    }
+  }
+  return (KNOWN_SYSTEMS as readonly string[])
+    .map((system) => {
+      const t = total[system] ?? 0;
+      const y = yes[system] ?? 0;
+      return { system, yes: y, low: low[system] ?? 0, total: t, score: t > 0 ? y / t : 0, enoughSignal: t >= SYSTEM_MIN_APPEARANCES };
+    })
+    .filter((f) => f.total > 0)
+    .sort((a, b) => (b.score - a.score) || (b.total - a.total));
 }
 
 /** A warm, deterministic one-paragraph summary built from resolved fields. */

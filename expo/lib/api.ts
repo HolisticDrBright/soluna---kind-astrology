@@ -311,3 +311,43 @@ export async function submitResonanceFeedback(payload: ResonanceFeedbackPayload)
     "POST",
   );
 }
+
+/** Per-system "fit" — how strongly each lens resonates with this user. */
+export interface SystemFit {
+  system: string;
+  yes: number;
+  low: number;
+  total: number;
+  /** Resonance rate 0..1 (yes / total). */
+  score: number;
+  /** True once there's enough feedback to trust the signal. */
+  enoughSignal: boolean;
+}
+
+/** The learned personalization profile (delivery preferences + resonant lenses). */
+export interface PersonalizationProfile {
+  preferred_tone: string | null;
+  detail_level: string | null;
+  spirituality_level: string | null;
+  action_style: string | null;
+  preferred_focus_areas: string[];
+  resonant_systems: string[];
+  less_resonant_systems: string[];
+  summary: string | null;
+  feedback_count: number;
+}
+
+/**
+ * Fetch the caller's personalization profile + per-system fit ranking. The
+ * ranking is computed live from the user's own 👍/🤔/👎 feedback — it only
+ * reflects what they've said resonates, never changes any chart fact. Demo mode
+ * returns an empty result (no real read).
+ */
+export async function getPersonalizationProfile() {
+  if (RESONANCE_USE_MOCK_DATA) {
+    return { data: { profile: null as PersonalizationProfile | null, systemFit: [] as SystemFit[] }, error: null };
+  }
+  return invokeEdgeFunction<{ profile: PersonalizationProfile | null; systemFit: SystemFit[] }>(
+    "resonance/profile",
+  );
+}

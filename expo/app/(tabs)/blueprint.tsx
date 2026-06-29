@@ -10,7 +10,7 @@ import type { ZodiacSign, BaziView } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
-import { Sun, Moon, ChevronRight, Sparkles, ArrowRight, MessageCircle, Bookmark } from "lucide-react-native";
+import { Sun, Moon, ChevronRight, Sparkles, ArrowRight, MessageCircle, Bookmark, Compass } from "lucide-react-native";
 import InsightActionBar from "@/components/InsightActionBar";
 
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign";
@@ -209,6 +209,15 @@ function BlueprintContent() {
           <View style={s.synthesisInner}>
             <Sparkles size={16} color={SolunaColors.warmGold} />
             <Text style={s.synthesisText}>Where it all connects</Text>
+            <ArrowRight size={14} color={SolunaColors.warmGold} />
+          </View>
+        </TouchableOpacity>
+
+        {/* Which systems fit you (learned from your resonance) */}
+        <TouchableOpacity style={s.synthesisBtn} onPress={() => router.push("/your-systems")} activeOpacity={0.8}>
+          <View style={s.synthesisInner}>
+            <Compass size={16} color={SolunaColors.warmGold} />
+            <Text style={s.synthesisText}>Which systems fit you</Text>
             <ArrowRight size={14} color={SolunaColors.warmGold} />
           </View>
         </TouchableOpacity>
