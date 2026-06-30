@@ -20,6 +20,7 @@ import type { NumerologyOutput } from "../engines/numerology.ts";
 import type { ChineseOutput } from "../engines/chinese.ts";
 import type { BaziOutput } from "../engines/bazi.ts";
 import { hasRealBazi } from "../engines/bazi.ts";
+import type { VedicOutput } from "../engines/vedic.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
@@ -40,6 +41,7 @@ export interface DailyContext {
   numerology: NumerologyOutput | null;
   chinese: ChineseOutput | null;
   bazi: BaziOutput | null;
+  vedic: VedicOutput | null;
   humanDesign: HumanDesignOutput | null;
   biorhythm: BiorhythmOutput | null;
   tarotCard: { name: string; meaning: string; arcana: string } | null;
@@ -186,6 +188,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     numerology: blueprint?.numerology as NumerologyOutput | null ?? null,
     chinese: blueprint?.chinese as ChineseOutput | null ?? null,
     bazi: (blueprint?.bazi as BaziOutput | null) ?? null,
+    vedic: (blueprint?.vedic as VedicOutput | null) ?? null,
     humanDesign: blueprint?.human_design as HumanDesignOutput | null ?? null,
     biorhythm: blueprint?.biorhythm_seed as BiorhythmOutput | null ?? null,
     tarotCard: tarotCard ? { name: tarotCard.name, meaning: tarotCard.meaning, arcana: tarotCard.arcana } : null,
@@ -212,6 +215,10 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
       const animal = ctx.chinese?.animal;
       return animal === "Rabbit" || animal === "Goat" || false;
     }, system: "chinese", detail: "Your Chinese zodiac animal carries reflective, gentle energy" },
+    { fn: (ctx) => {
+      const moon = ctx.vedic?.planets?.find(p => p.planet === "Moon")?.sign;
+      return moon === "Cancer" || moon === "Pisces" || moon === "Scorpio" || moon === "Taurus";
+    }, system: "vedic", detail: "Your sidereal (Vedic) Moon sits in a receptive sign — an inward, restorative pull" },
   ],
   action_initiative: [
     { fn: (ctx) => {
@@ -227,6 +234,10 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
       const animal = ctx.chinese?.animal;
       return animal === "Dragon" || animal === "Tiger" || animal === "Horse" || false;
     }, system: "chinese", detail: "Your Chinese zodiac animal carries bold, active energy" },
+    { fn: (ctx) => {
+      const sun = ctx.vedic?.planets?.find(p => p.planet === "Sun")?.sign;
+      return sun === "Aries" || sun === "Leo" || sun === "Sagittarius";
+    }, system: "vedic", detail: "Your sidereal (Vedic) Sun is in a fire sign — initiative comes naturally" },
   ],
   connection_love: [
     { fn: (ctx) => {
@@ -242,6 +253,10 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
       const animal = ctx.chinese?.animal;
       return animal === "Pig" || animal === "Rabbit" || animal === "Dog" || false;
     }, system: "chinese", detail: "Your Chinese zodiac animal carries relational, loyal energy" },
+    { fn: (ctx) => {
+      const venus = ctx.vedic?.planets?.find(p => p.planet === "Venus")?.sign;
+      return venus === "Libra" || venus === "Taurus" || venus === "Pisces";
+    }, system: "vedic", detail: "Your sidereal (Vedic) Venus favors harmony and close connection" },
   ],
   focus_work: [
     { fn: (ctx) => {
@@ -257,6 +272,11 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
       const animal = ctx.chinese?.animal;
       return animal === "Ox" || animal === "Rooster" || false;
     }, system: "chinese", detail: "Your Chinese zodiac animal carries diligent, hardworking energy" },
+    { fn: (ctx) => {
+      const sun = ctx.vedic?.planets?.find(p => p.planet === "Sun")?.sign;
+      const saturn = ctx.vedic?.planets?.find(p => p.planet === "Saturn")?.sign;
+      return sun === "Capricorn" || sun === "Virgo" || sun === "Taurus" || saturn === "Capricorn" || saturn === "Aquarius" || saturn === "Libra";
+    }, system: "vedic", detail: "Grounded sidereal (Vedic) placements point to discipline and steady work" },
   ],
   change_release: [
     { fn: (ctx) => {
@@ -272,6 +292,11 @@ const THEME_SIGNALS: Record<Theme, Array<{ fn: (ctx: DailyContext) => boolean; s
       const animal = ctx.chinese?.animal;
       return animal === "Snake" || animal === "Monkey" || false;
     }, system: "chinese", detail: "Your Chinese zodiac animal carries transformative, adaptive energy" },
+    { fn: (ctx) => {
+      const moon = ctx.vedic?.planets?.find(p => p.planet === "Moon")?.sign;
+      const mars = ctx.vedic?.planets?.find(p => p.planet === "Mars")?.sign;
+      return moon === "Scorpio" || mars === "Scorpio";
+    }, system: "vedic", detail: "A sidereal (Vedic) Scorpio placement points to transformation and release" },
   ],
 };
 

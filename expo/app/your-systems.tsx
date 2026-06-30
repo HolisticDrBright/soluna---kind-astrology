@@ -18,6 +18,7 @@ const SYSTEM_LABEL: Record<string, string> = {
   tarot: "Tarot",
   human_design: "Human Design",
   chinese: "Chinese Zodiac",
+  vedic: "Vedic Astrology",
 };
 const ROW_COLORS = [SolunaColors.warmGold, SolunaColors.gentleLavender, SolunaColors.softPeach];
 

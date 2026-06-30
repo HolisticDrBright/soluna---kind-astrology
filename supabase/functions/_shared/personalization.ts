@@ -34,7 +34,7 @@ export const REFRAME_REQUESTS = [
 export type ReframeRequest = (typeof REFRAME_REQUESTS)[number];
 
 /** Reflective lenses we may weight (never change). */
-export const KNOWN_SYSTEMS = ["astrology", "bazi", "numerology", "tarot", "human_design", "chinese"] as const;
+export const KNOWN_SYSTEMS = ["astrology", "bazi", "numerology", "tarot", "human_design", "chinese", "vedic"] as const;
 
 export interface ResonanceRow {
   resonance: Resonance;

@@ -17,6 +17,7 @@ const systemIcons: Record<string, React.ComponentType<{ size: number; color: str
   numerology: Hash,
   chinese: Bird,
   humanDesign: Cpu,
+  vedic: Star,
 };
 
 const systemColors: Record<string, string> = {
@@ -24,6 +25,7 @@ const systemColors: Record<string, string> = {
   numerology: SolunaColors.gentleLavender,
   chinese: SolunaColors.softPeach,
   humanDesign: SolunaColors.warmGold,
+  vedic: SolunaColors.gentleLavender,
 };
 
 const systemNames: Record<string, string> = {
@@ -31,6 +33,7 @@ const systemNames: Record<string, string> = {
   numerology: "Numerology says",
   chinese: "Chinese astrology says",
   humanDesign: "Human Design says",
+  vedic: "Vedic astrology says",
 };
 
 // The backend names this system "human_design"; the icon/color/name maps above
