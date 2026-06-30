@@ -11,6 +11,11 @@ export interface LLMConfig {
   apiKey: string;
   model: string;
   baseUrl?: string;
+  /** Optional Anthropic beta header(s). Only sent when explicitly configured via
+   *  LLM_ANTHROPIC_BETA. We do NOT hardcode a beta flag: zero-data-retention on
+   *  the Anthropic API is an org-level setting, not a per-request beta, and an
+   *  unrecognized beta value can make every call fail. */
+  anthropicBeta?: string;
 }
 
 export interface LLMMessage {
@@ -34,6 +39,7 @@ function getConfig(): LLMConfig {
     apiKey: Deno.env.get("LLM_API_KEY") ?? providerKey ?? "",
     model: Deno.env.get("LLM_MODEL") ?? (provider === "anthropic" ? "claude-sonnet-4-6" : "gpt-5-mini"),
     baseUrl: Deno.env.get("LLM_BASE_URL") ?? undefined,
+    anthropicBeta: Deno.env.get("LLM_ANTHROPIC_BETA") ?? undefined,
   };
 }
 
@@ -46,6 +52,15 @@ export function llmCall(
   options?: { maxTokens?: number; temperature?: number; jsonMode?: boolean },
 ): Promise<LLMResponse> {
   const config = getConfig();
+  if (!config.apiKey) {
+    // Make the #1 misconfiguration self-evident in the logs instead of an opaque
+    // upstream 401. The caller (synthesis) logs this and returns a safe fallback.
+    return Promise.reject(
+      new Error(
+        `No LLM API key configured — set ${config.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"} (or LLM_API_KEY) in Supabase Edge Function secrets.`,
+      ),
+    );
+  }
   const systemMessages: LLMMessage[] = [
     { role: "system", content: SOLUNA_VOICE },
     ...messages,
@@ -84,19 +99,29 @@ async function callAnthropic(
     body.system = systemContent;
   }
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-api-key": config.apiKey,
+    "anthropic-version": "2023-06-01",
+  };
+  // Only send a beta header when explicitly configured. We previously hardcoded a
+  // "no-retention" beta here; that is NOT how zero-retention works on the Anthropic
+  // API (it is an org-level setting), and an unrecognized beta can fail every call.
+  if (config.anthropicBeta) {
+    headers["anthropic-beta"] = config.anthropicBeta;
+  }
+
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": config.apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "no-retention-2025-01-01",
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
     const err = await resp.text();
+    // Log the real upstream cause at the source (model + status, never the key) so
+    // the function log pinpoints it even if a caller swallows the throw.
+    console.error(`[llm] Anthropic call failed: status=${resp.status} model=${config.model} body=${err.slice(0, 300)}`);
     throw new Error(`Anthropic API error (${resp.status}): ${err}`);
   }
 
@@ -144,6 +169,7 @@ async function callOpenAICompatible(
 
   if (!resp.ok) {
     const err = await resp.text();
+    console.error(`[llm] ${config.provider} call failed: status=${resp.status} model=${config.model} body=${err.slice(0, 300)}`);
     throw new Error(`LLM API error (${resp.status}): ${err}`);
   }
 

@@ -233,6 +233,14 @@ function AskContent() {
     void runAsk(t, false);
   }, [input, isTyping, runAsk]);
 
+  // Tapping a suggested question should ASK it immediately, not just drop it in the
+  // input box (which read as "nothing happened").
+  const handlePromptPress = useCallback((p: string) => {
+    if (isTyping) return;
+    setInput("");
+    void runAsk(p, false);
+  }, [isTyping, runAsk]);
+
   // Deep-link auto-send (once)
   useEffect(() => {
     if (deepLinkPrompt && !deepLinkSent.current) {
@@ -296,7 +304,7 @@ function AskContent() {
                 </View>
                 <View style={st.promptGroupChips}>
                   {group.prompts.map((p) => (
-                    <TouchableOpacity key={p} style={st.promptChip} onPress={() => setInput(p)}>
+                    <TouchableOpacity key={p} style={st.promptChip} onPress={() => handlePromptPress(p)} disabled={isTyping}>
                       <Text style={st.promptText}>{p}</Text>
                     </TouchableOpacity>
                   ))}
