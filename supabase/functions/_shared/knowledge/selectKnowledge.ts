@@ -66,6 +66,14 @@ export interface KnowledgeContext {
     pillars?: { year?: boolean; month?: boolean; day?: boolean; hour?: boolean };
     hasLuckPillars?: boolean;
   } | null;
+  vedic?: {
+    present: boolean;
+    /** The Moon's nakshatra (the heart of a Vedic reading), e.g. "Ardra". */
+    moonNakshatra?: string;
+    /** The Ascendant's nakshatra, if known. */
+    ascendantNakshatra?: string;
+    sadeSatiActive?: boolean;
+  } | null;
   humanDesign?: {
     type?: string;
     authority?: string;
@@ -351,6 +359,23 @@ export function selectKnowledge(ctx: KnowledgeContext): KnowledgeSelection {
     if (ctx.bazi.hasLuckPillars) bz.push(get("luck_pillar_core"));
     // Cap BaZi contribution so synthesis stays cross-system balanced.
     bz.filter(Boolean).slice(0, 7).forEach((c) => push(cards, seen, c));
+  }
+
+  // 4c. Vedic / sidereal — ONLY from a real provider-backed chart. Distinct from
+  //     both the Chinese zodiac and BaZi. Keyed by the Moon's nakshatra (the heart
+  //     of a Vedic reading), with Sade Sati when active. Capped for balance.
+  if (ctx.vedic?.present) {
+    const vd: (KnowledgeCard | undefined)[] = [];
+    const get = (key: string) => cardByKeyInSystem("vedic", key);
+    const nakKey = (n?: string) => n ? `nak_${n.toLowerCase().trim().replace(/[^a-z]+/g, "_").replace(/^_+|_+$/g, "")}` : null;
+    vd.push(get("vedic_core"));
+    const mk = nakKey(ctx.vedic.moonNakshatra);
+    if (mk) vd.push(get(mk));
+    const ak = nakKey(ctx.vedic.ascendantNakshatra);
+    if (ak && ak !== mk) vd.push(get(ak));
+    if (ctx.vedic.sadeSatiActive) vd.push(get("sade_sati_active"));
+    // Cap Vedic contribution so synthesis stays cross-system balanced.
+    vd.filter(Boolean).slice(0, 5).forEach((c) => push(cards, seen, c));
   }
 
   // 5. Human Design-inspired — type, authority, profile, a couple of centers.

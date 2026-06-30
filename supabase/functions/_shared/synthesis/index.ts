@@ -20,7 +20,7 @@ import type { NumerologyOutput } from "../engines/numerology.ts";
 import type { ChineseOutput } from "../engines/chinese.ts";
 import type { BaziOutput } from "../engines/bazi.ts";
 import { hasRealBazi } from "../engines/bazi.ts";
-import type { VedicOutput } from "../engines/vedic.ts";
+import { hasRealVedic, type VedicOutput } from "../engines/vedic.ts";
 import type { HumanDesignOutput } from "../engines/human-design.ts";
 import type { BiorhythmOutput } from "../engines/biorhythm.ts";
 import { cardOfTheDay } from "../engines/tarot.ts";
@@ -131,6 +131,16 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
             hour: !!ctx.bazi!.pillars.hour,
           },
           hasLuckPillars: ctx.bazi!.luckPillars.length > 0,
+        }
+      : null,
+    // Vedic is included ONLY when a real provider chart exists — its knowledge
+    // (nakshatras, Sade Sati) is selected from the Moon's nakshatra.
+    vedic: hasRealVedic(ctx.vedic)
+      ? {
+          present: true,
+          moonNakshatra: ctx.vedic!.moonNakshatra,
+          ascendantNakshatra: ctx.vedic!.ascendant?.nakshatra,
+          sadeSatiActive: ctx.vedic!.sadeSati?.active === true,
         }
       : null,
     humanDesign: ctx.humanDesign

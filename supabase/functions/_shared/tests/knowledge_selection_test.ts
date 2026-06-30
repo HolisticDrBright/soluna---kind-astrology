@@ -64,6 +64,22 @@ Deno.test("BaZi cards are selected ONLY from real provider-backed BaZi data", ()
   assert(!blockedBazi.selectedKnowledgeCards.some((c) => c.system === "bazi"));
 });
 
+Deno.test("Vedic cards are selected ONLY from a real provider-backed Vedic chart", () => {
+  // Real chart → vedic_core + the Moon's nakshatra card (normalized key) + Sade Sati.
+  const withVedic = selectKnowledge({
+    vedic: { present: true, moonNakshatra: "Purva Bhadrapada", ascendantNakshatra: "Ardra", sadeSatiActive: true },
+  });
+  const vedic = withVedic.selectedKnowledgeCards.filter((c) => c.system === "vedic");
+  assert(vedic.some((c) => c.key === "vedic_core"), "expected vedic_core");
+  assert(vedic.some((c) => c.key === "nak_purva_bhadrapada"), "expected the Moon's nakshatra card");
+  assert(vedic.some((c) => c.key === "nak_ardra"), "expected the Ascendant's nakshatra card");
+  assert(vedic.some((c) => c.key === "sade_sati_active"), "expected the Sade Sati card");
+
+  // No vedic (or present:false) → NO vedic cards, ever.
+  assert(!selectKnowledge({}).selectedKnowledgeCards.some((c) => c.system === "vedic"));
+  assert(!selectKnowledge({ vedic: { present: false } }).selectedKnowledgeCards.some((c) => c.system === "vedic"));
+});
+
 Deno.test("provider failure (null astrology) fabricates no placements", () => {
   const sel = selectKnowledge({ astrology: null, numerology: { lifePath: 7 } });
   assert(!sel.selectedKnowledgeCards.some((c) => c.system === "western_astrology"));
