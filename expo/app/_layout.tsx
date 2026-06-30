@@ -1,3 +1,6 @@
+// MUST be first — completes React Native's URL implementation before anything
+// (especially Supabase auth) loads, so the session persists across restarts.
+import "react-native-url-polyfill/auto";
 import { Stack } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProvider } from "@/state/useAppState";

@@ -29,7 +29,7 @@ import {
 } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
-import { supabase, NO_BACKEND_ERROR } from "@/lib/supabase";
+import { supabase, NO_BACKEND_ERROR, restoreSessionTokens, persistSessionTokens } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
 import { setSentryUser } from "@/lib/sentry";
@@ -437,34 +437,42 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     }
 
     let mounted = true;
-    withAuthTimeout(sb.auth.getSession()).then(async ({ data }) => {
-      if (!mounted) return;
-      const session = data.session ?? null;
-      setState((s) => ({
-        ...s,
-        session,
-        authUser: session?.user ?? null,
-        // Keep loading TRUE while a session exists until refreshUser determines
-        // onboarding status — otherwise the router momentarily sees "logged in but
-        // not onboarded" and bounces a returning user into onboarding.
-        authLoading: session ? s.authLoading : false,
-        onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
-      }));
-      if (session) {
-        setSentryUser(session.user.id);
-        void configureRevenueCat(session.user.id);
-        await refreshUser();
+    // Re-inject any mirrored session BEFORE reading it, so a returning user is
+    // signed in even when GoTrue's own cold-start restore misses (the real
+    // "doesn't remember me" cause). Then read the (now-hydrated) session.
+    (async () => {
+      await restoreSessionTokens();
+      try {
+        const { data } = await withAuthTimeout(sb.auth.getSession());
+        if (!mounted) return;
+        const session = data.session ?? null;
+        setState((s) => ({
+          ...s,
+          session,
+          authUser: session?.user ?? null,
+          // Keep loading TRUE while a session exists until refreshUser determines
+          // onboarding status — otherwise the router momentarily sees "logged in but
+          // not onboarded" and bounces a returning user into onboarding.
+          authLoading: session ? s.authLoading : false,
+          onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
+        }));
+        if (session) {
+          void persistSessionTokens({ access_token: session.access_token, refresh_token: session.refresh_token });
+          setSentryUser(session.user.id);
+          void configureRevenueCat(session.user.id);
+          await refreshUser();
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setState((s) => ({
+          ...s,
+          session: null,
+          authUser: null,
+          authLoading: false,
+          authError: err instanceof Error ? err.message : "Authentication failed. Please try again.",
+        }));
       }
-    }).catch((err) => {
-      if (!mounted) return;
-      setState((s) => ({
-        ...s,
-        session: null,
-        authUser: null,
-        authLoading: false,
-        authError: err instanceof Error ? err.message : "Authentication failed. Please try again.",
-      }));
-    });
+    })();
 
     const { data: listener } = sb.auth.onAuthStateChange((_event, session) => {
       setState((s) => ({
@@ -479,6 +487,9 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         user: session ? s.user : null,
         onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
       }));
+      // Mirror tokens on every change — including TOKEN_REFRESHED (rotated refresh
+      // tokens) and SIGNED_OUT — so the next cold start can restore the session.
+      void persistSessionTokens(session ? { access_token: session.access_token, refresh_token: session.refresh_token } : null);
       if (session) {
         setSentryUser(session.user.id);
         void configureRevenueCat(session.user.id);
