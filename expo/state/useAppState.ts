@@ -33,6 +33,7 @@ import { supabase, NO_BACKEND_ERROR } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
 import { setSentryUser } from "@/lib/sentry";
+import { loadCachedUser, saveCachedUser, clearCachedUser } from "@/lib/userCache";
 
 // Demo mode (EXPO_PUBLIC_USE_MOCK_DATA=true) shows the beautiful MOCK_USER.
 // Live mode builds the user ONLY from the real /me payload — never from MOCK_USER.
@@ -390,9 +391,18 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
 
     if (res.error) {
       // Couldn't reach the backend. Do NOT conclude "not onboarded" — that would
-      // wrongly send a returning user through onboarding again. Just stop the
-      // loading spinner and keep what we already know; screens show a retry path.
-      setState((s) => ({ ...s, authLoading: false }));
+      // wrongly send a returning user through onboarding again. Restore the
+      // last-known cached user (if any) so a cold-start backend blip still opens
+      // straight to the dashboard; otherwise just stop the spinner and keep what
+      // we know, and screens show a retry path.
+      const cached = await loadCachedUser();
+      setState((s) => {
+        if (s.user) return { ...s, authLoading: false };
+        if (cached) {
+          return { ...s, user: cached, hasOnboarded: true, onboardingStep: "reveal", authLoading: false };
+        }
+        return { ...s, authLoading: false };
+      });
       return;
     }
 
@@ -401,6 +411,10 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
       birthProfile: res.data?.birthProfile as Record<string, unknown> | null,
       blueprint: res.data?.blueprint as Record<string, unknown> | null,
     });
+
+    // Cache the freshly loaded user so the next launch can open straight to the
+    // dashboard even if that launch's /me call is slow or fails.
+    if (displayUser) void saveCachedUser(displayUser);
 
     setState((s) => ({
       ...s,
@@ -548,6 +562,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
 
   const signOut = useCallback(async () => {
     await supabase?.auth.signOut();
+    void clearCachedUser();
     setState({
       hasOnboarded: false,
       user: null,
@@ -564,6 +579,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   }, []);
 
   const completeOnboarding = useCallback((userData: UserData) => {
+    if (!useMockData) void saveCachedUser(userData);
     setState((s) => ({ ...s, hasOnboarded: true, user: userData, onboardingStep: "reveal" }));
   }, []);
 
@@ -588,6 +604,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   }, []);
 
   const resetOnboarding = useCallback(() => {
+    void clearCachedUser();
     setState((s) => ({ ...s, hasOnboarded: false, user: null, onboardingStep: "welcome" }));
   }, []);
 
