@@ -6,7 +6,7 @@ import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS } from "@/constants/mockData";
-import type { ZodiacSign, BaziView, VedicView } from "@/constants/mockData";
+import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
@@ -240,6 +240,9 @@ function BlueprintContent() {
             );
           })}
         </View>
+
+        {/* Consistent per-lens "what this reveals about you" lead-in (real data only). */}
+        <LensAbout text={lensAboutText(lens, user)} />
 
         {/* ── Astrology ── */}
         {lens === "astrology" && user.chart && (
@@ -587,6 +590,51 @@ function VedicChart({ vedic }: { vedic: VedicView }) {
   );
 }
 
+// A consistent, real-data "what this lens reveals about you" lead-in for each
+// system. Composed ONLY from the user's actual computed values — never fabricated;
+// returns null when the lens has nothing real to say yet.
+function lensAboutText(lens: SystemLens, user: UserData): string | null {
+  if (lens === "astrology") {
+    const sun = user.chart?.sun?.sign; const moon = user.chart?.moon?.sign; const rising = user.chart?.rising;
+    const parts = [sun ? `${sun} Sun` : "", rising ? `${rising} Rising` : "", moon ? `${moon} Moon` : ""].filter(Boolean);
+    if (!parts.length) return null;
+    return `Western astrology reads you first through your ${parts.join(", ")} — how you shine, how you meet the world, and what you need to feel safe. The placements below add the finer detail.`;
+  }
+  if (lens === "numerology") {
+    const lp = user.numerology?.lifePath;
+    if (lp == null) return null;
+    const t = NUMBER_MEANINGS[lp]?.title;
+    return `Numerology distills your name and birth date into core numbers. Your Life Path ${lp}${t ? ` — ${t}` : ""} is the throughline; Expression and Soul Urge add how you create and what quietly drives you.`;
+  }
+  if (lens === "chinese") {
+    const label = user.chinese?.elementAnimalLabel || [user.chinese?.element, user.chinese?.animal].filter(Boolean).join(" ");
+    if (!label) return null;
+    return `Chinese astrology frames your temperament by birth year. You're the ${label} — an Eastern lens on your natural style and the company you keep best.`;
+  }
+  if (lens === "humanDesign") {
+    const t = user.humanDesign?.type; const auth = user.humanDesign?.authority;
+    if (!t) return null;
+    return `Human Design is less about traits and more about HOW you're built to decide and engage. You're a ${t}${auth ? ` with ${auth} authority` : ""} — a strategy for moving through life with less resistance.`;
+  }
+  if (lens === "vedic") {
+    if (!user.vedic?.available) return null;
+    const asc = user.vedic.ascendant?.sign; const moonNak = user.vedic.moonNakshatra;
+    return `Vedic (sidereal) astrology is a separate Eastern tradition — its signs differ from your Western chart on purpose. Yours${asc ? ` rises in ${asc}` : ""}${moonNak ? `, with the Moon in ${moonNak}` : ""}, read through the nakshatras (lunar mansions).`;
+  }
+  return null;
+}
+
+function LensAbout({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <View style={s.aboutCard}>
+      <Text style={s.aboutLabel}>What this lens reveals about you</Text>
+      <Text style={s.aboutText}>{text}</Text>
+      <Text style={s.aboutFoot}>A reflective lens for self-insight — not fixed fate.</Text>
+    </View>
+  );
+}
+
 export default function BlueprintScreen() {
   return <BlueprintContent />;
 }
@@ -639,6 +687,10 @@ const s = StyleSheet.create({
   baziDmLabel: { fontSize: 10, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", marginBottom: 4 },
   baziDmValue: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 2 },
   baziUnavailTitle: { fontSize: 14, fontWeight: "600", color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 4 },
+  aboutCard: { backgroundColor: "rgba(232,184,109,0.06)", borderRadius: SolunaRadius.lg, padding: 16, borderWidth: 1, borderColor: "rgba(232,184,109,0.14)", marginBottom: 16 },
+  aboutLabel: { fontSize: 10, color: SolunaColors.warmGold, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: "700", fontFamily: Fonts.body, marginBottom: 6 },
+  aboutText: { fontSize: 14, color: SolunaColors.cream, lineHeight: 21, fontFamily: Fonts.body },
+  aboutFoot: { fontSize: 11, color: SolunaColors.creamSubtle, fontStyle: "italic", fontFamily: Fonts.body, marginTop: 8 },
   bgWrap: { alignItems: "center", marginBottom: 10 },
   hdType: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 6 },
   hdDesc: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
