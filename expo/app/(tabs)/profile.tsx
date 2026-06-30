@@ -10,6 +10,7 @@ import { isDemoMode } from "@/lib/runtimeMode";
 import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogOut, Shield, CircleHelp, Hash, Heart, Brain, Plus, X, Pencil, Trash2, BookOpen, Calendar, BellRing, Target, Download, RefreshCw } from "lucide-react-native";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getEntitlements, updateMe, deleteAccount, getMe, type BirthProfileUpdate } from "@/lib/api";
+import { formatISODateLong } from "@/lib/dates";
 import { registerForPushNotifications } from "@/lib/push";
 import { restorePurchases, presentCustomerCenter } from "@/lib/revenuecat";
 
@@ -724,7 +725,7 @@ function ProfileContent() {
         <View style={st.card}>
           <SettingRow icon={<Star size={18} color={SolunaColors.warmGold} />} label="Full name" value={user.fullName} />
           <SettingRow icon={<Heart size={18} color={SolunaColors.softPeach} />} label="Preferred name" value={user.preferredName} />
-          <SettingRow icon={<Star size={18} color={SolunaColors.warmGold} />} label="Birth date" value={new Date(user.birthDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} />
+          <SettingRow icon={<Star size={18} color={SolunaColors.warmGold} />} label="Birth date" value={formatISODateLong(user.birthDate)} />
           <SettingRow icon={<Clock size={18} color={SolunaColors.gentleLavender} />} label="Birth time" value={user.birthTimeKnown ? user.birthTime : "Unknown (noon estimate)"} />
           <SettingRow icon={<Star size={18} color={SolunaColors.softPeach} />} label="Birth place" value={user.birthPlace} isLast />
         </View>

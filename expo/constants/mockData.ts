@@ -156,6 +156,12 @@ export const NUMBER_MEANINGS: Record<number, { title: string; description: strin
     strengths: ["Ability to manifest large-scale visions", "Practical spirituality", "Natural leadership on a grand scale", "Gift for turning ideas into reality"],
     growthEdge: "The pressure you feel to achieve something significant is real but can be paralyzing. Start small — master builders lay one brick at a time, and each one matters.",
   },
+  33: {
+    title: "The Master Teacher (Master Number)",
+    description: "You carry the rare, intensified energy of Master Number 33 — the heart of compassionate service. Built on the nurturing of 6 but amplified, you're here to uplift through love, teaching, and devotion to others' growth. People feel safer, seen, and more hopeful in your presence. This is the most emotionally demanding of the master numbers, and also one of the most healing.",
+    strengths: ["Profound compassion and emotional generosity", "A natural gift for teaching, guiding, and healing", "Ability to hold space for others' pain without flinching", "Vision for collective wellbeing, not just your own"],
+    growthEdge: "Your instinct to carry others can quietly drain you, and the call to 'serve' can tip into self-sacrifice. Your own wholeness isn't a distraction from your purpose — it's the source of it. Tend to yourself first, then give from the overflow.",
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════

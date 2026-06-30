@@ -13,6 +13,7 @@ import { LoadingState, ErrorState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getConnections, addConnection, getCompatibility, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
+import { formatISODateLong } from "@/lib/dates";
 
 const USE_MOCK_DATA = isDemoMode;
 
@@ -24,10 +25,8 @@ const parseBirthDate = (text: string): string | null => {
   if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > new Date().getFullYear()) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-const formatBirth = (iso: string) => {
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-};
+// Display a stored birth date by its literal calendar parts (no UTC day-shift).
+const formatBirth = (iso: string) => formatISODateLong(iso);
 // Parse a typed birth time into "HH:MM" (24h). Accepts "14:30" or "2:30 PM".
 // Returns null for blank (caller treats as "no time"); returns undefined for a
 // non-empty but unparseable value so the caller can prompt a correction.
