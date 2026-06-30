@@ -53,7 +53,11 @@ export interface PlacementRecord {
  */
 export async function computeBlueprint(
   profile: BirthProfile,
-  opts?: { cachedBazi?: BaziOutput | null; cachedVedic?: VedicOutput | null },
+  opts?: {
+    cachedAstrology?: AstrologyOutput | null;
+    cachedBazi?: BaziOutput | null;
+    cachedVedic?: VedicOutput | null;
+  },
 ): Promise<ComputedBlueprint> {
   const birthDate = new Date(profile.birth_date);
 
@@ -88,7 +92,7 @@ export async function computeBlueprint(
   // degrades to its own blocked/"unavailable" result on failure or timeout (none
   // can reject), so the compute waits at most ONE provider timeout, never the sum.
   const [astrology, bazi, vedic] = await Promise.all([
-    computeAstrology(astroInput),
+    computeAstrology(astroInput, { cachedAstrology: opts?.cachedAstrology }),
     computeBazi(baziInput, { cachedBazi: opts?.cachedBazi }),
     computeVedic(vedicInput, { cachedVedic: opts?.cachedVedic }),
   ]);
@@ -260,11 +264,32 @@ export async function computeAndPersistBlueprint(
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
+  const cachedAstrology = (prior?.astrology as AstrologyOutput | null) ?? null;
   const cachedBazi = (prior?.bazi as BaziOutput | null) ?? null;
   const cachedVedic = (prior?.vedic as VedicOutput | null) ?? null;
 
   // Compute blueprint
-  const bp = await computeBlueprint(profile, { cachedBazi, cachedVedic });
+  const bp = await computeBlueprint(profile, { cachedAstrology, cachedBazi, cachedVedic });
+
+  // Anti-flapping guard: a transient provider failure (rate-limit / timeout) must
+  // NEVER erase a chart we already computed for the SAME birth inputs. The
+  // per-engine cache already reuses a matching provider result; this is the
+  // belt-and-suspenders for the paths that can bypass it (the Vedic best-effort
+  // write below, or two recomputes racing from rapid refreshes). We compare the
+  // input fingerprints carried on the outputs, so the prior chart is kept ONLY
+  // when the birth inputs are genuinely unchanged — never masking a real edit.
+  if (
+    bp.astrology.source !== "provider" && cachedAstrology?.source === "provider" &&
+    !!cachedAstrology.sourceInputHash && cachedAstrology.sourceInputHash === bp.astrology.sourceInputHash
+  ) {
+    bp.astrology = cachedAstrology;
+  }
+  if (
+    bp.vedic.source !== "provider" && cachedVedic?.source === "provider" &&
+    !!cachedVedic.sourceInputHash && cachedVedic.sourceInputHash === bp.vedic.sourceInputHash
+  ) {
+    bp.vedic = cachedVedic;
+  }
 
   // Upsert the core blueprint. Vedic is deliberately NOT in this upsert — it's
   // persisted best-effort below so a not-yet-applied `vedic` migration can never

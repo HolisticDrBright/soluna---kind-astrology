@@ -13,7 +13,7 @@
  * blueprint and cached by an input fingerprint so the provider isn't paid twice.
  */
 
-import { coerceSign } from "./astrology-providers.ts";
+import { coerceSign, withProviderRetry } from "./astrology-providers.ts";
 
 const PROVIDER_TIMEOUT_MS = 12_000;
 
@@ -219,12 +219,14 @@ async function fetchVedic(input: VedicInput, ctx: VedicFetchCtx): Promise<VedicO
   };
   if (ctx.hasTime) { body.hour = h; body.minute = mi; }
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": key },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-    body: JSON.stringify(body),
-  });
+  const resp = await withProviderRetry(() =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": key },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify(body),
+    })
+  );
   if (!resp.ok) {
     const errBody = await resp.text().catch(() => "");
     console.error(`vedic provider ${resp.status} at ${url} :: ${errBody.slice(0, 300)}`);

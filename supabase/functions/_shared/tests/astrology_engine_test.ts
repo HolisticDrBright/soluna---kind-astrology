@@ -6,7 +6,7 @@
  */
 
 import { assert, assertEquals } from "../test_util.ts";
-import { computeAstrology } from "../engines/astrology.ts";
+import { astrologyInputHash, computeAstrology, type AstrologyOutput } from "../engines/astrology.ts";
 
 const PROVIDER_KEYS = [
   "ASTROLOGY_PROVIDER",
@@ -45,5 +45,54 @@ Deno.test("ASTROLOGY_ALLOW_APPROXIMATION=true re-enables the in-app estimate (de
   const out = await computeAstrology({ ...BIRTH });
   assertEquals(out.source, "approximation");
   assert(out.planets.length > 0);
+  clearProviders();
+});
+
+// ─── Caching / anti-flapping ───────────────────────────────────────
+// A previously-successful provider chart must be REUSED on recompute (stable, no
+// re-call, no flapping), but only while the birth inputs are unchanged. A blocked
+// result is never cached, so a transient failure can always recover next time.
+
+function providerChart(input: typeof BIRTH): AstrologyOutput {
+  return {
+    planets: [{ planet: "Sun", sign: "Pisces", degree: 21.6, house: 10, retrograde: false }],
+    ascendant: { sign: "Gemini", degree: 20.5 },
+    mc: null,
+    houses: [],
+    aspects: [],
+    timeRequired: false,
+    source: "provider",
+    provider: "freeastroapi",
+    sourceInputHash: astrologyInputHash(input),
+  };
+}
+
+Deno.test("cached provider chart is REUSED when inputs are unchanged (stable, no flapping)", async () => {
+  clearProviders(); // no provider — so if it re-called instead of reusing, it would degrade to blocked
+  const cached = providerChart(BIRTH);
+  const out = await computeAstrology({ ...BIRTH }, { cachedAstrology: cached });
+  assertEquals(out.source, "provider"); // reused, NOT downgraded
+  assertEquals(out.sourceInputHash, cached.sourceInputHash);
+  assertEquals(out.planets.length, 1);
+});
+
+Deno.test("cached provider chart is NOT reused when birth inputs change", async () => {
+  clearProviders();
+  const cached = providerChart(BIRTH);
+  const out = await computeAstrology({ ...BIRTH, time: "09:00" }, { cachedAstrology: cached });
+  // inputs changed → hash differs → cache miss → recompute → blocked (no provider configured)
+  assertEquals(out.source, "blocked");
+});
+
+Deno.test("a cached blocked chart is never reused (a failure always gets retried)", async () => {
+  clearProviders();
+  Deno.env.set("ASTROLOGY_ALLOW_APPROXIMATION", "true"); // proves it re-ran (would be 'approximation', not the cached 'blocked')
+  const cachedBlocked: AstrologyOutput = {
+    planets: [], ascendant: null, mc: null, houses: [], aspects: [],
+    timeRequired: false, source: "blocked", blockedReason: "provider_unavailable",
+    sourceInputHash: astrologyInputHash(BIRTH),
+  };
+  const out = await computeAstrology({ ...BIRTH }, { cachedAstrology: cachedBlocked });
+  assertEquals(out.source, "approximation");
   clearProviders();
 });

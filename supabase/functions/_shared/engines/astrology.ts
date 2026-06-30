@@ -80,6 +80,9 @@ export interface AstrologyOutput {
   provider?: string;
   /** Why a blocked chart has no placements: missing_location | provider_unavailable | provider_not_configured. */
   blockedReason?: string;
+  /** Opaque fingerprint of the birth inputs — lets a recompute reuse a cached
+   *  provider chart instead of re-hitting (and re-flapping on) the provider. */
+  sourceInputHash?: string;
 }
 
 const SIGNS = [
@@ -226,7 +229,7 @@ function lngHash(lng: number): number {
 }
 
 /** A chart with no placements — used instead of ever fabricating astrology. */
-function blockedChart(input: AstrologyInput, reason: string): AstrologyOutput {
+function blockedChart(input: AstrologyInput, reason: string, sourceInputHash?: string): AstrologyOutput {
   return {
     planets: [],
     ascendant: null,
@@ -236,7 +239,17 @@ function blockedChart(input: AstrologyInput, reason: string): AstrologyOutput {
     timeRequired: input.time === null,
     source: "blocked",
     blockedReason: reason,
+    sourceInputHash,
   };
+}
+
+/** Opaque fingerprint of the birth inputs (mirrors bazi/vedic). Used to reuse a
+ *  cached provider chart when nothing about the birth data has changed. */
+export function astrologyInputHash(input: AstrologyInput): string {
+  const raw = `${input.date}|${input.time ?? ""}|${input.lat}|${input.lng}|${input.timezone}|${input.houseSystem ?? ""}`;
+  let h = 5381;
+  for (let i = 0; i < raw.length; i++) h = ((h << 5) + h + raw.charCodeAt(i)) >>> 0;
+  return `astro_${h.toString(16)}`;
 }
 
 /**
@@ -253,24 +266,43 @@ function blockedChart(input: AstrologyInput, reason: string): AstrologyOutput {
  * The `source`/`blockedReason` flow into the stored blueprint so readings label
  * their accuracy honestly and degrade to blocked/partial states.
  */
-export async function computeAstrology(input: AstrologyInput): Promise<AstrologyOutput> {
+export async function computeAstrology(
+  input: AstrologyInput,
+  opts?: { cachedAstrology?: AstrologyOutput | null },
+): Promise<AstrologyOutput> {
+  const hash = astrologyInputHash(input);
+
+  // Reuse a previously-SUCCESSFUL provider chart when the birth inputs are
+  // unchanged. This keeps the result STABLE across recomputes (no flapping) and
+  // avoids re-hitting a rate-limited provider on every refresh. Only a real
+  // provider result is cached; blocked/approximation results are always retried
+  // so a transient failure can still recover on the next recompute.
+  const cached = opts?.cachedAstrology;
+  if (cached && cached.source === "provider" && cached.sourceInputHash === hash) {
+    return cached;
+  }
+
   const provider = getConfiguredProvider();
   const hasCoords = Number.isFinite(input.lat) && Number.isFinite(input.lng);
 
   if (provider) {
-    if (!hasCoords) return blockedChart(input, "missing_location");
+    if (!hasCoords) return blockedChart(input, "missing_location", hash);
     try {
-      return await fetchFromProvider(provider, input);
+      const result = await fetchFromProvider(provider, input);
+      result.sourceInputHash = hash;
+      return result;
     } catch (err) {
       console.error(`Astrology provider (${provider}) failed — returning blocked (no fabricated placements):`, err);
-      return blockedChart(input, "provider_unavailable");
+      return blockedChart(input, "provider_unavailable", hash);
     }
   }
 
   // No provider configured. Production must not fabricate; only an explicit
   // dev opt-in re-enables the in-app approximation for local work.
   if ((Deno.env.get("ASTROLOGY_ALLOW_APPROXIMATION") ?? "").toLowerCase() === "true") {
-    return computeFallbackChart(input);
+    const approx = computeFallbackChart(input);
+    approx.sourceInputHash = hash;
+    return approx;
   }
-  return blockedChart(input, "provider_not_configured");
+  return blockedChart(input, "provider_not_configured", hash);
 }

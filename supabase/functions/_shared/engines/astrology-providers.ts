@@ -26,6 +26,37 @@ const SIGN_SET = new Set(SIGNS);
  *  onboarding "weaving" screen — until the platform kills the function. */
 const PROVIDER_TIMEOUT_MS = 12_000;
 
+/**
+ * Retry a fetch-returning thunk on TRANSIENT failure (network error, timeout,
+ * HTTP 429 rate-limit, or 5xx). The thunk is re-invoked each attempt so it gets a
+ * fresh AbortSignal. This is what keeps the FreeAstroAPI calls from flapping
+ * between provider/blocked when the free tier briefly rate-limits a burst of
+ * concurrent chart requests. Successful (2xx) and client-error (4xx≠429)
+ * responses return immediately — we never retry a genuinely bad request.
+ */
+export async function withProviderRetry(doFetch: () => Promise<Response>): Promise<Response> {
+  const backoffsMs = [400, 1000]; // attempt 1 fails → wait 400ms; attempt 2 fails → 1000ms; then give up
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= backoffsMs.length; attempt++) {
+    try {
+      const resp = await doFetch();
+      if ((resp.status === 429 || resp.status >= 500) && attempt < backoffsMs.length) {
+        await new Promise((r) => setTimeout(r, backoffsMs[attempt]));
+        continue;
+      }
+      return resp;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < backoffsMs.length) {
+        await new Promise((r) => setTimeout(r, backoffsMs[attempt]));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 /** Which provider is configured (explicit env wins, else auto-detect by creds). */
 export function getConfiguredProvider(): AstrologyProviderId | null {
   const explicit = (Deno.env.get("ASTROLOGY_PROVIDER") ?? "").trim().toLowerCase();
@@ -289,12 +320,14 @@ async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutp
   };
   if (!timeMissing) { body.hour = h; body.minute = mi; }
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": key },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-    body: JSON.stringify(body),
-  });
+  const resp = await withProviderRetry(() =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": key },
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      body: JSON.stringify(body),
+    })
+  );
   if (!resp.ok) {
     const errBody = await resp.text().catch(() => "");
     // Log the exact URL + status so a 404/422 reveals the wrong endpoint or field.
