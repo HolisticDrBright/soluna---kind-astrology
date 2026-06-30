@@ -716,6 +716,159 @@ export const HD_PROFILE_LINES: Record<number, { name: string; theme: string }> =
 };
 
 // ══════════════════════════════════════════════════════════════════
+// BAZI — Four Pillars + Day Master (tap-to-detail reference content)
+// Mirrors the backend knowledge voice; reflective lens, never fixed fate.
+// ══════════════════════════════════════════════════════════════════
+
+/** What each of the Four Pillars represents (Year / Month / Day / Hour). */
+export const BAZI_PILLAR_MEANINGS: Record<string, { represents: string; description: string }> = {
+  Year: {
+    represents: "Roots, ancestry & your early years",
+    description:
+      "The Year Pillar speaks to your origins — family, ancestry, and the social 'face' you grew up inside. It colours your early years (roughly 0–16) and the larger environment you move through. Think of it as the soil your story is planted in.",
+  },
+  Month: {
+    represents: "Parents, growth & your work in the world",
+    description:
+      "The Month Pillar is the engine of your chart — your upbringing, your drive, and how you grow and work in the world (roughly 17–32). Often called the pillar of career and ambition, it shows how you meet the outer world and build a life.",
+  },
+  Day: {
+    represents: "Your core self & closest bonds",
+    description:
+      "The Day Pillar is the heart of the chart. Its heavenly stem is your Day Master — the 'you' everything else relates to — and the pillar also speaks to your closest relationships and inner partner. This is where you live.",
+  },
+  Hour: {
+    represents: "Your inner world, later life & legacy",
+    description:
+      "The Hour Pillar is the most private — your inner world, your children and creations, later life (roughly 49+), and what you're quietly becoming. It needs an accurate birth time, so it's the first to go missing without one.",
+  },
+};
+
+/** Day Master temperament by element (the 'you' of the BaZi chart). */
+export const BAZI_ELEMENT_MEANINGS: Record<string, { description: string; strengths: string[]; growthEdge: string }> = {
+  Wood: {
+    description:
+      "A Wood Day Master is like a tree or a sprouting plant — growth-seeking, principled, and quietly determined. You reach upward, value progress and fairness, and grow steadily toward the light. Wood bends in storms but keeps climbing.",
+    strengths: ["Growth-oriented and resilient", "Principled and fair-minded", "Quietly determined", "A natural sense of direction and purpose"],
+    growthEdge: "Learning to bend with the wind rather than only standing firm, and letting yourself rest between growth spurts instead of always pushing upward.",
+  },
+  Fire: {
+    description:
+      "A Fire Day Master is like flame and sunlight — warm, expressive, and naturally illuminating. You bring energy, passion, and visibility, lighting up the people and projects around you. At your best you warm a whole room.",
+    strengths: ["Warmth and charisma", "Passion and visibility", "A natural ability to inspire", "Quick, bright, generous spirit"],
+    growthEdge: "Tending your fuel so you don't burn out, and letting your warmth be steady and sustained, not only bright and fast.",
+  },
+  Earth: {
+    description:
+      "An Earth Day Master is like soil and mountain — steady, nurturing, and dependable. You hold things together, offer grounding to others, and value trust, stability, and care. People feel safe around you.",
+    strengths: ["Reliability and steadiness", "A nurturing, grounding presence", "Practical, trustworthy nature", "Patience and loyalty"],
+    growthEdge: "Letting yourself receive support too, and allowing change to move through the steadiness rather than resisting every shift.",
+  },
+  Metal: {
+    description:
+      "A Metal Day Master is like refined metal and the blade — clear, principled, and precise. You value integrity, structure, and quality, and you can cut through to what matters with honesty and resolve.",
+    strengths: ["Integrity and precision", "Clear standards and discernment", "Resilience and resolve", "A gift for refining and improving"],
+    growthEdge: "Softening sharp edges with warmth, and letting 'good' be enough when 'perfect' isn't needed.",
+  },
+  Water: {
+    description:
+      "A Water Day Master is like river and ocean — adaptable, wise, and deep. You flow around obstacles, sense undercurrents others miss, and carry quiet intelligence and emotional depth. Water finds a way.",
+    strengths: ["Adaptability and flow", "Wisdom and perception", "Emotional depth", "Resourcefulness and intuition"],
+    growthEdge: "Choosing a clear direction rather than flowing everywhere at once, and letting trusted people see your depths.",
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════
+// HUMAN DESIGN — the nine energy centers (defined vs open)
+// Keyed by the engine's HD_CENTER_NAMES. Reflective, never deterministic.
+// ══════════════════════════════════════════════════════════════════
+
+export const HD_CENTER_MEANINGS: Record<string, { theme: string; defined: string; open: string }> = {
+  "Head": {
+    theme: "Inspiration & mental pressure",
+    defined: "A consistent source of mental inspiration and questions — you generate your own ideas and the pressure to think. You don't have to chase or answer every question that arrives.",
+    open: "You take in and amplify the mental pressure and questions around you. Not every question is yours to solve — let some simply pass through.",
+  },
+  "Ajna": {
+    theme: "How you process & hold certainty",
+    defined: "A fixed way of processing — you think in reliable patterns and can hold firm views. Your gift is consistency; stay willing to revisit a certainty now and then.",
+    open: "A flexible, open mind that samples many ways of thinking. You don't need fixed answers to be wise — seeing from many angles is the gift.",
+  },
+  "Throat": {
+    theme: "Expression & manifestation",
+    defined: "Consistent self-expression and a steady voice — you can speak and act reliably. Let your voice follow your true authority, not the pressure to fill silence.",
+    open: "Your expression varies with who you're with. Speaking when you're genuinely invited or moved lands far better than forcing it.",
+  },
+  "G Center": {
+    theme: "Identity, direction & love",
+    defined: "A consistent sense of self, direction, and love — you tend to know who you are and where you're going, even when life shifts around you.",
+    open: "Identity and direction shift with your environment, which makes you adaptable. The right places and people help you feel most like yourself — choose them with care.",
+  },
+  "Heart/Ego": {
+    theme: "Willpower & self-worth",
+    defined: "Consistent willpower and a healthy relationship to promises — you can commit and follow through. Make pledges to yourself you actually want to keep.",
+    open: "Willpower comes and goes; you're not built for constant proving. Your worth isn't conditional on performance — you don't have to earn it.",
+  },
+  "Sacral": {
+    theme: "Life-force, work & creativity",
+    defined: "A powerful, renewable engine for work and creativity — when you're engaged with what you love, your energy sustains. Honour your gut yes and no.",
+    open: "You don't carry consistent life-force energy, so you're not made to keep going endlessly. Rest before exhaustion, and know when enough is enough.",
+  },
+  "Solar Plexus": {
+    theme: "Emotions & clarity over time",
+    defined: "An emotional wave moves through you — your clarity comes over time, not in the heat of the moment. Sleep on big decisions and let the wave settle first.",
+    open: "You feel and amplify the emotions in the room. Much of what you feel isn't yours — give it space to pass before you act on it.",
+  },
+  "Spleen": {
+    theme: "Instinct, intuition & wellbeing",
+    defined: "A consistent, in-the-moment instinct for safety and wellbeing — a quiet knowing you can trust. It speaks softly, usually once.",
+    open: "You amplify the fears and instincts around you. Notice which alarms are truly yours, and don't let borrowed fear run the show.",
+  },
+  "Root": {
+    theme: "Pressure, drive & stress",
+    defined: "A consistent way of handling pressure — you can pace yourself and use stress as fuel without it running you.",
+    open: "You amplify the pressure to be done and the stress around you. Most of that urgency isn't actually yours — you're allowed to slow down.",
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════
+// VEDIC — the 27 Nakshatras (lunar mansions)
+// Mirrors the backend knowledge (supabase/.../knowledge/vedic.ts) so the
+// tap-to-detail screen has rich, on-voice content offline. The Moon's
+// nakshatra is the heart of a Vedic reading — a reflective lens, not fate.
+// ══════════════════════════════════════════════════════════════════
+
+export const NAKSHATRA_MEANINGS: Record<string, { description: string; strengths: string[]; growthEdge: string }> = {
+  "Ashwini": { description: "A fresh-start, fast-moving temperament — pioneering, quick to act, and drawn to healing or helping. You tend to begin things others hesitate over, with youthful, hopeful energy.", strengths: ["Initiative and speed", "A healing, helpful instinct", "Fresh, hopeful outlook"], growthEdge: "Finishing what you start before chasing the next spark, and pausing long enough to aim." },
+  "Bharani": { description: "An intense, holding temperament — capable of carrying, transforming, and seeing things through difficult passages. You tend to feel deeply and bear what others can't, with quiet strength.", strengths: ["Endurance through intensity", "Creative, transformative energy", "Loyalty and depth"], growthEdge: "Setting limits before you're overloaded, and releasing what no longer needs carrying." },
+  "Krittika": { description: "A sharp, purifying temperament — honest, focused, and able to cut through to what's true. You tend to see clearly and say it plainly, with a determined, refining edge.", strengths: ["Clarity and honesty", "Focused determination", "A refining, improving instinct"], growthEdge: "Softening sharpness into warmth when it lands hard, and letting 'good enough' be enough sometimes." },
+  "Rohini": { description: "A magnetic, growth-loving temperament — sensual, creative, and drawn to beauty and comfort. You tend to make things (and people) flourish, with natural charm and steadiness.", strengths: ["Warm magnetism", "Creative, nurturing growth", "An eye for beauty and comfort"], growthEdge: "Loosening attachment to comfort or appearances, and sharing the spotlight you naturally attract." },
+  "Mrigashira": { description: "A seeking, curious temperament — gentle, restless, and always searching for something more. You tend to explore, question, and follow your curiosity wherever it leads.", strengths: ["Curiosity and openness", "Gentle, approachable nature", "A searcher's adaptability"], growthEdge: "Settling into what you find rather than always seeking, and trusting that you have enough." },
+  "Ardra": { description: "A storm-and-renewal temperament — sharp-minded, emotionally deep, and able to grow through upheaval. You tend to feel things intensely and come out clearer on the other side.", strengths: ["Penetrating intelligence", "Resilience through hard change", "Emotional depth and honesty"], growthEdge: "Tending your nervous system through storms, and letting calm feel safe, not boring." },
+  "Punarvasu": { description: "A renewing, hopeful temperament — resilient, generous, and able to begin again after setbacks. You tend to find your way home, restore what's frayed, and keep faith.", strengths: ["Resilience and renewal", "Optimism and generosity", "A grounding sense of home"], growthEdge: "Letting yourself fully arrive instead of restarting, and receiving care, not only giving it." },
+  "Pushya": { description: "A nourishing, devoted temperament — caring, dependable, and steadying for others. You tend to feed, support, and protect the people and causes you love.", strengths: ["Deep care and devotion", "Dependability and steadiness", "A nourishing presence"], growthEdge: "Letting yourself be cared for too, and not over-giving to earn belonging." },
+  "Ashlesha": { description: "A penetrating, perceptive temperament — intuitive, persuasive, and able to read what's beneath the surface. You tend to sense hidden currents others miss.", strengths: ["Sharp perception and insight", "Persuasive, magnetic presence", "Deep intuition"], growthEdge: "Directing your intensity toward what heals, and trusting openness as much as strategy." },
+  "Magha": { description: "A dignified, ancestral temperament — proud in the best sense, drawn to honor your roots and lead with grace. You tend to carry a sense of legacy and quiet authority.", strengths: ["Natural dignity and leadership", "Respect for roots and tradition", "Generosity from a full seat"], growthEdge: "Leading without needing to be above, and honoring lineage while writing your own line." },
+  "Purva Phalguni": { description: "A warm, pleasure-loving temperament — creative, generous, and drawn to enjoyment, rest, and connection. You tend to bring ease and delight wherever you go.", strengths: ["Warmth and generosity", "Creative, playful spirit", "A gift for rest and enjoyment"], growthEdge: "Balancing pleasure with follow-through, and letting depth join the lightness." },
+  "Uttara Phalguni": { description: "A reliable, friendship-minded temperament — generous, helpful, and steady in partnership. You tend to show love through loyalty and dependable support.", strengths: ["Loyalty and dependability", "Generosity and helpfulness", "Steady partnership"], growthEdge: "Receiving help, not only offering it, and choosing where your generosity goes." },
+  "Hasta": { description: "A skillful, clever temperament — handy, witty, and able to turn ideas into real things. You tend to make, fix, and craft, with a light touch and quick mind.", strengths: ["Skill and craftsmanship", "Cleverness and wit", "A gift for making things real"], growthEdge: "Trusting your work without over-perfecting, and letting your hands rest, too." },
+  "Chitra": { description: "A brilliant, design-minded temperament — charismatic, artistic, and drawn to create beauty and order. You tend to shine and to make things shine around you.", strengths: ["Charisma and artistry", "An eye for design and form", "Bold self-expression"], growthEdge: "Building substance beneath the shine, and letting yourself be seen plainly, too." },
+  "Swati": { description: "An independent, adaptable temperament — self-reliant, balanced, and like the wind, hard to pin down. You tend to value freedom and find your own way.", strengths: ["Independence and self-reliance", "Adaptability and balance", "Diplomatic flexibility"], growthEdge: "Letting people close without losing your freedom, and committing when it matters." },
+  "Vishakha": { description: "A goal-driven, determined temperament — focused, ambitious, and willing to work hard for what you want. You tend to lock onto a target and pursue it with patience and fire.", strengths: ["Determination and ambition", "Focused, goal-directed energy", "Patience for the long game"], growthEdge: "Enjoying the journey, not only the goal, and letting rest be part of the plan." },
+  "Anuradha": { description: "A devoted, cooperative temperament — loyal, friendly, and able to thrive through relationship. You tend to succeed by building bonds and working with others.", strengths: ["Loyalty and devotion", "A gift for cooperation", "Success through connection"], growthEdge: "Honoring your own needs within bonds, and leading as well as supporting." },
+  "Jyeshtha": { description: "A capable, responsible temperament — the elder energy, protective and able to carry weight. You tend to take charge and look after others, even when it costs you.", strengths: ["Capability and responsibility", "Protective leadership", "Resilience under pressure"], growthEdge: "Asking for help before you're depleted, and letting others be capable, too." },
+  "Mula": { description: "A root-seeking, investigative temperament — drawn to get to the bottom of things, even if it means dismantling them first. You tend to question deeply and rebuild from truth.", strengths: ["Depth and investigative drive", "Courage to face hard truths", "Philosophical insight"], growthEdge: "Rebuilding gently after you've uprooted, and letting some things stay whole." },
+  "Purva Ashadha": { description: "A confident, persuasive temperament — optimistic, undefeated, and able to lift others with your conviction. You tend to believe in possibility and carry people with you.", strengths: ["Conviction and optimism", "Persuasive, uplifting energy", "Refreshing resilience"], growthEdge: "Staying open to other views, and letting confidence include a little uncertainty." },
+  "Uttara Ashadha": { description: "An enduring, principled temperament — drawn to lasting achievement built on integrity. You tend to win slowly and for keeps, by doing things the right way.", strengths: ["Integrity and patience", "Lasting, well-built success", "Steady leadership"], growthEdge: "Letting good-enough wins count, and finding flexibility within your principles." },
+  "Shravana": { description: "A listening, learning temperament — attentive, wise, and able to gather understanding through deep attention. You tend to learn by truly hearing others.", strengths: ["Deep listening and attention", "Wisdom through learning", "A connecting, trusted presence"], growthEdge: "Voicing your own knowing, too, and filtering whose words you take in." },
+  "Dhanishta": { description: "A rhythmic, abundant temperament — musical, adaptable, and able to bring people into harmony. You tend to keep the beat and create prosperity around you.", strengths: ["Rhythm and timing", "Adaptable, prosperous energy", "A gift for group harmony"], growthEdge: "Pausing the drumbeat to rest, and letting feeling join the performance." },
+  "Shatabhisha": { description: "A healing, independent temperament — private, inventive, and drawn to mystery and mending. You tend to go your own way and quietly help others heal.", strengths: ["Healing and inventiveness", "Independence and privacy", "Comfort with mystery"], growthEdge: "Letting trusted people in, and healing yourself, not only others." },
+  "Purva Bhadrapada": { description: "An intense, idealistic temperament — passionate, visionary, and able to transform through deep conviction. You tend to feel strongly and reach for something higher.", strengths: ["Visionary intensity", "Idealism and conviction", "Transformative depth"], growthEdge: "Grounding big ideals in small steps, and tending your nervous system through intensity." },
+  "Uttara Bhadrapada": { description: "A deep, calm temperament — wise, compassionate, and steady like still water. You tend to hold depth without drama, offering quiet, grounding wisdom.", strengths: ["Calm depth and wisdom", "Compassion and patience", "A steadying presence"], growthEdge: "Letting your depth be seen and known, and acting on insight, not only holding it." },
+  "Revati": { description: "A gentle, nourishing temperament — kind, imaginative, and a safe harbor for others. You tend to care for the vulnerable and help people reach the end of the road safely.", strengths: ["Kindness and compassion", "Imagination and gentleness", "A protective, guiding warmth"], growthEdge: "Keeping some care for yourself, and setting limits without guilt." },
+};
+
+// ══════════════════════════════════════════════════════════════════
 // TRANSITS
 // ══════════════════════════════════════════════════════════════════
 

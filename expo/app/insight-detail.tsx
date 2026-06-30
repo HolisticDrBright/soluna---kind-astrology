@@ -7,6 +7,8 @@ import { useAppState } from "@/state/useAppState";
 import {
   PLANET_SYMBOLS, ZODIAC_SYMBOLS, HOUSE_NAMES,
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
+  HD_TYPE_GUIDANCE, HD_AUTHORITY_MEANINGS, HD_PROFILE_LINES, HD_CENTER_MEANINGS,
+  BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
 import ComingSoon from "@/components/ComingSoon";
@@ -46,8 +48,85 @@ function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: numbe
   };
 }
 
+// Reusable detail layout for the BaZi / Human Design / Vedic tap-to-explain
+// screens — mirrors the astrology placement layout (hero + sections + Ask).
+function DetailView(props: {
+  glyph: string;
+  glyphColor?: string;
+  kicker: string;
+  title: string;
+  meta?: string;
+  body: string;
+  bodyTitle?: string;
+  strengths?: string[];
+  growthEdge?: string;
+  why?: string;
+  askLabel: string;
+  askPrompt: string;
+  resonanceId: string;
+  systems: string[];
+}) {
+  return (
+    <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
+      <ScrollView contentContainerStyle={s.scrollContent}>
+        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+          <ChevronLeft size={24} color={SolunaColors.cream} />
+        </TouchableOpacity>
+        <View style={s.heroWrap}>
+          <View style={[s.glyphCircle, { borderColor: "rgba(185,163,227,0.3)", backgroundColor: "rgba(185,163,227,0.08)" }]}>
+            <Text style={[s.glyphText, { color: props.glyphColor ?? SolunaColors.gentleLavender }, props.glyph.length > 2 ? { fontSize: 22 } : null]}>
+              {props.glyph}
+            </Text>
+          </View>
+          <Text style={s.heroTitle}>{props.kicker}</Text>
+          <Text style={s.heroSign}>{props.title}</Text>
+          {props.meta ? <Text style={s.heroHouse}>{props.meta}</Text> : null}
+        </View>
+        <View style={s.section}>
+          <Text style={s.interpretationTitle}>{props.bodyTitle ?? "What This Means"}</Text>
+          <Text style={s.interpretationText}>{props.body}</Text>
+        </View>
+        {props.strengths && props.strengths.length ? (
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>What This Gives You</Text>
+            {props.strengths.map((sx, i) => (
+              <View key={i} style={s.strengthRow}>
+                <Sparkles size={14} color={SolunaColors.warmGold} />
+                <Text style={s.strengthText}>{sx}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {props.growthEdge ? (
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>Gentle Growth Edge</Text>
+            <Text style={s.growthText}>{props.growthEdge}</Text>
+          </View>
+        ) : null}
+        {props.why ? (
+          <View style={s.section}>
+            <Text style={s.interpretationTitle}>Why You're Seeing This</Text>
+            <Text style={s.whyText}>{props.why}</Text>
+          </View>
+        ) : null}
+        <ResonanceFeedbackCard sourceType="blueprint" sourceId={props.resonanceId} systemsReferenced={props.systems} />
+        <TouchableOpacity
+          style={s.askBtn}
+          onPress={() => router.push({ pathname: "/(tabs)/ask", params: { prompt: props.askPrompt } })}
+        >
+          <MessageCircle size={18} color={SolunaColors.warmGold} />
+          <Text style={s.askBtnText}>{props.askLabel}</Text>
+        </TouchableOpacity>
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
 export default function InsightDetailScreen() {
-  const { type, planet, number } = useLocalSearchParams<{ type: string; planet: string; number: string }>();
+  const { type, planet, number, value, facet, kind } = useLocalSearchParams<{
+    type: string; planet: string; number: string; value: string; facet: string; kind: string;
+  }>();
   const { user } = useAppState();
   if (!user || !type) return null;
 
@@ -81,6 +160,166 @@ export default function InsightDetailScreen() {
         </ScrollView>
       </LinearGradient>
     );
+  }
+
+  // ── BaZi: Day Master ──
+  if (type === "bazi-daymaster") {
+    const dm = user.bazi?.dayMaster;
+    const rawEl = dm?.element ?? "";
+    const el = rawEl ? rawEl.charAt(0).toUpperCase() + rawEl.slice(1).toLowerCase() : "";
+    const info = BAZI_ELEMENT_MEANINGS[el];
+    if (!dm || !info) return null;
+    return (
+      <DetailView
+        glyph="☯"
+        kicker="BaZi · Day Master"
+        title={`${dm.yinYang} ${el}`.trim()}
+        meta={dm.stem ? `Heavenly Stem · ${dm.stem}` : undefined}
+        body={info.description}
+        strengths={info.strengths}
+        growthEdge={info.growthEdge}
+        why={`Your Day Master is the heavenly stem of your Day Pillar — the "you" that the rest of your BaZi chart relates to. It comes from the day you were born, and its element (${el}) sets the tone for how you meet life.`}
+        askLabel="Ask Soluna about your Day Master"
+        askPrompt={`What does my ${dm.yinYang} ${el} Day Master mean?`}
+        resonanceId="bazi-daymaster"
+        systems={["bazi"]}
+      />
+    );
+  }
+
+  // ── BaZi: a single pillar ──
+  if (type === "bazi-pillar" && value) {
+    const info = BAZI_PILLAR_MEANINGS[value];
+    if (!info) return null;
+    const pillar = user.bazi?.pillars?.find((p) => p.label === value);
+    const pillarLine = pillar
+      ? `Your ${value} Pillar: ${[pillar.stem, pillar.branch].filter(Boolean).join("")}${pillar.animal ? ` · ${pillar.animal}` : ""}${pillar.element ? ` · ${pillar.element}` : ""}.`
+      : "";
+    return (
+      <DetailView
+        glyph="☯"
+        kicker={`BaZi · ${info.represents}`}
+        title={`${value} Pillar`}
+        meta={pillar?.animal ? `${pillar.element ?? ""} ${pillar.animal}`.trim() : undefined}
+        body={`${info.description}${pillarLine ? `\n\n${pillarLine}` : ""}`}
+        why={"The Four Pillars (Year, Month, Day, Hour) come from your exact birth moment — each is a heavenly stem + earthly branch that colours a different area and season of life."}
+        askLabel={`Ask Soluna about your ${value} Pillar`}
+        askPrompt={`What does my ${value} Pillar mean in my BaZi chart?`}
+        resonanceId={`bazi-pillar-${value}`}
+        systems={["bazi"]}
+      />
+    );
+  }
+
+  // ── Human Design facets ──
+  if (type === "hd" && facet) {
+    const hd = user.humanDesign;
+    if (!hd) return null;
+    if (facet === "type") {
+      const info = HD_INTERPRETATIONS[hd.type];
+      return (
+        <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold} kicker="Human Design · Type" title={hd.type}
+          body={hd.typeDescription || info?.description || ""}
+          strengths={hd.strengths?.length ? hd.strengths : info?.strengths}
+          growthEdge={hd.growthEdge || info?.growthEdge}
+          why={"Your Type comes from which energy centers are defined in your chart, calculated from your exact birth date, time, and place."}
+          askLabel="Ask Soluna about your Type" askPrompt={`What does being a ${hd.type} mean for me?`}
+          resonanceId="hd-type" systems={["human_design"]} />
+      );
+    }
+    if (facet === "strategy") {
+      const g = HD_TYPE_GUIDANCE[hd.type];
+      return (
+        <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold} kicker="Human Design · Strategy" title={hd.strategy || "Strategy"}
+          body={hd.strategyDescription || g?.strategyDescription || ""}
+          why={"Your Strategy follows from your Type — it's the way you're designed to engage with life so things flow with less resistance."}
+          askLabel="Ask Soluna about your Strategy" askPrompt={`How do I live my Human Design strategy (${hd.strategy})?`}
+          resonanceId="hd-strategy" systems={["human_design"]} />
+      );
+    }
+    if (facet === "authority") {
+      const label = (hd.authority || "").split(/[—–-]/)[0].trim();
+      return (
+        <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold} kicker="Human Design · Authority" title={label || "Authority"}
+          body={hd.authorityDescription || HD_AUTHORITY_MEANINGS[label] || ""}
+          why={"Your Authority is your body's most reliable way to make decisions, based on which centers are defined in your chart."}
+          askLabel="Ask Soluna about your Authority" askPrompt={`How do I use my ${label || "inner"} authority to decide?`}
+          resonanceId="hd-authority" systems={["human_design"]} />
+      );
+    }
+    if (facet === "profile") {
+      const [a, b] = (hd.profile || "").split("/").map((n) => Number(n.trim()));
+      const la = HD_PROFILE_LINES[a], lb = HD_PROFILE_LINES[b];
+      const body = la && lb
+        ? `Your ${hd.profile} profile blends two lines.\n\nLine ${a} — the ${la.name}: ${la.theme}.\n\nLine ${b} — the ${lb.name}: ${lb.theme}.\n\nTogether, you lead with the ${la.name} (your conscious approach) expressed through the ${lb.name} (the way others meet you) — the rhythm of how you learn and show up.`
+        : (hd.profileDescription || "");
+      return (
+        <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold} kicker="Human Design · Profile" title={hd.profile || "Profile"}
+          body={body}
+          why={"Your Profile is the two lines of your conscious and unconscious Sun/Earth — a 'costume' for how you're here to learn and interact."}
+          askLabel="Ask Soluna about your Profile" askPrompt={`What does my ${hd.profile} profile mean?`}
+          resonanceId="hd-profile" systems={["human_design"]} />
+      );
+    }
+    if (facet === "center" && value) {
+      const info = HD_CENTER_MEANINGS[value];
+      if (!info) return null;
+      const defined = !!hd.centers?.find((x) => x.name === value)?.defined;
+      return (
+        <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold}
+          kicker={`Human Design · ${defined ? "Defined" : "Open"} Center`} title={value} meta={info.theme}
+          body={defined ? info.defined : info.open}
+          why={`The ${value} center is ${defined ? "defined (consistent) — a reliable energy you can count on and that others feel from you" : "open (undefined) — a place you take in and amplify the world, designed for wisdom rather than consistency"}. This comes from your full chart.`}
+          askLabel={`Ask Soluna about your ${value}`} askPrompt={`What does my ${defined ? "defined" : "open"} ${value} center mean?`}
+          resonanceId={`hd-center-${value}`} systems={["human_design"]} />
+      );
+    }
+    return null;
+  }
+
+  // ── Vedic facets ──
+  if (type === "vedic" && kind) {
+    const v = user.vedic;
+    if (!v?.available) return null;
+    if (kind === "moon" || kind === "nakshatra") {
+      const nak = kind === "moon" ? (v.moonNakshatra ?? value) : value;
+      const info = nak ? NAKSHATRA_MEANINGS[nak] : undefined;
+      if (!nak || !info) return null;
+      return (
+        <DetailView glyph="☾" kicker={kind === "moon" ? "Vedic · Moon Nakshatra" : "Vedic · Nakshatra"} title={nak} meta="Lunar mansion"
+          body={info.description} strengths={info.strengths} growthEdge={info.growthEdge}
+          why={"Nakshatras are the 27 lunar mansions of Vedic astrology. The Moon's nakshatra is the heart of a Vedic reading — a reflective lens, never fixed fate."}
+          askLabel="Ask Soluna about this nakshatra" askPrompt={`What does the nakshatra ${nak} mean for me?`}
+          resonanceId={`vedic-nak-${nak}`} systems={["vedic"]} />
+      );
+    }
+    if (kind === "ascendant" && v.ascendant) {
+      const asc = v.ascendant;
+      const nakInfo = asc.nakshatra ? NAKSHATRA_MEANINGS[asc.nakshatra] : undefined;
+      return (
+        <DetailView glyph="ASC" glyphColor={SolunaColors.softPeach} kicker="Vedic · Ascendant (Lagna)" title={asc.sign}
+          meta={asc.nakshatra ? `Nakshatra · ${asc.nakshatra}` : undefined}
+          body={`Your sidereal Ascendant (Lagna) is ${asc.sign} — the sign rising on the eastern horizon at your birth in the Vedic (sidereal) zodiac. It shapes your outlook, vitality, and the lens through which the rest of the chart is read.${nakInfo ? `\n\nIts nakshatra, ${asc.nakshatra}: ${nakInfo.description}` : ""}`}
+          why={"The Lagna needs an accurate birth time — it changes roughly every two hours. The sidereal zodiac is intentionally offset from the Western one."}
+          askLabel="Ask Soluna about your Lagna" askPrompt={`What does my Vedic ascendant in ${asc.sign} mean?`}
+          resonanceId="vedic-ascendant" systems={["vedic"]} />
+      );
+    }
+    if (kind === "planet" && value) {
+      const p = v.planets.find((x) => x.planet === value);
+      if (!p) return null;
+      const nakInfo = p.nakshatra ? NAKSHATRA_MEANINGS[p.nakshatra] : undefined;
+      return (
+        <DetailView glyph={PLANET_SYMBOLS[value as Planet] ?? "✦"} kicker="Vedic · Sidereal Placement" title={`${value} in ${p.sign}`}
+          meta={[p.house != null ? `House ${p.house}` : "", p.retrograde ? "Retrograde" : ""].filter(Boolean).join(" · ") || undefined}
+          body={`In your Vedic (sidereal) chart, ${value} sits in ${p.sign}${p.house != null ? `, in your ${p.house}th house` : ""}${p.nakshatra ? `, in the nakshatra ${p.nakshatra}${p.nakshatraLord ? ` (ruled by ${p.nakshatraLord})` : ""}` : ""}. Sidereal signs are shifted from the Western zodiac, so this often differs from your Western chart — that contrast is the point.${nakInfo ? `\n\n${p.nakshatra}: ${nakInfo.description}` : ""}`}
+          strengths={nakInfo?.strengths} growthEdge={nakInfo?.growthEdge}
+          why={"Vedic positions come from a real sidereal ephemeris (Lahiri ayanamsha) for your birth moment — a separate tradition from your Western chart."}
+          askLabel={`Ask Soluna about your Vedic ${value}`} askPrompt={`What does my Vedic ${value} in ${p.sign} mean?`}
+          resonanceId={`vedic-planet-${value}`} systems={["vedic"]} />
+      );
+    }
+    return null;
   }
 
   // ── Rising sign insight ──

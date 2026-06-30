@@ -5,7 +5,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS } from "@/constants/mockData";
+import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS } from "@/constants/mockData";
 import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
@@ -189,6 +189,26 @@ function Card({ children }: { children: React.ReactNode }) {
   return <View style={cardS.card}>{children}</View>;
 }
 const cardS = StyleSheet.create({ card: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.md, padding: 16, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 10 } });
+
+// A Card you can tap to open its detail screen, with a subtle "Tap to explore"
+// affordance so every system reads like the tappable astrology cards.
+function TapCard({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
+  return (
+    <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+      <View style={cardS.card}>
+        {children}
+        <View style={tapS.row}>
+          <Text style={tapS.hint}>Tap to explore</Text>
+          <ChevronRight size={14} color={SolunaColors.creamSubtle} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+const tapS = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 2, marginTop: 8 },
+  hint: { fontSize: 11, color: SolunaColors.creamSubtle, fontFamily: Fonts.body },
+});
 
 function BlueprintContent() {
   const { user } = useAppState();
@@ -396,16 +416,16 @@ function BlueprintContent() {
               <ConfidencePill level={timeConfidence} showDetail />
               {!user.birthTimeKnown && <Text style={s.confidenceNote}>Human Design accuracy depends on exact birth time</Text>}
             </View>
-            <Card>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "hd", facet: "type" } })}>
               <Text style={s.hdType}>{safeGet(user.humanDesign.type, "")}</Text>
               <Text style={s.hdDesc}>{safeGet(user.humanDesign.typeDescription, "")}</Text>
-            </Card>
+            </TapCard>
             <Text style={s.sectionLabel}>Strategy</Text>
-            <Card><Text style={s.hdLabel}>{safeGet(user.humanDesign.strategy, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.strategyDescription, "")}</Text></Card>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "hd", facet: "strategy" } })}><Text style={s.hdLabel}>{safeGet(user.humanDesign.strategy, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.strategyDescription, "")}</Text></TapCard>
             <Text style={s.sectionLabel}>Authority</Text>
-            <Card><Text style={s.hdLabel}>{safeGet(user.humanDesign.authority, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.authorityDescription, "")}</Text></Card>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "hd", facet: "authority" } })}><Text style={s.hdLabel}>{safeGet(user.humanDesign.authority, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.authorityDescription, "")}</Text></TapCard>
             <Text style={s.sectionLabel}>Profile</Text>
-            <Card><Text style={s.hdLabel}>{safeGet(user.humanDesign.profile, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.profileDescription, "")}</Text></Card>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "hd", facet: "profile" } })}><Text style={s.hdLabel}>{safeGet(user.humanDesign.profile, "")}</Text><Text style={s.hdDesc}>{safeGet(user.humanDesign.profileDescription, "")}</Text></TapCard>
             <Text style={s.sectionLabel}>Signature / Not-Self</Text>
             <View style={s.sigRow}>
               <Card><Text style={s.sigLabel}>Signature</Text><Text style={[s.sigVal, { color: SolunaColors.warmGold }]}>{safeGet(user.humanDesign.signature, "")}</Text></Card>
@@ -415,6 +435,25 @@ function BlueprintContent() {
             {(user.humanDesign.strengths ?? []).map((sx, i) => (
               <View key={i} style={s.strengthRow}><Sparkles size={12} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>
             ))}
+            {(user.humanDesign.centers ?? []).length > 0 && (
+              <>
+                <Text style={s.sectionLabel}>Energy Centers</Text>
+                <Text style={s.hdCenterHint}>Tap a center to see what defined vs open means for you.</Text>
+                <View style={s.hdCenterGrid}>
+                  {(user.humanDesign.centers ?? []).map((c) => (
+                    <TouchableOpacity
+                      key={c.name}
+                      style={[s.hdCenterChip, c.defined ? s.hdCenterDefined : s.hdCenterOpen]}
+                      activeOpacity={0.7}
+                      onPress={() => router.push({ pathname: "/insight-detail", params: { type: "hd", facet: "center", value: c.name } })}
+                    >
+                      <Text style={[s.hdCenterName, c.defined && s.hdCenterNameDefined]}>{c.name}</Text>
+                      <Text style={s.hdCenterState}>{c.defined ? "Defined" : "Open"}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -438,6 +477,28 @@ function capWord(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+// Deterministic "what your pillars say together" summary, composed only from the
+// user's real BaZi values (never fabricated).
+function baziSummary(bazi: BaziView): string {
+  const parts: string[] = [];
+  const dm = bazi.dayMaster;
+  if (dm) {
+    parts.push(`Your chart centres on a ${[dm.yinYang, capWord(dm.element)].filter(Boolean).join(" ")} Day Master — the "you" the four pillars revolve around.`);
+  }
+  if (bazi.dayMasterStrength) {
+    parts.push(`It reads as ${capWord(bazi.dayMasterStrength)}, which shapes how much you naturally give out versus take in.`);
+  }
+  if (bazi.favorableElements?.length) {
+    parts.push(`Leaning gently into ${bazi.favorableElements.map(capWord).join(" and ")} energy tends to bring you into balance.`);
+  }
+  if (bazi.elementBalance?.length) {
+    const top = [...bazi.elementBalance].sort((a, b) => b.count - a.count)[0];
+    if (top) parts.push(`${capWord(top.element)} is the most present element across your pillars.`);
+  }
+  parts.push("Read together, the Year, Month, Day, and Hour pillars trace your roots, your drive, your core self, and your inner world — a reflective map, not a fixed fate.");
+  return parts.join(" ");
+}
+
 // True, provider-backed BaZi / Four Pillars — renders honest available / partial /
 // unavailable states. Never shows fabricated pillars.
 function BaziFourPillars({ bazi }: { bazi: BaziView }) {
@@ -457,7 +518,7 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
   return (
     <View>
       {bazi.dayMaster && (
-        <Card>
+        <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "bazi-daymaster" } })}>
           <Text style={s.baziDmLabel}>Day Master</Text>
           <Text style={s.baziDmValue}>
             {[bazi.dayMaster.yinYang, capWord(bazi.dayMaster.element)].filter(Boolean).join(" ")}
@@ -465,10 +526,10 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
           </Text>
           {bazi.dayMasterStrength ? <Text style={s.baziMeaning}>Strength: {capWord(bazi.dayMasterStrength)}</Text> : null}
           {bazi.structure ? <Text style={s.baziMeaning}>Structure: {bazi.structure}</Text> : null}
-        </Card>
+        </TapCard>
       )}
       {bazi.pillars.map((p, i) => (
-        <Card key={i}>
+        <TapCard key={i} onPress={() => router.push({ pathname: "/insight-detail", params: { type: "bazi-pillar", value: p.label } })}>
           <View style={s.baziRow}>
             <Text style={s.baziStem}>{p.label}</Text>
             <Text style={s.baziBranch}>{p.stem}{p.branch}{p.animal ? ` · ${p.animal}` : ""}</Text>
@@ -483,7 +544,7 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
               {[p.lifeStage ? `Stage: ${p.lifeStage}` : "", p.nayin ? `Na Yin: ${p.nayin}` : ""].filter(Boolean).join("  ·  ")}
             </Text>
           ) : null}
-        </Card>
+        </TapCard>
       ))}
       {bazi.elementBalance.length > 0 && (
         <>
@@ -520,6 +581,8 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
           <Card><Text style={s.baziMeaning}>{bazi.voidBranches!.join("  ·  ")} — life areas that ask for extra grounding (xun kong).</Text></Card>
         </>
       )}
+      <Text style={s.sectionLabel}>What your pillars say together</Text>
+      <Card><Text style={s.baziMeaning}>{baziSummary(bazi)}</Text></Card>
       {bazi.partial ? (
         <Text style={s.baziHint}>
           {bazi.missingInputs.includes("birth_time") ? "Partial chart — add your birth time for the Hour Pillar." : "Partial chart from the data on file."}
@@ -528,6 +591,15 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
       <Text style={s.baziHint}>A reflective lens for self-insight, not fixed fate.</Text>
     </View>
   );
+}
+
+// Strengths + growth edge for the Vedic lens, drawn from the Moon's nakshatra
+// (the heart of a Vedic reading). Real values only; null when unavailable.
+function vedicStrengths(vedic: VedicView): { nakshatra: string; strengths: string[]; growthEdge: string } | null {
+  const nak = vedic.moonNakshatra;
+  const info = nak ? NAKSHATRA_MEANINGS[nak] : undefined;
+  if (!nak || !info) return null;
+  return { nakshatra: nak, strengths: info.strengths, growthEdge: info.growthEdge };
 }
 
 // Vedic / sidereal chart — its own lens, clearly distinct from the Western chart.
@@ -550,29 +622,46 @@ function VedicChart({ vedic }: { vedic: VedicView }) {
     <View>
       <Card><Text style={s.baziHint}>Sidereal{vedic.ayanamsha ? ` (${capWord(vedic.ayanamsha)})` : ""} — a separate tradition from your Western chart above. Its signs are intentionally shifted, and its heart is the nakshatras (lunar mansions).</Text></Card>
       {vedic.ascendant && (
-        <Card>
+        <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "vedic", kind: "ascendant" } })}>
           <Text style={s.baziDmLabel}>Ascendant · Lagna</Text>
           <Text style={s.baziDmValue}>{vedic.ascendant.sign}{vedic.ascendant.degree ? ` · ${vedic.ascendant.degree}°` : ""}</Text>
           {vedic.ascendant.nakshatra ? <Text style={s.baziMeaning}>Nakshatra: {vedic.ascendant.nakshatra}</Text> : null}
-        </Card>
+        </TapCard>
       )}
       {vedic.moonNakshatra ? (
         <>
           <Text style={s.sectionLabel}>Moon Nakshatra</Text>
-          <Card><Text style={s.baziMeaning}>{vedic.moonNakshatra} — the lunar mansion of your Moon, central to a Vedic reading.</Text></Card>
+          <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "vedic", kind: "moon" } })}>
+            <Text style={s.baziMeaning}>{vedic.moonNakshatra} — the lunar mansion of your Moon, central to a Vedic reading.</Text>
+          </TapCard>
         </>
       ) : null}
+      {vedicStrengths(vedic) ? (() => {
+        const vs = vedicStrengths(vedic)!;
+        return (
+          <>
+            <Text style={s.sectionLabel}>Your strengths & growth edge</Text>
+            <Card>
+              <Text style={s.baziMeaning}>Through your Moon's nakshatra, {vs.nakshatra}:</Text>
+              {vs.strengths.map((sx, i) => (
+                <View key={i} style={s.strengthRow}><Sparkles size={12} color={SolunaColors.warmGold} /><Text style={s.strengthText}>{sx}</Text></View>
+              ))}
+              <Text style={[s.baziMeaning, { marginTop: 8 }]}>Growth edge: {vs.growthEdge}</Text>
+            </Card>
+          </>
+        );
+      })() : null}
       {vedic.planets.length > 0 && (
         <>
           <Text style={s.sectionLabel}>Planets · Sidereal</Text>
           {vedic.planets.map((p, i) => (
-            <Card key={i}>
+            <TapCard key={i} onPress={() => router.push({ pathname: "/insight-detail", params: { type: "vedic", kind: "planet", value: p.planet } })}>
               <View style={s.baziRow}>
                 <Text style={s.baziStem}>{p.planet}</Text>
                 <Text style={s.baziBranch}>{p.sign}{p.house != null ? ` · House ${p.house}` : ""}{p.retrograde ? " ℞" : ""}</Text>
               </View>
               {p.nakshatra ? <Text style={s.baziMeaning}>{p.nakshatra}{p.nakshatraLord ? ` · ruled by ${p.nakshatraLord}` : ""}</Text> : null}
-            </Card>
+            </TapCard>
           ))}
         </>
       )}
@@ -695,6 +784,14 @@ const s = StyleSheet.create({
   hdType: { fontSize: 22, fontFamily: Fonts.heading, color: SolunaColors.warmGold, marginBottom: 6 },
   hdDesc: { fontSize: 14, color: SolunaColors.creamMuted, lineHeight: 22, fontFamily: Fonts.body },
   hdLabel: { fontSize: 16, fontWeight: "700" as const, color: SolunaColors.cream, fontFamily: Fonts.body, marginBottom: 6 },
+  hdCenterHint: { fontSize: 12, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginBottom: 8 },
+  hdCenterGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  hdCenterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, minWidth: "30%" as const },
+  hdCenterDefined: { backgroundColor: "rgba(232,184,109,0.1)", borderColor: "rgba(232,184,109,0.25)" },
+  hdCenterOpen: { backgroundColor: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)" },
+  hdCenterName: { fontSize: 12, fontWeight: "700" as const, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
+  hdCenterNameDefined: { color: SolunaColors.warmGold },
+  hdCenterState: { fontSize: 10, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginTop: 2 },
   sigRow: { flexDirection: "row", gap: 10 },
   sigLabel: { fontSize: 11, color: SolunaColors.creamSubtle, textTransform: "uppercase", letterSpacing: 1, fontWeight: "700" as const, marginBottom: 4 },
   sigVal: { fontSize: 16, fontWeight: "700" as const, fontFamily: Fonts.body },
