@@ -34,18 +34,28 @@ export function getConfiguredProvider(): AstrologyProviderId | null {
   const hasAstrologyApiKey = !!(Deno.env.get("ASTROLOGY_API_KEY") ?? Deno.env.get("ASTROLOGY_API_PASSWORD"));
   // FreeAstroAPI computes Western natal charts too — with the SAME key as BaZi.
   const hasFreeAstroKey = !!(Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY"));
-  if (explicit === "astrologyapi") return hasAstrologyApiKey ? "astrologyapi" : null;
-  if (explicit === "freeastroapi") return hasFreeAstroKey ? "freeastroapi" : null;
-  if (explicit === "prokerala") return prokeralaConfigured() ? "prokerala" : null;
-  if (explicit === "custom") return customConfigured() ? "custom" : null;
-  // Auto-detect when ASTROLOGY_PROVIDER is unset/blank. Prefer FreeAstroAPI when
-  // its key is present: one working key serves BOTH BaZi and Western charts.
-  if (!explicit) {
-    if (hasFreeAstroKey) return "freeastroapi";
-    if (hasAstrologyApiKey && astrologyApiAutoDetect()) return "astrologyapi";
-    if (prokeralaConfigured()) return "prokerala";
-    if (customConfigured()) return "custom";
+
+  // 1) Honor an explicit provider — but ONLY when it's actually usable.
+  if (explicit === "astrologyapi" && hasAstrologyApiKey) return "astrologyapi";
+  if (explicit === "freeastroapi" && hasFreeAstroKey) return "freeastroapi";
+  if (explicit === "prokerala" && prokeralaConfigured()) return "prokerala";
+  if (explicit === "custom" && customConfigured()) return "custom";
+
+  // 2) If an explicit provider was named but ISN'T usable (e.g. a stale
+  //    ASTROLOGY_PROVIDER=astrologyapi left over from before, with no key on
+  //    file), DO NOT hard-block astrology. Fall through to auto-detect so a
+  //    working key (notably the FreeAstroAPI key shared with BaZi) is still
+  //    used. A wrong/stale provider name must never silently kill the chart.
+  if (explicit) {
+    console.warn(`ASTROLOGY_PROVIDER="${explicit}" is set but not usable (missing credentials); falling back to auto-detect.`);
   }
+
+  // 3) Auto-detect by available credentials. Prefer FreeAstroAPI when its key is
+  //    present: one working key serves BOTH BaZi and Western charts.
+  if (hasFreeAstroKey) return "freeastroapi";
+  if (hasAstrologyApiKey && astrologyApiAutoDetect()) return "astrologyapi";
+  if (prokeralaConfigured()) return "prokerala";
+  if (customConfigured()) return "custom";
   return null;
 }
 

@@ -118,6 +118,32 @@ Deno.test("getConfiguredProvider honors env + auto-detects by creds", () => {
   clear();
 });
 
+Deno.test("getConfiguredProvider: a stale/unusable explicit provider falls back to a working key (never hard-blocks)", () => {
+  const keys = ["ASTROLOGY_PROVIDER", "PROKERALA_CLIENT_ID", "PROKERALA_CLIENT_SECRET", "ASTROLOGY_API_BASE_URL", "ASTROLOGY_API_KEY", "ASTROLOGY_API_USER_ID", "FREEASTRO_API", "FREEASTRO_API_KEY", "BAZI_API_KEY"];
+  const clear = () => keys.forEach((k) => Deno.env.delete(k));
+
+  // The real-world failure: ASTROLOGY_PROVIDER=astrologyapi left over from before,
+  // with NO astrologyapi key, but the working FreeAstroAPI key (shared with BaZi)
+  // IS present. This must resolve to freeastroapi — not null (which would block
+  // the whole chart) — so a stale env var can't silently kill astrology.
+  clear();
+  Deno.env.set("ASTROLOGY_PROVIDER", "astrologyapi");
+  Deno.env.set("BAZI_API_KEY", "fa-key"); // FreeAstroAPI key under its BaZi alias
+  assertEquals(getConfiguredProvider(), "freeastroapi");
+
+  // Same idea via the FREEASTRO_API alias.
+  clear();
+  Deno.env.set("ASTROLOGY_PROVIDER", "prokerala"); // stale, no prokerala creds
+  Deno.env.set("FREEASTRO_API", "fa-key");
+  assertEquals(getConfiguredProvider(), "freeastroapi");
+
+  // But when NOTHING usable is configured, it still honestly returns null.
+  clear();
+  Deno.env.set("ASTROLOGY_PROVIDER", "astrologyapi");
+  assertEquals(getConfiguredProvider(), null);
+  clear();
+});
+
 Deno.test("normalizeAstrologyApi maps western_horoscope + tags source", () => {
   const out = normalizeAstrologyApi({
     planets: [

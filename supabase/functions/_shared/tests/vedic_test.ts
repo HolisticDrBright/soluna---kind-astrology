@@ -6,7 +6,10 @@
  */
 
 import { assert, assertEquals } from "../test_util.ts";
-import { normalizeVedic, type VedicFetchCtx } from "../engines/vedic.ts";
+import { computeVedic, normalizeVedic, type VedicFetchCtx } from "../engines/vedic.ts";
+
+const VEDIC_KEYS = ["FREEASTRO_API", "FREEASTRO_API_KEY", "BAZI_API_KEY"];
+const clearVedicKeys = () => VEDIC_KEYS.forEach((k) => Deno.env.delete(k));
 
 // A representative slice of a real FreeAstroAPI sidereal chart (Einstein).
 const SAMPLE = {
@@ -68,4 +71,25 @@ Deno.test("Vedic: an empty/unrecognized response throws (caller degrades to 'una
     threw = true;
   }
   assert(threw, "expected normalizeVedic to throw when no planets are present");
+});
+
+Deno.test("computeVedic: no provider key → unavailable (provider_not_configured), never fabricated", async () => {
+  clearVedicKeys();
+  const v = await computeVedic({ date: "1955-03-14", time: "09:30", lat: 48.4, lng: 9.99, timezone: "Europe/Berlin" });
+  assertEquals(v.source, "unavailable");
+  assertEquals(v.unavailableReason, "provider_not_configured");
+  assertEquals(v.planets.length, 0);
+});
+
+Deno.test("computeVedic: key set but no coordinates → unavailable (missing_location), timezone NOT required", async () => {
+  clearVedicKeys();
+  Deno.env.set("FREEASTRO_API", "fa-key");
+  // No lat/lng AND no timezone. The only thing the gate should flag is the
+  // missing birth_location — timezone must NOT appear (the API derives it from
+  // coordinates, exactly like BaZi), proving the spurious timezone gate is gone.
+  const v = await computeVedic({ date: "1955-03-14", time: "09:30", lat: null, lng: null, timezone: null });
+  assertEquals(v.source, "unavailable");
+  assertEquals(v.unavailableReason, "missing_location");
+  assertEquals(v.missingInputs, ["birth_location"]);
+  clearVedicKeys();
 });

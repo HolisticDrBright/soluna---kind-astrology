@@ -261,14 +261,17 @@ export async function computeVedic(
     );
   }
 
-  const hasTimezone = typeof input.timezone === "string" && input.timezone.trim().length > 0;
+  // Only a resolved birth place is required. The provider derives the timezone
+  // from lat/lng server-side (exactly like BaZi, which works without a timezone),
+  // and we don't even send a `timezone` field — so requiring one here would block
+  // the chart for no functional reason. Coordinates alone are enough.
   const hasLocation = Number.isFinite(input.lat) && Number.isFinite(input.lng);
-  if (!hasLocation || !hasTimezone) {
+  if (!hasLocation) {
     return unavailableVedic(
       "missing_location",
       hash,
-      "A Vedic / sidereal chart needs a resolved birth place (and timezone); add your birth city to unlock it.",
-      [...(!hasLocation ? ["birth_location"] : []), ...(!hasTimezone ? ["birth_timezone"] : [])],
+      "A Vedic / sidereal chart needs a resolved birth place; add your birth city to unlock it.",
+      ["birth_location"],
     );
   }
 
