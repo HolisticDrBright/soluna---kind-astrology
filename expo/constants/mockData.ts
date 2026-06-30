@@ -656,6 +656,65 @@ export const HD_INTERPRETATIONS: Record<string, { description: string; strengths
   },
 };
 
+/**
+ * Strategy, Signature (the feeling of being on-track), and Not-Self theme (the
+ * feeling that signals you've drifted) all follow from Type, so they're keyed by
+ * the engine's Type. These fill the Strategy / Signature / Not-Self cards that
+ * were previously blank. Reflective, never deterministic.
+ */
+export const HD_TYPE_GUIDANCE: Record<string, { strategyDescription: string; signature: string; notSelf: string }> = {
+  "Generator": {
+    strategyDescription: "Your strategy is to RESPOND. Instead of initiating from the mind, let life come to you and notice what your gut lights up for — a true yes feels like an opening, a no like a quiet closing. Responding keeps your energy sustainable and your commitments genuine.",
+    signature: "Satisfaction",
+    notSelf: "Frustration",
+  },
+  "Manifesting Generator": {
+    strategyDescription: "Your strategy is to RESPOND, then INFORM. Wait for your gut to light up, then let the people around you know before you move — because you move fast, a quick heads-up turns resistance into momentum. Skipping steps is fine when your gut is leading.",
+    signature: "Satisfaction & Peace",
+    notSelf: "Frustration & Anger",
+  },
+  "Projector": {
+    strategyDescription: "Your strategy is to WAIT FOR THE INVITATION for the big things — work, love, where you pour your energy. Recognition is the sign a space is truly ready for your gift. You're not waiting passively; you're staying available until the right invitation lets your guidance land.",
+    signature: "Success",
+    notSelf: "Bitterness",
+  },
+  "Manifestor": {
+    strategyDescription: "Your strategy is to INFORM before you act. You don't need anyone's permission — but telling the people who'll be affected, before you move, dissolves the resistance that otherwise meets your initiating energy. Inform, then act freely.",
+    signature: "Peace",
+    notSelf: "Anger",
+  },
+  "Reflector": {
+    strategyDescription: "Your strategy is to WAIT A FULL LUNAR CYCLE (about a month) before major decisions. As an all-open mirror you need time to feel a choice from many angles and environments before it's truly yours. Sleep on it — many times — and talk it through with people you trust.",
+    signature: "Surprise & Delight",
+    notSelf: "Disappointment",
+  },
+};
+
+/**
+ * Inner Authority — HOW you're designed to reach trustworthy decisions. Keyed by
+ * the leading label of the engine's authority string (the part before the dash).
+ */
+export const HD_AUTHORITY_MEANINGS: Record<string, string> = {
+  "Emotional Authority": "You ride an emotional wave, so clarity comes over TIME, not in the heat of the moment — there's no truth in the now for you. Sleep on important decisions and notice how you feel across a few days. When the emotional charge settles, your real answer is waiting underneath.",
+  "Sacral Authority": "Your truth lives in the gut, in the moment — a spontaneous 'uh-huh' (yes) or 'unh-uh' (no) that rises before the mind explains itself. Ask yourself yes/no questions and trust the immediate energy of the response over the story your head builds afterward.",
+  "Splenic Authority": "Your authority is the spleen: a quiet, in-the-moment instinct for safety and wellbeing that speaks ONCE, softly, and rarely repeats. It's the subtle 'not this' or 'yes, now.' Learning to honor that first faint signal — instead of overriding it — is your work.",
+  "Self-Projected Authority": "You hear your truth when you TALK it out — not to gather advice, but to listen to your own voice. Speak a decision aloud to someone you trust and notice which way your words and tone naturally lean. Your knowing reveals itself through your own expression.",
+  "Lunar Authority": "As a Reflector, your authority is lunar: give big decisions a full ~28-day cycle. Talk it through with trusted people over that time and watch how the choice feels as the moon moves. Your clarity comes from patience and perspective, never from pressure.",
+};
+
+/**
+ * The six Profile lines. A Profile (e.g. "1/3") blends a conscious line with an
+ * unconscious one; the display composes a description from both lines.
+ */
+export const HD_PROFILE_LINES: Record<number, { name: string; theme: string }> = {
+  1: { name: "Investigator", theme: "needing a solid foundation of understanding before you feel secure" },
+  2: { name: "Hermit", theme: "natural talents that ripen in alone time and get called out by others" },
+  3: { name: "Martyr", theme: "learning through trial, error, and lived experiment — nothing wasted" },
+  4: { name: "Opportunist", theme: "growth that travels through your network of trusted relationships" },
+  5: { name: "Heretic", theme: "a projection field where others look to you for practical solutions" },
+  6: { name: "Role Model", theme: "a three-phase life that matures into embodied wisdom and example" },
+};
+
 // ══════════════════════════════════════════════════════════════════
 // TRANSITS
 // ══════════════════════════════════════════════════════════════════

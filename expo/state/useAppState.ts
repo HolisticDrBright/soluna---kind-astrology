@@ -23,6 +23,9 @@ import {
   CHINESE_INTERPRETATIONS,
   CHINESE_ANIMAL_INTERPRETATIONS,
   HD_INTERPRETATIONS,
+  HD_TYPE_GUIDANCE,
+  HD_AUTHORITY_MEANINGS,
+  HD_PROFILE_LINES,
 } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
@@ -325,22 +328,38 @@ function buildHumanDesignData(humanDesign: Record<string, unknown> | null): Huma
   if (!type) return null;
 
   const interp = HD_INTERPRETATIONS[type];
+  const typeGuide = HD_TYPE_GUIDANCE[type];
   const defined = asStringArray(humanDesign?.definedCenters) ?? [];
   const isDefined = (name: string) =>
     defined.includes(name) || defined.includes(name.replace(" Center", ""));
+
+  // Authority description keyed by the leading label (before the dash) of the
+  // engine's string, e.g. "Emotional Authority — wait…" → "Emotional Authority".
+  const authorityRaw = asString(humanDesign?.authority) ?? "";
+  const authorityLabel = authorityRaw.split(/[—–]/)[0].trim();
+  const authorityDesc = HD_AUTHORITY_MEANINGS[authorityLabel] ?? "";
+
+  // Profile description composed from its two lines (e.g. "1/3").
+  const profileStr = asString(humanDesign?.profile) ?? "";
+  const [pl1, pl2] = profileStr.split("/").map((n) => Number(n.trim()));
+  const composeProfile = (): string => {
+    const a = HD_PROFILE_LINES[pl1], b = HD_PROFILE_LINES[pl2];
+    if (!a || !b) return "";
+    return `Line ${pl1} the ${a.name} over Line ${pl2} the ${b.name}: you lead with ${a.theme}, expressed through ${b.theme}.`;
+  };
 
   return {
     type: type as HumanDesignData["type"],
     typeDescription: asString(humanDesign?.typeDescription) ?? interp?.description ?? "",
     strategy: (asString(humanDesign?.strategy) ?? "") as HumanDesignData["strategy"],
-    strategyDescription: asString(humanDesign?.strategyDescription) ?? "",
+    strategyDescription: asString(humanDesign?.strategyDescription) ?? typeGuide?.strategyDescription ?? "",
     authority: (asString(humanDesign?.authority) ?? "") as HumanDesignData["authority"],
-    authorityDescription: asString(humanDesign?.authorityDescription) ?? "",
-    profile: asString(humanDesign?.profile) ?? "",
-    profileDescription: asString(humanDesign?.profileDescription) ?? "",
+    authorityDescription: asString(humanDesign?.authorityDescription) ?? authorityDesc,
+    profile: profileStr,
+    profileDescription: asString(humanDesign?.profileDescription) ?? composeProfile(),
     incarnationCross: asString(humanDesign?.incarnationCross) ?? "",
-    signature: asString(humanDesign?.signature) ?? "",
-    notSelf: asString(humanDesign?.notSelf) ?? "",
+    signature: asString(humanDesign?.signature) ?? typeGuide?.signature ?? "",
+    notSelf: asString(humanDesign?.notSelf) ?? typeGuide?.notSelf ?? "",
     centers: HD_CENTER_NAMES.map((name) => ({ name, defined: isDefined(name), gates: [] })),
     strengths: asStringArray(humanDesign?.strengths) ?? interp?.strengths ?? [],
     growthEdge: asString(humanDesign?.growthEdge) ?? interp?.growthEdge ?? "",
