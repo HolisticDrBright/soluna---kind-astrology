@@ -8,6 +8,25 @@ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
 import { deriveReadingAccuracy } from "../_shared/accuracy.ts";
+import { computeDailyCosmos, type HoroscopeBirth } from "../_shared/engines/daily-cosmos.ts";
+
+/** Map a birth_profiles row into the horoscope provider's birth input. */
+function toHoroscopeBirth(bp: Record<string, unknown>): HoroscopeBirth | null {
+  if (!bp.birth_date) return null;
+  const [y, m, d] = String(bp.birth_date).split("-").map(Number);
+  const timeStr = bp.birth_time ? String(bp.birth_time) : null;
+  const [hh, mm] = timeStr ? timeStr.split(":").map(Number) : [null, null];
+  return {
+    year: y,
+    month: m,
+    day: d,
+    hour: hh,
+    minute: mm,
+    city: bp.birth_place_label ? String(bp.birth_place_label) : null,
+    timezone: bp.timezone ? String(bp.timezone) : null,
+    timeKnown: bp.time_known !== false && !!timeStr,
+  };
+}
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -32,6 +51,25 @@ Deno.serve(async (req: Request) => {
 
     // Generate new reading
     const ctx = await buildContext(user.userId, today);
+
+    // Today's REAL transit signals (moon phase + sign, personal daily horoscope,
+    // BaZi day pillar), personalized to the birth chart where possible. Honest
+    // degradation lives inside computeDailyCosmos (never fabricated).
+    const { data: bp } = await supabase.from("birth_profiles")
+      .select("birth_date, birth_time, time_known, birth_place_label, lat, lng, timezone")
+      .eq("user_id", user.userId)
+      .single();
+    const cosmos = await computeDailyCosmos(bp ? toHoroscopeBirth(bp) : null, today);
+    ctx.dailyCosmos = {
+      moonPhase: cosmos.moon.phase,
+      moonSign: cosmos.moon.sign,
+      theme: cosmos.horoscope?.theme ?? null,
+      topTransit: cosmos.horoscope?.topTransits?.[0]?.label ?? null,
+      focusAreas: cosmos.horoscope?.focusAreas ?? [],
+      baziDayElement: cosmos.baziToday?.dayStemElement ?? null,
+      baziAnimal: cosmos.baziToday?.animal ?? null,
+    };
+
     const agreements = detectAgreement(ctx);
     const reading = await generateDailyReading(ctx, agreements);
 
@@ -62,6 +100,9 @@ Deno.serve(async (req: Request) => {
           meaning: tarotCard.meaning,
           arcana: tarotCard.arcana,
         } : null,
+        moon: cosmos.moon,
+        horoscope: cosmos.horoscope,
+        bazi_today: cosmos.baziToday,
         accuracy_level: accuracy.accuracy_level,
         missing_inputs: accuracy.missing_inputs,
         confidence_notes: accuracy.confidence_notes,
@@ -91,6 +132,9 @@ Deno.serve(async (req: Request) => {
       personal_day: ctx.numerology?.personalDay,
       chinese_daily: ctx.chinese ? { animal: ctx.chinese.animal, element: ctx.chinese.element } : null,
       tarot_card: tarotCard,
+      moon: cosmos.moon,
+      horoscope: cosmos.horoscope,
+      bazi_today: cosmos.baziToday,
       generated_at: new Date().toISOString(),
     });
   } catch (err) {

@@ -52,6 +52,17 @@ export interface DailyContext {
   /** "Personalization memory" prompt block (how to communicate with this user).
    *  Adjusts delivery only — never any chart fact. Empty string when none. */
   personalizationMemory: string | null;
+  /** Genuinely-daily transit signals (real, provider-backed) for TODAY, set by the
+   *  /today path to ground the reading in today's actual sky. Null elsewhere. */
+  dailyCosmos?: {
+    moonPhase: string;
+    moonSign: string | null;
+    theme: string | null;
+    topTransit: string | null;
+    focusAreas: string[];
+    baziDayElement: string | null;
+    baziAnimal: string | null;
+  } | null;
 }
 
 export interface AgreementResult {
@@ -371,6 +382,21 @@ export async function generateDailyReading(
   // Human-readable date to anchor the prompt to TODAY (see ./daily-fallback.ts).
   const dateLabel = formatDateLabel(ctx.date);
 
+  // Today's REAL sky (provider transits) when available, else the local moon phase.
+  // These are the genuinely-daily signals that make the reading change day to day.
+  const dc = ctx.dailyCosmos;
+  const todaySky = dc
+    ? [
+      `- Moon: ${dc.moonPhase}${dc.moonSign ? ` in ${dc.moonSign}` : ""}`,
+      dc.theme ? `- Today's theme (from your real transits): ${dc.theme}` : "",
+      dc.topTransit ? `- Notable transit today: ${dc.topTransit}` : "",
+      dc.focusAreas.length ? `- Today's focus areas: ${dc.focusAreas.join(", ")}` : "",
+      (dc.baziAnimal || dc.baziDayElement)
+        ? `- BaZi day energy: ${[dc.baziAnimal, dc.baziDayElement].filter(Boolean).join(" · ")}`
+        : "",
+    ].filter(Boolean).join("\n")
+    : (ctx.moonPhase ? `- Moon phase today: ${ctx.moonPhase}` : "");
+
   // Knowledge selection for the daily reading (deterministic; blueprint-driven).
   const dailySelection = selectKnowledge(dailyContextToKnowledge(ctx));
   const { knowledgeBlock: dailyKnowledge } = formatKnowledgeForPrompt(dailySelection);
@@ -382,7 +408,7 @@ export async function generateDailyReading(
 
 CONTEXT:
 - Today's date: ${dateLabel}
-${ctx.moonPhase ? `- Moon phase today: ${ctx.moonPhase}` : ""}
+${todaySky}
 - Sun: ${sunSign}, Moon: ${moonSign}
 - Life Path: ${lifePath}, Personal Day: ${personalDay}
 - Human Design Type: ${hdType}
