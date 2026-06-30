@@ -30,6 +30,7 @@ import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.
 import { tagsFromText } from "../knowledge/synthesis-rules.ts";
 import { gatherDynamicContext } from "./knowledge-context.ts";
 import { fetchPersonalizationProfile, personalizationMemoryBlock } from "../personalization.ts";
+import { buildDailyFallbackParts, formatDateLabel } from "./daily-fallback.ts";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -367,6 +368,9 @@ export async function generateDailyReading(
   const tarotCard = ctx.tarotCard;
   const tarotText = tarotCard ? `Your card today: ${tarotCard.name}. ${tarotCard.meaning}` : "";
 
+  // Human-readable date to anchor the prompt to TODAY (see ./daily-fallback.ts).
+  const dateLabel = formatDateLabel(ctx.date);
+
   // Knowledge selection for the daily reading (deterministic; blueprint-driven).
   const dailySelection = selectKnowledge(dailyContextToKnowledge(ctx));
   const { knowledgeBlock: dailyKnowledge } = formatKnowledgeForPrompt(dailySelection);
@@ -377,6 +381,8 @@ export async function generateDailyReading(
       content: `Write today's daily reading for ${ctx.userName}. Use the warm Soluna voice.
 
 CONTEXT:
+- Today's date: ${dateLabel}
+${ctx.moonPhase ? `- Moon phase today: ${ctx.moonPhase}` : ""}
 - Sun: ${sunSign}, Moon: ${moonSign}
 - Life Path: ${lifePath}, Personal Day: ${personalDay}
 - Human Design Type: ${hdType}
@@ -386,6 +392,10 @@ ${tarotText ? `- Tarot: ${tarotText}` : ""}
 
 ${dailyKnowledge}
 ${ctx.personalizationMemory ? `\n${ctx.personalizationMemory}\n` : ""}
+This reading is for ${dateLabel} specifically. The affirmation and gentle nudges
+(do / embrace / ease up) should feel fresh for TODAY — shaped by today's moon
+phase and Personal Day — not generic lines that could apply to any day.
+
 Return valid JSON:
 {
   "heroText": "3-4 warm sentences blending these systems into a personal daily message",
@@ -404,19 +414,20 @@ Return valid JSON:
     },
   ];
 
+  // Date-rotated fallback. If the AI call is unavailable, the daily affirmation
+  // and gentle nudges still change day to day instead of freezing on one line.
+  // Deterministic by date, supportive generic language — never fabricated chart
+  // data. (See ./daily-fallback.ts.)
+  const rotated = buildDailyFallbackParts(ctx.date);
   const fallback: DailyReading = {
-    heroText: `Today, ${ctx.userName}, the cosmic weather invites you to move through your day with gentleness and awareness. Your ${sunSign} Sun and ${moonSign} Moon create a unique blend of clarity and intuition — trust both. Even a small moment of presence can shift how the whole day feels.`,
+    heroText: `Today, ${ctx.userName}, ${ctx.moonPhase ? `the ${ctx.moonPhase.toLowerCase()} moon invites` : "the cosmic weather invites"} you to move through your day with gentleness and awareness. Your ${sunSign} Sun and ${moonSign} Moon create a unique blend of clarity and intuition — trust both. Even a small moment of presence can shift how the whole day feels.`,
     agreement: {
       highlight: "Your systems are blending their voices — listen for the harmony.",
       systems: [],
     },
-    affirmation: "I am exactly where I need to be.",
-    doEmbraceEase: {
-      do: ["Take one mindful breath before each meal", "Reach out to someone you trust", "Move your body gently"],
-      embrace: ["The pace that feels right for you today", "A moment of quiet when you can find it", "Whatever you're feeling without judgment"],
-      easeUpOn: ["The pressure to have everything figured out", "Comparing your path to anyone else's", "That one worry that keeps circling back"],
-    },
-    concreteNudge: "Today, try pausing for 60 seconds before you check your phone in the morning. Just breathe.",
+    affirmation: rotated.affirmation,
+    doEmbraceEase: rotated.doEmbraceEase,
+    concreteNudge: rotated.concreteNudge,
   };
 
   return await llmCallJSON(messages, fallback, { maxTokens: 800, temperature: 0.7 });
