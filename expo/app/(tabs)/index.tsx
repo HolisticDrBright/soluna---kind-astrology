@@ -61,6 +61,71 @@ interface TodayView {
   // transits/moon phase yet), so they stay null in live mode — never faked.
   cosmic: CosmicView | null;
   energy: { level: number; caption: string } | null;
+  // Today's REAL sky (live mode): moon phase+sign, personal daily horoscope
+  // (transits/theme/scores), and today's BaZi day pillar. Null when the backend
+  // hasn't provided it (e.g. provider unavailable) — never faked.
+  sky: {
+    moonPhase: string;
+    moonSign: string | null;
+    illumination: number;
+    horoscope: {
+      theme: string;
+      topTransit: string | null;
+      focusAreas: string[];
+      scores: { love: number; career: number; money: number; health: number };
+      lucky: { color: string | null; number: number | null; timeWindow: string | null };
+    } | null;
+    baziToday: { animal: string; element: string; polarity: string } | null;
+  } | null;
+}
+
+type SkyView = NonNullable<TodayView["sky"]>;
+
+// "Today's Sky" — the real, provider-backed daily transits (moon, personal
+// horoscope, BaZi day pillar). Only rendered when the backend supplied data.
+function TodaySkyCard({ sky, personalDay }: { sky: SkyView; personalDay: number | null }) {
+  const h = sky.horoscope;
+  const luckyBits = h
+    ? [h.lucky.color, h.lucky.number != null ? `#${h.lucky.number}` : null, h.lucky.timeWindow].filter(Boolean)
+    : [];
+  const scoreRows = h
+    ? [
+        { label: "Love", value: h.scores.love },
+        { label: "Career", value: h.scores.career },
+        { label: "Money", value: h.scores.money },
+        { label: "Health", value: h.scores.health },
+      ]
+    : [];
+  return (
+    <View style={st.skyCard}>
+      <Text style={st.skyTitle}>Today's Sky</Text>
+      <Text style={st.skyMoon}>🌙 {sky.moonPhase}{sky.moonSign ? ` in ${sky.moonSign}` : ""}</Text>
+      {h?.theme ? <Text style={st.skyTheme}>{h.theme}</Text> : null}
+      {h?.topTransit ? <Text style={st.skyTransit}>✦ {h.topTransit}</Text> : null}
+      {h && h.focusAreas.length ? <Text style={st.skyFocus}>Focus: {h.focusAreas.join(" · ")}</Text> : null}
+      {scoreRows.length ? (
+        <View style={st.skyScores}>
+          {scoreRows.map((r) => (
+            <View key={r.label} style={st.skyScoreRow}>
+              <Text style={st.skyScoreLabel}>{r.label}</Text>
+              <View style={st.skyScoreTrack}>
+                <View style={[st.skyScoreFill, { width: `${Math.max(0, Math.min(100, r.value))}%` }]} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {luckyBits.length ? <Text style={st.skyLucky}>Lucky: {luckyBits.join(" · ")}</Text> : null}
+      {sky.baziToday && (sky.baziToday.animal || sky.baziToday.element) ? (
+        <Text style={st.skyBazi}>
+          BaZi day: {[sky.baziToday.element, sky.baziToday.animal].filter(Boolean).join(" ")}
+          {sky.baziToday.polarity ? ` · ${sky.baziToday.polarity}` : ""}
+        </Text>
+      ) : null}
+      {personalDay != null ? <Text style={st.skyBazi}>Personal Day {personalDay}</Text> : null}
+      <Text style={st.skyNote}>Today's real transits — a reflective lens, not fixed fate.</Text>
+    </View>
+  );
 }
 
 // Static explainers for the demo reading's system chips.
@@ -134,6 +199,7 @@ export default function TodayScreen() {
         chineseNote: r.chineseNote ?? null,
         cosmic: { moonPhase: r.moonPhase, moonPhaseEmoji: r.moonPhaseEmoji, moonSign: r.moonSign, transit1: r.transit1, transit2: r.transit2 },
         energy: { level: r.energyLevel, caption: r.energyCaption },
+        sky: null,
       };
     }
 
@@ -145,6 +211,39 @@ export default function TodayScreen() {
     const chinese = (d.chinese_daily ?? null) as { animal?: string; element?: string } | null;
     const agreeSystems = Array.isArray(agreement?.systems) ? agreement.systems : [];
     const joinSentences = (arr?: string[]) => (arr && arr.length ? arr.join(" ") : null);
+
+    // Today's REAL sky from the daily-cosmos backend (moon / personal horoscope /
+    // BaZi day pillar). Present only when the backend provided it — never faked.
+    const moon = (d.moon ?? null) as Record<string, unknown> | null;
+    const horo = (d.horoscope ?? null) as Record<string, unknown> | null;
+    const baziToday = (d.bazi_today ?? null) as Record<string, unknown> | null;
+    const num = (v: unknown) => (typeof v === "number" ? v : 0);
+    const hScores = (horo?.scores ?? {}) as Record<string, unknown>;
+    const hLucky = (horo?.lucky ?? {}) as Record<string, unknown>;
+    const topTransitObj = Array.isArray(horo?.topTransits) ? (horo!.topTransits as unknown[])[0] as Record<string, unknown> | undefined : undefined;
+    const sky: TodayView["sky"] = moon
+      ? {
+          moonPhase: String(moon.phase ?? ""),
+          moonSign: moon.sign ? String(moon.sign) : null,
+          illumination: num(moon.illumination),
+          horoscope: horo
+            ? {
+                theme: String(horo.theme ?? ""),
+                topTransit: topTransitObj?.label ? String(topTransitObj.label) : null,
+                focusAreas: Array.isArray(horo.focusAreas) ? (horo.focusAreas as unknown[]).map(String) : [],
+                scores: { love: num(hScores.love), career: num(hScores.career), money: num(hScores.money), health: num(hScores.health) },
+                lucky: {
+                  color: hLucky.color ? String(hLucky.color) : null,
+                  number: typeof hLucky.number === "number" ? hLucky.number : null,
+                  timeWindow: hLucky.timeWindow ? String(hLucky.timeWindow) : null,
+                },
+              }
+            : null,
+          baziToday: baziToday
+            ? { animal: String(baziToday.animal ?? ""), element: String(baziToday.dayStemElement ?? ""), polarity: String(baziToday.polarity ?? "") }
+            : null,
+        }
+      : null;
 
     return {
       heroText: String(d.hero_text ?? ""),
@@ -169,6 +268,7 @@ export default function TodayScreen() {
       chineseNote: chinese?.animal ? `${chinese.element ?? ""} ${chinese.animal}`.trim() : null,
       cosmic: null,
       energy: null,
+      sky,
     };
   }, [todayQuery.data]);
 
@@ -365,6 +465,9 @@ export default function TodayScreen() {
                 ) : null}
               </View>
             ) : null}
+
+            {/* ─── Today's Sky (real daily transits, live mode) ─── */}
+            {view.sky ? <TodaySkyCard sky={view.sky} personalDay={view.personalDay} /> : null}
 
             {/* ─── Resonance feedback on the primary daily insight ─── */}
             <ResonanceFeedbackCard sourceType="today" />
@@ -826,6 +929,28 @@ const st = StyleSheet.create({
     borderColor: "rgba(232,184,109,0.15)",
     marginBottom: 20,
   },
+  // Today's Sky (real daily transits)
+  skyCard: {
+    backgroundColor: "rgba(185,163,227,0.07)",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(185,163,227,0.16)",
+    marginBottom: 20,
+  },
+  skyTitle: { fontSize: 13, fontWeight: "700", color: SolunaColors.gentleLavender, fontFamily: Fonts.body, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 },
+  skyMoon: { fontSize: 17, color: SolunaColors.cream, fontFamily: Fonts.heading, marginBottom: 6 },
+  skyTheme: { fontSize: 14, color: SolunaColors.cream, fontFamily: Fonts.body, fontWeight: "600", marginBottom: 4 },
+  skyTransit: { fontSize: 13, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 4 },
+  skyFocus: { fontSize: 12, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, marginBottom: 10 },
+  skyScores: { gap: 6, marginTop: 4, marginBottom: 10 },
+  skyScoreRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  skyScoreLabel: { width: 52, fontSize: 11, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
+  skyScoreTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  skyScoreFill: { height: 6, borderRadius: 3, backgroundColor: SolunaColors.gentleLavender },
+  skyLucky: { fontSize: 12, color: SolunaColors.warmGold, fontFamily: Fonts.body, marginBottom: 4 },
+  skyBazi: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 4 },
+  skyNote: { fontSize: 10, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, fontStyle: "italic", marginTop: 6 },
   systemsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
