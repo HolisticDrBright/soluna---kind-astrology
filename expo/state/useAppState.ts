@@ -380,21 +380,26 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const refreshUser = useCallback(async () => {
     if (useMockData) return;
 
-    const { data, error } = await getMe();
-    if (error) {
-      setState((s) => ({
-        ...s,
-        hasOnboarded: false,
-        user: null,
-        onboardingStep: "welcome",
-      }));
+    // Retry transient failures so a single cold-start network blip can't drop a
+    // returning, already-onboarded user back into onboarding.
+    let res = await getMe();
+    for (let attempt = 1; res.error && attempt < 3; attempt++) {
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+      res = await getMe();
+    }
+
+    if (res.error) {
+      // Couldn't reach the backend. Do NOT conclude "not onboarded" — that would
+      // wrongly send a returning user through onboarding again. Just stop the
+      // loading spinner and keep what we already know; screens show a retry path.
+      setState((s) => ({ ...s, authLoading: false }));
       return;
     }
 
     const displayUser = buildDisplayUser({
-      profile: data?.profile as Record<string, unknown> | null,
-      birthProfile: data?.birthProfile as Record<string, unknown> | null,
-      blueprint: data?.blueprint as Record<string, unknown> | null,
+      profile: res.data?.profile as Record<string, unknown> | null,
+      birthProfile: res.data?.birthProfile as Record<string, unknown> | null,
+      blueprint: res.data?.blueprint as Record<string, unknown> | null,
     });
 
     setState((s) => ({
@@ -402,6 +407,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
       hasOnboarded: !!displayUser,
       user: displayUser,
       onboardingStep: displayUser ? "reveal" : "welcome",
+      authLoading: false,
     }));
   }, []);
 
@@ -424,7 +430,10 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         ...s,
         session,
         authUser: session?.user ?? null,
-        authLoading: false,
+        // Keep loading TRUE while a session exists until refreshUser determines
+        // onboarding status — otherwise the router momentarily sees "logged in but
+        // not onboarded" and bounces a returning user into onboarding.
+        authLoading: session ? s.authLoading : false,
         onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
       }));
       if (session) {
@@ -448,7 +457,9 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         ...s,
         session,
         authUser: session?.user ?? null,
-        authLoading: false,
+        // Same race guard: while a session exists, hold loading until refreshUser
+        // resolves onboarding status (it clears authLoading itself).
+        authLoading: session ? s.authLoading : false,
         authError: null,
         hasOnboarded: session ? s.hasOnboarded : false,
         user: session ? s.user : null,
