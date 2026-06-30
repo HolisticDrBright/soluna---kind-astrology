@@ -268,7 +268,7 @@ async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutp
   const key = Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY");
   if (!key) throw new Error("FreeAstroAPI key (FREEASTRO_API / BAZI_API_KEY) is not configured");
   const base = (Deno.env.get("FREEASTRO_ASTRO_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
-  let endpoint = (Deno.env.get("FREEASTRO_NATAL_ENDPOINT") || "/api/v1/natal/chart/").trim();
+  let endpoint = (Deno.env.get("FREEASTRO_NATAL_ENDPOINT") || "/api/v1/natal/calculate").trim();
   if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
   const url = `${base}${endpoint}`;
 
@@ -276,13 +276,16 @@ async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutp
   const timeMissing = input.time === null;
   const [h, mi] = (input.time ?? "12:00").split(":").map(Number);
 
-  // Mirror the proven BaZi request: discrete date + lat/lng (timezone derived
-  // server-side). Both lat/lng and latitude/longitude are sent belt-and-suspenders.
+  // Matches FreeAstroAPI's verified /api/v1/natal/calculate contract: discrete
+  // date + lat/lng, with tz_str:"AUTO" so the timezone is derived from the
+  // coordinates server-side (the same pattern BaZi uses). include_features adds
+  // Lilith + Chiron to the returned planets.
   const body: Record<string, unknown> = {
     year: y, month: mo, day: d,
     lat: input.lat, lng: input.lng,
-    latitude: input.lat, longitude: input.lng,
+    tz_str: "AUTO",
     house_system: input.houseSystem ?? "placidus",
+    include_features: ["lilith", "chiron"],
   };
   if (!timeMissing) { body.hour = h; body.minute = mi; }
 
@@ -301,7 +304,7 @@ async function fetchFreeAstroNatal(input: AstrologyInput): Promise<AstrologyOutp
   return normalizeFreeAstroNatal(await resp.json(), timeMissing);
 }
 
-/** Pure normalizer for FreeAstroAPI's /natal/chart response. Exported for tests. */
+/** Pure normalizer for FreeAstroAPI's /natal/calculate response. Exported for tests. */
 // deno-lint-ignore no-explicit-any
 export function normalizeFreeAstroNatal(data: any, timeMissing: boolean): AstrologyOutput {
   const rawPlanets: unknown[] = data?.planets ?? [];

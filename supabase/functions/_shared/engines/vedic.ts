@@ -199,20 +199,20 @@ async function fetchVedic(input: VedicInput, ctx: VedicFetchCtx): Promise<VedicO
   const key = Deno.env.get("FREEASTRO_API") ?? Deno.env.get("BAZI_API_KEY") ?? Deno.env.get("FREEASTRO_API_KEY");
   if (!key) throw new Error("FreeAstroAPI key (FREEASTRO_API / BAZI_API_KEY) is not configured");
   const base = (Deno.env.get("FREEASTRO_ASTRO_BASE_URL") || "https://api.freeastroapi.com").replace(/\/$/, "");
-  let endpoint = (Deno.env.get("VEDIC_API_ENDPOINT") || "/api/v1/vedic/chart/").trim();
+  // NOTE: the Vedic surface is API v2 (not v1) — /api/v2/vedic/chart.
+  let endpoint = (Deno.env.get("VEDIC_API_ENDPOINT") || "/api/v2/vedic/chart").trim();
   if (!endpoint.startsWith("/")) endpoint = `/${endpoint}`;
   const url = `${base}${endpoint}`;
 
   const [y, mo, d] = input.date.split("-").map(Number);
   const [h, mi] = (input.time ?? "12:00").split(":").map(Number);
 
-  // Mirror the proven FreeAstroAPI request (discrete date + lat/lng), plus the
-  // sidereal settings the response echoes. Both lat/lng and latitude/longitude
-  // are sent belt-and-suspenders.
+  // Matches FreeAstroAPI's verified /api/v2/vedic/chart contract: discrete date +
+  // lat/lng (timezone derived from the coordinates server-side) plus the sidereal
+  // settings the response echoes back.
   const body: Record<string, unknown> = {
     year: y, month: mo, day: d,
     lat: input.lat, lng: input.lng,
-    latitude: input.lat, longitude: input.lng,
     ayanamsha: "lahiri",
     house_system: "whole_sign",
     node_type: "mean",
