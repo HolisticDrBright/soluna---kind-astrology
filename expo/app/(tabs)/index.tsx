@@ -154,12 +154,14 @@ const MOCK_SYSTEM_EXPLANATIONS: Record<string, string> = {
 export default function TodayScreen() {
   const { user } = useAppState();
 
-  const todayQuery = useAsyncData(() => getToday(), [], { enabled: !USE_MOCK_DATA });
+  const [moodSupport, setMoodSupport] = useState<MoodSupport | null>(null);
+  // Selecting a support mood re-fetches today's reading reframed in that tone
+  // (Gentle / Clear / Motivating / Reflective / Practical). Null = neutral.
+  const todayQuery = useAsyncData(() => getToday(moodSupport ?? undefined), [moodSupport], { enabled: !USE_MOCK_DATA });
 
   const [saved, setSaved] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
   const [selectedWhySystem, setSelectedWhySystem] = useState<string | null>(null);
-  const [moodSupport, setMoodSupport] = useState<MoodSupport | null>(null);
   const [expanded, setExpanded] = useState<Set<SectionKey>>(
     new Set<SectionKey>(),
   );

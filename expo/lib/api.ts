@@ -113,9 +113,11 @@ export async function getBlueprint() {
   return invokeEdgeFunction<{ blueprint: BlueprintData }>("blueprint");
 }
 
-/** Get today's daily reading */
-export async function getToday() {
-  return invokeEdgeFunction<DailyReading>("today");
+/** Get today's daily reading. Pass a support mood (Gentle/Clear/Motivating/
+ *  Reflective/Practical) to get the same reading reframed in that tone. */
+export async function getToday(support?: string) {
+  const path = support ? `today?support=${encodeURIComponent(support)}` : "today";
+  return invokeEdgeFunction<DailyReading>(path);
 }
 
 /** Ask Soluna a question */

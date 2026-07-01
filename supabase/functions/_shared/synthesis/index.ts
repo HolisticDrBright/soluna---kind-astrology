@@ -360,10 +360,32 @@ export function detectAgreement(ctx: DailyContext): AgreementResult[] {
 
 // ─── generateDailyReading ──────────────────────────────────────
 
+/** Delivery-tone shift for the "what support do you need today?" selector.
+ *  Adjusts ONLY the voice/emphasis — never any chart fact. */
+const SUPPORT_TONES: Record<string, string> = {
+  Gentle: "Take an especially soft, reassuring, tender tone — like a warm, kind friend. Lower the pressure; emphasize self-compassion and rest.",
+  Clear: "Take a clear, direct, plain-spoken tone. Cut through the fog and name what matters most today, simply and without hedging.",
+  Motivating: "Take an energizing, encouraging tone. Emphasize momentum and one empowering action — a gentle push toward what's possible.",
+  Reflective: "Take a contemplative, spacious tone. Offer a question or two to sit with, and go a little deeper and slower.",
+  Practical: "Take a grounded, practical tone. Emphasize concrete, doable steps the person can actually take today.",
+};
+const SUPPORT_OPENERS: Record<string, string> = {
+  Gentle: "Be gentle with yourself today. ",
+  Clear: "Here's today, plainly. ",
+  Motivating: "Today's a day to build momentum. ",
+  Reflective: "Today invites a little reflection. ",
+  Practical: "Let's keep today practical. ",
+};
+
 export async function generateDailyReading(
   ctx: DailyContext,
   agreement: AgreementResult[],
+  opts?: { supportMode?: string },
 ): Promise<DailyReading> {
+  const supportMode = opts?.supportMode && SUPPORT_TONES[opts.supportMode] ? opts.supportMode : undefined;
+  const toneInstruction = supportMode
+    ? `\nTONE FOR TODAY: The reader asked for ${supportMode} support. ${SUPPORT_TONES[supportMode]} Keep every fact the same; only shift the delivery.\n`
+    : "";
   const sunSign = ctx.astrology?.planets.find(p => p.planet === "Sun")?.sign ?? "";
   const moonSign = ctx.astrology?.planets.find(p => p.planet === "Moon")?.sign ?? "";
   const lifePath = ctx.numerology?.lifePath ?? 0;
@@ -421,7 +443,7 @@ ${ctx.personalizationMemory ? `\n${ctx.personalizationMemory}\n` : ""}
 This reading is for ${dateLabel} specifically. The affirmation and gentle nudges
 (do / embrace / ease up) should feel fresh for TODAY — shaped by today's moon
 phase and Personal Day — not generic lines that could apply to any day.
-
+${toneInstruction}
 Return valid JSON:
 {
   "heroText": "3-4 warm sentences blending these systems into a personal daily message",
@@ -446,7 +468,7 @@ Return valid JSON:
   // data. (See ./daily-fallback.ts.)
   const rotated = buildDailyFallbackParts(ctx.date);
   const fallback: DailyReading = {
-    heroText: `Today, ${ctx.userName}, ${ctx.moonPhase ? `the ${ctx.moonPhase.toLowerCase()} moon invites` : "the cosmic weather invites"} you to move through your day with gentleness and awareness. Your ${sunSign} Sun and ${moonSign} Moon create a unique blend of clarity and intuition — trust both. Even a small moment of presence can shift how the whole day feels.`,
+    heroText: `${supportMode ? SUPPORT_OPENERS[supportMode] : ""}Today, ${ctx.userName}, ${ctx.moonPhase ? `the ${ctx.moonPhase.toLowerCase()} moon invites` : "the cosmic weather invites"} you to move through your day with gentleness and awareness. Your ${sunSign} Sun and ${moonSign} Moon create a unique blend of clarity and intuition — trust both. Even a small moment of presence can shift how the whole day feels.`,
     agreement: {
       highlight: "Your systems are blending their voices — listen for the harmony.",
       systems: [],

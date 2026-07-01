@@ -38,15 +38,25 @@ Deno.serve(async (req: Request) => {
     const supabase = createUserClient(req);
     const today = new Date().toISOString().split("T")[0];
 
-    // Check if we already have today's reading cached
-    const { data: cached } = await supabase.from("daily_readings")
-      .select("*")
-      .eq("user_id", user.userId)
-      .eq("reading_date", today)
-      .single();
+    // Optional "support mode" (mood) reframes the reading in a chosen tone. These
+    // variants are generated fresh each request and NOT cached, so the base daily
+    // reading row stays intact. Only the known moods are honoured.
+    const supportRaw = new URL(req.url).searchParams.get("support") ?? "";
+    const support = ["Gentle", "Clear", "Motivating", "Reflective", "Practical"].includes(supportRaw)
+      ? supportRaw
+      : undefined;
 
-    if (cached) {
-      return jsonResponse(cached);
+    // Return today's cached (neutral) reading if we have it — but never for a mood
+    // variant, which is always regenerated in the requested tone.
+    if (!support) {
+      const { data: cached } = await supabase.from("daily_readings")
+        .select("*")
+        .eq("user_id", user.userId)
+        .eq("reading_date", today)
+        .single();
+      if (cached) {
+        return jsonResponse(cached);
+      }
     }
 
     // Generate new reading
@@ -71,7 +81,7 @@ Deno.serve(async (req: Request) => {
     };
 
     const agreements = detectAgreement(ctx);
-    const reading = await generateDailyReading(ctx, agreements);
+    const reading = await generateDailyReading(ctx, agreements, support ? { supportMode: support } : undefined);
 
     // Tarot card is already in context
     const tarotCard = ctx.tarotCard;
@@ -79,9 +89,11 @@ Deno.serve(async (req: Request) => {
     // Honest accuracy from the blueprint's astrology provenance (no fake precision)
     const accuracy = deriveReadingAccuracy(ctx.astrology);
 
-    // Persist to database
-    const sbAdmin = getSupabaseAdmin();
-    const { data: saved, error: saveErr } = await sbAdmin.from("daily_readings")
+    // Persist ONLY the neutral reading; mood-reframed variants are ephemeral.
+    let saved: Record<string, unknown> | null = null;
+    if (!support) {
+      const sbAdmin = getSupabaseAdmin();
+      const upsertRes = await sbAdmin.from("daily_readings")
       .upsert({
         user_id: user.userId,
         reading_date: today,
@@ -110,11 +122,12 @@ Deno.serve(async (req: Request) => {
       }, { onConflict: "user_id, reading_date" })
       .select()
       .single();
-
-    if (saveErr) {
-      // Don't fail the request — we still return the freshly generated reading
-      // via the fallback below; just surface the persistence failure in logs.
-      console.error("Failed to persist daily reading:", saveErr);
+      if (upsertRes.error) {
+        // Don't fail the request — we still return the freshly generated reading
+        // via the fallback below; just surface the persistence failure in logs.
+        console.error("Failed to persist daily reading:", upsertRes.error);
+      }
+      saved = upsertRes.data;
     }
 
     await logEvent("daily_reading_generated", {
