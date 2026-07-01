@@ -29,7 +29,7 @@ import {
 } from "@/constants/mockData";
 import { MOCK_USER } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
-import { supabase, NO_BACKEND_ERROR, restoreSessionTokens, persistSessionTokens } from "@/lib/supabase";
+import { supabase, NO_BACKEND_ERROR } from "@/lib/supabase";
 import { getMe } from "@/lib/api";
 import { configureRevenueCat } from "@/lib/revenuecat";
 import { setSentryUser } from "@/lib/sentry";
@@ -437,11 +437,11 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
     }
 
     let mounted = true;
-    // Re-inject any mirrored session BEFORE reading it, so a returning user is
-    // signed in even when GoTrue's own cold-start restore misses (the real
-    // "doesn't remember me" cause). Then read the (now-hydrated) session.
+    // supabase-js restores the session natively at launch (persistSession +
+    // AsyncStorage + the URL polyfill). We just READ it — no manual setSession,
+    // which would race GoTrue's own recovery and trip refresh-token reuse
+    // detection (intermittent sign-outs on a later reopen).
     (async () => {
-      await restoreSessionTokens();
       try {
         const { data } = await withAuthTimeout(sb.auth.getSession());
         if (!mounted) return;
@@ -457,7 +457,6 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
           onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
         }));
         if (session) {
-          void persistSessionTokens({ access_token: session.access_token, refresh_token: session.refresh_token });
           setSentryUser(session.user.id);
           void configureRevenueCat(session.user.id);
           await refreshUser();
@@ -487,9 +486,6 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         user: session ? s.user : null,
         onboardingStep: session ? nonStaleOnboardingStep(s.onboardingStep) : "welcome",
       }));
-      // Mirror tokens on every change — including TOKEN_REFRESHED (rotated refresh
-      // tokens) and SIGNED_OUT — so the next cold start can restore the session.
-      void persistSessionTokens(session ? { access_token: session.access_token, refresh_token: session.refresh_token } : null);
       if (session) {
         setSentryUser(session.user.id);
         void configureRevenueCat(session.user.id);

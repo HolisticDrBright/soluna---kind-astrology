@@ -79,47 +79,13 @@ if (supabase && supabaseConfigured) {
   });
 }
 
-// ─── Belt-and-suspenders session persistence ─────────────────────────────────
-// Even with the URL polyfill, some RN runtimes fail to restore the GoTrue session
-// on cold start. We mirror the tokens to AsyncStorage ourselves and re-inject them
-// via setSession() at launch, so a returning user stays signed in. Best-effort and
-// time-bounded — never blocks or throws into the auth flow.
-const SESSION_KEY = "soluna.session.v1";
-
-export async function persistSessionTokens(
-  tokens: { access_token: string; refresh_token: string } | null,
-): Promise<void> {
-  try {
-    if (tokens?.access_token && tokens?.refresh_token) {
-      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ access_token: tokens.access_token, refresh_token: tokens.refresh_token }));
-    } else {
-      await AsyncStorage.removeItem(SESSION_KEY);
-    }
-  } catch {
-    // best-effort mirror
-  }
-}
-
-/**
- * Re-inject a previously mirrored session into the client at launch (before
- * getSession). No-op when nothing is stored or the backend is unconfigured.
- * Bounded to ~10s so a slow/offline refresh can't hang app start.
- */
-export async function restoreSessionTokens(): Promise<void> {
-  if (!supabase) return;
-  try {
-    const raw = await AsyncStorage.getItem(SESSION_KEY);
-    if (!raw) return;
-    const { access_token, refresh_token } = JSON.parse(raw) as { access_token?: string; refresh_token?: string };
-    if (!access_token || !refresh_token) return;
-    await Promise.race([
-      supabase.auth.setSession({ access_token, refresh_token }),
-      new Promise((resolve) => setTimeout(resolve, 10_000)),
-    ]);
-  } catch {
-    // Fall back to whatever getSession finds (or the sign-in screen).
-  }
-}
+// NOTE: session persistence + cold-start recovery are handled NATIVELY by
+// supabase-js (persistSession + AsyncStorage + the URL polyfill imported above,
+// which is what actually makes restore work in React Native). We deliberately do
+// NOT mirror tokens and re-inject them with setSession() at launch: a second actor
+// touching the same refresh token races GoTrue's own recovery and trips Supabase's
+// refresh-token reuse detection, which invalidates the session (intermittent
+// sign-outs on a later reopen). The canonical setup above is the whole fix.
 
 /** Max time any single Edge Function call may take before we give up. Without
  *  this a hung or very slow backend freezes the UI forever — e.g. the onboarding
