@@ -82,10 +82,7 @@ function totalScore(o: any): number | null {
  * Exported for tests. Throws when no usable scores parse (caller degrades).
  */
 // deno-lint-ignore no-explicit-any
-export function normalizeStrength(
-  data: any,
-  ctx: { hash: string; missingInputs: string[]; provider?: string },
-): StrengthOutput {
+export function normalizeStrength(data: any, ctx: { hash: string; missingInputs: string[]; provider?: string }): StrengthOutput {
   const container = pick(data, "shadbala", "strengths", "strength", "planets", "planet_strengths", "planetStrengths", "data", "result") ?? data;
 
   const entries: { planet: string; score: number; grade?: string }[] = [];

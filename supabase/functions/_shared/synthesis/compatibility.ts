@@ -27,6 +27,7 @@ import { formatKnowledgeForPrompt } from "../knowledge/formatKnowledgeForPrompt.
 import { computeNumerology } from "../engines/numerology.ts";
 import { computeChinese } from "../engines/chinese.ts";
 import { hasRealBazi, type BaziOutput } from "../engines/bazi.ts";
+import { hasRealMatch, type VedicMatchOutput } from "../engines/vedic-match.ts";
 import { buildContext, dailyContextToKnowledge } from "./index.ts";
 import {
   bandLabel,
@@ -49,6 +50,8 @@ export interface CompatibilityResult {
   basis: { you: string[]; them: string[] };
   /** BaZi compatibility note — present ONLY when BOTH sides have a real chart. */
   baziNote?: string;
+  /** Vedic Guna Milan note — romance lens only, and ONLY when BOTH have a real chart. */
+  vedicNote?: string;
 }
 
 export interface OtherPerson {
@@ -59,6 +62,9 @@ export interface OtherPerson {
   lens: string;
   /** The connection's cached provider BaZi chart, when one exists. */
   bazi?: BaziOutput | null;
+  /** Pre-computed Guna Milan (romance lens, both charts present); the caller
+   *  computes it where both raw birth datasets are available. */
+  vedicMatch?: VedicMatchOutput | null;
 }
 
 /** Only the prose fields the LLM is allowed to write. */
@@ -114,6 +120,11 @@ export async function generateCompatibility(
     if (compat.notes.length) baziNote = compat.notes.join(" ");
   }
 
+  // Vedic Guna Milan — romance lens only, and ONLY when the caller supplied a real
+  // provider match (which itself requires BOTH people's full birth charts). It's a
+  // reflective harmony lens, never a marriage verdict; the note is pre-framed safely.
+  const vedicNote = hasRealMatch(other.vedicMatch) ? other.vedicMatch!.note : undefined;
+
   // User-side real basics.
   const youSun = ctx.astrology?.planets.find((p) => p.planet === "Sun")?.sign;
   const youMoon = ctx.astrology?.planets.find((p) => p.planet === "Moon")?.sign;
@@ -162,6 +173,7 @@ export async function generateCompatibility(
     `${ctx.userName}'s real placements: ${youBasis.join(", ") || "limited blueprint available"}.`,
     `${other.name}'s known basics (from birth date only): ${themBasis.join(", ") || "birth date only"}.`,
     baziNote ? `BaZi / Four Pillars compatibility (both charts present): ${baziNote} Weave this in gently as a reflective lens.` : "",
+    vedicNote ? `Vedic Guna Milan (both charts present): ${vedicNote} Weave this in gently as ONE reflective lens among several — never a marriage verdict.` : "",
     `A relationship resonance score of ${score}/100 has ALREADY been computed from these real placements — do not restate or change the number; let your tone match its spirit.`,
     "",
     knowledgeBlock,
@@ -176,6 +188,9 @@ export async function generateCompatibility(
     "- Never speculate about the other person's private thoughts, feelings, or motives.",
     "- Never advise ending the relationship. Keep it a gentle, reflective lens.",
     "- Never predict wealth, marriage, health, or fated outcomes from BaZi.",
+    vedicNote
+      ? "- The Guna Milan score is a TRADITIONAL harmony lens only — never present it as a marriage verdict, a pass/fail, or a reason to stay or leave. Keep it warm and reflective."
+      : "",
     safetyDirective,
   ].filter(Boolean).join("\n");
 
@@ -235,6 +250,7 @@ export async function generateCompatibility(
     confidenceNote,
     basis: { you: youBasis, them: themBasis },
     ...(baziNote ? { baziNote } : {}),
+    ...(vedicNote ? { vedicNote } : {}),
   };
 
   await logEvent("compatibility_generated", {
@@ -245,6 +261,7 @@ export async function generateCompatibility(
     hasUserChart: !!youSun,
     themBasisCount: themBasis.length,
     bothBazi: !!baziNote,
+    bothVedic: !!vedicNote,
   }, userId);
 
   return result;

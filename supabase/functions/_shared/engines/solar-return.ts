@@ -92,10 +92,7 @@ export function solarReturnInputHash(input: SolarReturnInput, returnYear: number
  * Exported for tests.
  */
 // deno-lint-ignore no-explicit-any
-export function normalizeSolarReturn(
-  data: any,
-  ctx: { hash: string; returnYear: number; missingInputs: string[]; provider?: string },
-): SolarReturnOutput {
+export function normalizeSolarReturn(data: any, ctx: { hash: string; returnYear: number; missingInputs: string[]; provider?: string }): SolarReturnOutput {
   const chart = pick(data, "solar_return", "solarReturn", "chart", "data", "result") ?? data;
 
   // Ascendant — accept { ascendant: { sign } } | { ascendant: "Leo" } | { asc: {...} }.

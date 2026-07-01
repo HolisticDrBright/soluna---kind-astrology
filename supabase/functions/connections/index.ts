@@ -9,6 +9,27 @@ import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateConnection } from "../_shared/schemas.ts";
 import { generateCompatibility } from "../_shared/synthesis/compatibility.ts";
 import { computeBazi, type BaziOutput } from "../_shared/engines/bazi.ts";
+import { computeVedicMatch, matchReady, type VedicMatchBirth, type VedicMatchOutput } from "../_shared/engines/vedic-match.ts";
+
+/** Build the Guna-Milan birth input from a birth-profile / connection row. */
+function toMatchBirth(row: {
+  birth_date?: unknown; birth_time?: unknown; time_known?: unknown;
+  lat?: unknown; lng?: unknown; timezone?: unknown; birth_place_label?: unknown; name?: unknown;
+}): VedicMatchBirth | null {
+  if (!row.birth_date) return null;
+  const [y, m, d] = String(row.birth_date).split("-").map(Number);
+  const timeStr = row.birth_time ? String(row.birth_time) : null;
+  const [hh, mm] = timeStr ? timeStr.split(":").map(Number) : [null, null];
+  return {
+    year: y, month: m, day: d,
+    hour: hh, minute: mm,
+    city: row.birth_place_label ? String(row.birth_place_label) : null,
+    timezone: row.timezone ? String(row.timezone) : null,
+    lat: typeof row.lat === "number" ? row.lat : null,
+    lng: typeof row.lng === "number" ? row.lng : null,
+    timeKnown: row.time_known !== false && !!timeStr,
+  };
+}
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -120,6 +141,28 @@ Deno.serve(async (req: Request) => {
         console.error("Connection BaZi compute failed (compatibility continues without it):", e);
       }
 
+      // Vedic Guna Milan — ROMANCE lens only, and ONLY when BOTH people have a real
+      // chart (date + time + place). It hinges on both Moon nakshatras, so without
+      // full data on either side we honestly skip it (never fabricated).
+      let vedicMatch: VedicMatchOutput | null = null;
+      if (lens === "romance") {
+        try {
+          const connBirth = toMatchBirth(conn);
+          if (matchReady(connBirth)) {
+            const { data: prof } = await supabase.from("birth_profiles")
+              .select("birth_date, birth_time, time_known, lat, lng, timezone, birth_place_label")
+              .eq("user_id", user.userId)
+              .single();
+            const userBirth = prof ? toMatchBirth(prof) : null;
+            if (matchReady(userBirth)) {
+              vedicMatch = await computeVedicMatch(userBirth!, connBirth!);
+            }
+          }
+        } catch (e) {
+          console.error("Vedic match compute failed (compatibility continues without it):", e);
+        }
+      }
+
       try {
         const result = await generateCompatibility(user.userId, {
           name: conn.name,
@@ -127,6 +170,7 @@ Deno.serve(async (req: Request) => {
           birthTime: conn.birth_time ?? null,
           lens,
           bazi: connBazi,
+          vedicMatch,
         });
 
         const { data: report } = await supabase.from("compatibility_reports")

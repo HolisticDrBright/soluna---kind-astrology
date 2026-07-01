@@ -117,10 +117,7 @@ function parsePeriod(raw: any): DashaPeriod | null {
  * degrades to "unavailable" (never fabricated).
  */
 // deno-lint-ignore no-explicit-any
-export function normalizeDasha(
-  data: any,
-  ctx: { hash: string; missingInputs: string[]; provider?: string; asOfISO: string },
-): DashaOutput {
+export function normalizeDasha(data: any, ctx: { hash: string; missingInputs: string[]; provider?: string; asOfISO: string }): DashaOutput {
   // The Mahadasha list can live under several keys depending on the provider surface.
   const listRaw = pick(data, "dashas", "dasha_periods", "dashaPeriods", "periods", "mahadashas", "mahadasha", "timeline", "data") ?? data?.result?.dashas;
   const list: unknown[] = Array.isArray(listRaw) ? listRaw : [];

@@ -67,6 +67,8 @@ export interface CompatibilityReport {
   basis?: { you: string[]; them: string[] };
   /** BaZi compatibility note — present only when BOTH sides have a real chart. */
   baziNote?: string;
+  /** Vedic Guna Milan note — romance lens only, and only when BOTH have a real chart. */
+  vedicNote?: string;
 }
 
 // ─── API Functions ─────────────────────────────────────────────
