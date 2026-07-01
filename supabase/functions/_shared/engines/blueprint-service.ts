@@ -11,6 +11,7 @@ import { computeHumanDesign, type HumanDesignInput, type HumanDesignOutput } fro
 import { computeBiorhythm, type BiorhythmInput, type BiorhythmOutput } from "./biorhythm.ts";
 import { computeVedic, type VedicInput, type VedicOutput } from "./vedic.ts";
 import { computeVedicDasha } from "./vedic-dasha.ts";
+import { computeVedicStrength } from "./vedic-strength.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 
 export interface BirthProfile {
@@ -95,15 +96,18 @@ export async function computeBlueprint(
   // provider timeout, never the sum. Dasha is nested onto the Vedic chart below;
   // both reuse the cached result when birth inputs are unchanged (the timeline is
   // fixed at birth, so this is the common case) so we never pay the provider twice.
-  const [astrology, bazi, vedic, dasha] = await Promise.all([
+  const [astrology, bazi, vedic, dasha, strength] = await Promise.all([
     computeAstrology(astroInput, { cachedAstrology: opts?.cachedAstrology }),
     computeBazi(baziInput, { cachedBazi: opts?.cachedBazi }),
     computeVedic(vedicInput, { cachedVedic: opts?.cachedVedic }),
     computeVedicDasha(vedicInput, { cachedDasha: opts?.cachedVedic?.dasha ?? null }),
+    computeVedicStrength(vedicInput, { cachedStrength: opts?.cachedVedic?.strength ?? null }),
   ]);
-  // The Dasha timeline rides on the Vedic chart (VedicOutput.dasha) so it persists
-  // with the chart and needs no separate column.
+  // The Dasha timeline and Shadbala strengths ride on the Vedic chart
+  // (VedicOutput.dasha / .strength) so they persist with the chart and need no
+  // separate columns.
   vedic.dasha = dasha;
+  vedic.strength = strength;
 
   // Numerology
   const numInput: NumerologyInput = {

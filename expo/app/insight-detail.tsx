@@ -8,7 +8,7 @@ import {
   PLANET_SYMBOLS, ZODIAC_SYMBOLS, HOUSE_NAMES,
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
   HD_TYPE_GUIDANCE, HD_AUTHORITY_MEANINGS, HD_PROFILE_LINES, HD_CENTER_MEANINGS,
-  BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS,
+  BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
 import ComingSoon from "@/components/ComingSoon";
@@ -333,6 +333,21 @@ export default function InsightDetailScreen() {
           why={"The Vimshottari Dasha timeline is fixed at birth from the Moon's nakshatra; which period is active is simple date math. A reflective lens for the theme and timing of a season — never fixed fate."}
           askLabel={`Ask Soluna about your ${maha.planet} period`} askPrompt={`What does my ${maha.planet} Mahadasha${antar ? ` with ${antar.planet} Antardasha` : ""} mean for this chapter of my life?`}
           resonanceId={`vedic-dasha-${maha.planet}`} systems={["vedic"]} />
+      );
+    }
+    if (kind === "strength" && v.strength?.strongest && v.strength?.weakest) {
+      const strong = v.strength.strongest;
+      const weak = v.strength.weakest;
+      const sInfo = PLANET_STRENGTH_MEANINGS[strong.planet];
+      const wInfo = PLANET_STRENGTH_MEANINGS[weak.planet];
+      return (
+        <DetailView glyph="⚖" glyphColor={SolunaColors.warmGold} kicker="Vedic · Shadbala (Planetary Strength)" title={`${strong.planet} is your strongest`}
+          meta={wInfo ? `${weak.planet} is your developing one` : undefined}
+          body={`Shadbala measures how clearly each planet can express itself in your chart. Your strongest is ${strong.planet}${sInfo ? ` (${sInfo.domain})` : ""} — ${sInfo ? sInfo.strong.charAt(0).toLowerCase() + sInfo.strong.slice(1) : "an area of natural ease."}\n\nYour developing planet is ${weak.planet}${wInfo ? ` (${wInfo.domain})` : ""} — ${wInfo ? wInfo.developing.charAt(0).toLowerCase() + wInfo.developing.slice(1) : "an area to nurture with intention."}\n\nThis isn't a ranking of worth — every planet plays its part. It simply points to where things come easily and where a little conscious care goes a long way.`}
+          strengths={sInfo ? [sInfo.strong] : undefined}
+          why={"Shadbala is a real six-fold calculation from your sidereal chart. A reflective lens on ease vs. effort — never a verdict on your worth, and not about health or longevity."}
+          askLabel={`Ask Soluna about your ${strong.planet} strength`} askPrompt={`In my Vedic chart ${strong.planet} is strongest and ${weak.planet} is developing — what does that mean for how I move through life?`}
+          resonanceId={`vedic-strength-${strong.planet}`} systems={["vedic"]} />
       );
     }
     return null;

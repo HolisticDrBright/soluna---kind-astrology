@@ -6,6 +6,8 @@ import type {
   VedicView,
   VedicDashaView,
   VedicDashaPeriodView,
+  VedicStrengthView,
+  VedicStrengthPlanetView,
   ChartData,
   ChineseAstrologyData,
   HumanDesignData,
@@ -309,6 +311,29 @@ function buildDashaView(vedic: Record<string, unknown> | null): VedicDashaView |
   };
 }
 
+// Shadbala — read the strongest / developing planet rankings off the chart.
+// Only real provider data is surfaced; else undefined.
+function buildStrengthView(vedic: Record<string, unknown> | null): VedicStrengthView | undefined {
+  const strength = toRecord(vedic?.strength);
+  if (!strength || strength.source !== "provider") return undefined;
+  const planets = (Array.isArray(strength.planets) ? strength.planets : [])
+    .map(toRecord).filter(Boolean)
+    .map((p): VedicStrengthPlanetView => ({
+      planet: String(p!.planet ?? ""),
+      score: typeof p!.score === "number" ? p!.score : Number(p!.score) || 0,
+      rank: typeof p!.rank === "number" ? p!.rank : Number(p!.rank) || 0,
+      grade: p!.grade ? String(p!.grade) : undefined,
+    }))
+    .filter((p) => p.planet)
+    .sort((a, b) => a.rank - b.rank);
+  if (!planets.length) return undefined;
+  return {
+    planets,
+    strongest: planets[0] ?? null,
+    weakest: planets[planets.length - 1] ?? null,
+  };
+}
+
 // Vedic / sidereal lens — only a real provider chart is shown; otherwise the
 // honest unavailable/partial state. Never fabricated.
 function buildVedicData(vedic: Record<string, unknown> | null): VedicView {
@@ -354,6 +379,7 @@ function buildVedicData(vedic: Record<string, unknown> | null): VedicView {
     sadeSati: available ? sadeSati : null,
     ayanamsha: typeof vedic.ayanamsha === "string" ? vedic.ayanamsha : undefined,
     dasha: available ? buildDashaView(vedic) : undefined,
+    strength: available ? buildStrengthView(vedic) : undefined,
     notes: notes.length ? notes : UNAVAILABLE_VEDIC.notes,
   };
 }

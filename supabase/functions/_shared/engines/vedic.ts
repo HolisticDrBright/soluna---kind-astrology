@@ -15,6 +15,7 @@
 
 import { coerceSign, withProviderRetry } from "./astrology-providers.ts";
 import type { DashaOutput } from "./vedic-dasha.ts";
+import type { StrengthOutput } from "./vedic-strength.ts";
 
 const PROVIDER_TIMEOUT_MS = 12_000;
 
@@ -54,6 +55,9 @@ export interface VedicOutput {
   /** Vimshottari Dasha timeline (planetary periods). Fixed at birth; nested here
    *  so it persists with the chart and needs no new column. See ./vedic-dasha.ts. */
   dasha?: DashaOutput;
+  /** Shadbala — six-fold planetary strength. Fixed at birth; nested here so it
+   *  persists with the chart and needs no new column. See ./vedic-strength.ts. */
+  strength?: StrengthOutput;
   /** Ayanamsha used (e.g. "lahiri"). */
   ayanamsha?: string;
   source: VedicSource;

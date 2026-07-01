@@ -5,7 +5,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS } from "@/constants/mockData";
+import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS } from "@/constants/mockData";
 import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
@@ -662,6 +662,24 @@ function VedicChart({ vedic }: { vedic: VedicView }) {
                   Within it: {d.antar.planet} Antardashā (sub-period) until {fmtDashaDate(d.antar.end)}{DASHA_PLANET_MEANINGS[d.antar.planet] ? ` — ${DASHA_PLANET_MEANINGS[d.antar.planet].theme.toLowerCase()}` : ""}.
                 </Text>
               ) : null}
+            </TapCard>
+          </>
+        );
+      })() : null}
+      {vedic.strength?.strongest && vedic.strength?.weakest ? (() => {
+        const st = vedic.strength!;
+        const sInfo = PLANET_STRENGTH_MEANINGS[st.strongest!.planet];
+        const wInfo = PLANET_STRENGTH_MEANINGS[st.weakest!.planet];
+        return (
+          <>
+            <Text style={s.sectionLabel}>Planetary Strength · Shadbala</Text>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "vedic", kind: "strength" } })}>
+              <View style={s.baziRow}>
+                <Text style={s.baziStem}>Strongest: {st.strongest!.planet}</Text>
+                <Text style={s.baziBranch}>Developing: {st.weakest!.planet}</Text>
+              </View>
+              {sInfo ? <Text style={s.baziMeaning}>{st.strongest!.planet} — {sInfo.strong}</Text> : null}
+              {wInfo ? <Text style={[s.baziMeaning, { marginTop: 6 }]}>{st.weakest!.planet} — {wInfo.developing}</Text> : null}
             </TapCard>
           </>
         );

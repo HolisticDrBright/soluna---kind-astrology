@@ -278,7 +278,21 @@ export interface VedicView {
   ayanamsha?: string;
   /** Vimshottari Dasha — the current planetary period + the Mahadasha timeline. */
   dasha?: VedicDashaView;
+  /** Shadbala — planetary strengths (strongest / developing). */
+  strength?: VedicStrengthView;
   notes: string[];
+}
+
+export interface VedicStrengthPlanetView {
+  planet: string;
+  score: number;
+  rank: number;
+  grade?: string;
+}
+export interface VedicStrengthView {
+  planets: VedicStrengthPlanetView[];
+  strongest: VedicStrengthPlanetView | null;
+  weakest: VedicStrengthPlanetView | null;
 }
 
 export interface VedicDashaPeriodView {
@@ -901,6 +915,19 @@ export const DASHA_PLANET_MEANINGS: Record<string, { theme: string; description:
   "Jupiter": { theme: "Wisdom & expansion", description: "A Jupiter period opens the chapter toward growth, learning, faith, and abundance. Opportunities to teach, study, travel, and expand tend to arrive, and generosity — given and received — is a theme.", strengths: ["Wisdom and perspective", "Optimism and generosity", "A season for growth and meaning"], growthEdge: "Turning expansion into depth — following through on what you begin rather than over-reaching." },
   "Saturn": { theme: "Discipline & maturation", description: "A Saturn period is the long, steady chapter of responsibility, structure, and earned maturity. It can feel demanding, but it builds something real — patience and consistent effort are rewarded over time.", strengths: ["Discipline and endurance", "Responsibility and integrity", "The capacity to build lasting things"], growthEdge: "Being kind to yourself under the weight — trusting slow, honest progress over pressure." },
   "Mercury": { theme: "Mind & communication", description: "A Mercury period sharpens the mind, communication, and curiosity. It's a chapter for learning, writing, teaching, commerce, and connection — ideas move quickly and adaptability serves you well.", strengths: ["Sharp thinking and learning", "Skillful communication", "Adaptability and wit"], growthEdge: "Grounding the busy mind — choosing depth over scatter, and rest over constant input." },
+};
+
+// Shadbala — how each planet reads when it's your strongest vs. your developing
+// one. A reflective lens on where expression comes easily and where it's a
+// conscious practice. Never a verdict on worth, and pointedly not about health.
+export const PLANET_STRENGTH_MEANINGS: Record<string, { domain: string; strong: string; developing: string }> = {
+  "Sun": { domain: "identity, confidence & purpose", strong: "Your sense of self and purpose expresses clearly and with natural warmth — you can lead and be seen without forcing it.", developing: "A clear, confident sense of self is something you get to build deliberately — your authority grows as you claim it." },
+  "Moon": { domain: "emotions, care & belonging", strong: "Your emotional world and instinct to nurture flow naturally — you attune to feeling with ease.", developing: "Emotional steadiness and self-nurture are a conscious practice for you — tending your inner weather pays off." },
+  "Mars": { domain: "drive, courage & action", strong: "Initiative and the courage to act come readily — you can start things and stand your ground.", developing: "Asserting yourself and beginning things may take deliberate effort — your strength grows each time you use it." },
+  "Mercury": { domain: "mind, communication & learning", strong: "Thinking, learning, and communicating come fluidly — you connect ideas and people with ease.", developing: "Clear focus and communication are skills you cultivate — structure and practice sharpen them over time." },
+  "Jupiter": { domain: "wisdom, growth & faith", strong: "Optimism, meaning, and a sense of growth come naturally — you tend to see the bigger picture.", developing: "Perspective and faith are something you build intentionally — seeking wisdom and mentors nourishes it." },
+  "Venus": { domain: "love, beauty & harmony", strong: "Connection, pleasure, and an eye for beauty come easily — relating and receiving feel natural.", developing: "Ease in relating and letting yourself receive is a growing edge — you learn to soften and enjoy." },
+  "Saturn": { domain: "discipline, structure & endurance", strong: "Discipline and the ability to build lasting things come naturally — you can hold a long, steady line.", developing: "Structure and patience are qualities you consciously develop — small consistent steps build the muscle." },
 };
 
 // ══════════════════════════════════════════════════════════════════
