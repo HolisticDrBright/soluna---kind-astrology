@@ -930,6 +930,38 @@ export const PLANET_STRENGTH_MEANINGS: Record<string, { domain: string; strong: 
   "Saturn": { domain: "discipline, structure & endurance", strong: "Discipline and the ability to build lasting things come naturally — you can hold a long, steady line.", developing: "Structure and patience are qualities you consciously develop — small consistent steps build the muscle." },
 };
 
+// Solar Return — the "rising sign of your year" (the return Ascendant sets the
+// year's overall flavour) and the life area the return Sun spotlights (its house).
+// Reflective themes for the year ahead, never fixed predictions.
+export const SOLAR_RETURN_ASC_THEMES: Record<string, string> = {
+  "Aries": "a year of bold beginnings and initiative — a fresh, self-directed chapter where courage opens doors.",
+  "Taurus": "a year of steadiness and building — slowing down to create something solid and savour what's real.",
+  "Gemini": "a year of curiosity and connection — learning, conversation, and following what fascinates you.",
+  "Cancer": "a year of nurture and belonging — tending home, family, and your emotional foundations.",
+  "Leo": "a year of self-expression and visibility — stepping into your warmth and being seen.",
+  "Virgo": "a year of refinement and care — improving your craft, routines, and how you serve.",
+  "Libra": "a year of relationship and balance — partnership, harmony, and meeting others halfway.",
+  "Scorpio": "a year of depth and transformation — honest change, intimacy, and releasing what's finished.",
+  "Sagittarius": "a year of expansion and adventure — travel, study, and reaching for more meaning.",
+  "Capricorn": "a year of ambition and structure — building toward a real goal with patience and mastery.",
+  "Aquarius": "a year of innovation and community — freedom, fresh ideas, and finding your people.",
+  "Pisces": "a year of intuition and compassion — softening, creativity, and tending your inner life.",
+};
+export const SOLAR_RETURN_SUN_HOUSE: Record<number, { area: string; theme: string }> = {
+  1: { area: "self & fresh starts", theme: "This year puts you at the centre — identity, vitality, and how you show up. A season for new beginnings that are genuinely yours." },
+  2: { area: "resources & self-worth", theme: "This year highlights money, values, and what you build on — a chance to steady your foundations and know your own worth." },
+  3: { area: "communication & learning", theme: "This year emphasizes ideas, conversation, and learning — writing, connecting locally, and following your curiosity." },
+  4: { area: "home & roots", theme: "This year centres home, family, and inner foundations — tending where you come from and where you feel safe." },
+  5: { area: "creativity & joy", theme: "This year spotlights creativity, romance, and play — self-expression and doing what lights you up." },
+  6: { area: "work & wellbeing", theme: "This year focuses on daily work, routines, and self-care — refining how you spend your days and tend yourself." },
+  7: { area: "partnership", theme: "This year emphasizes one-to-one relationships — partnership, collaboration, and learning through others." },
+  8: { area: "depth & transformation", theme: "This year invites depth — intimacy, shared resources, and honest transformation. A season for letting go and renewing." },
+  9: { area: "growth & horizons", theme: "This year expands your horizons — travel, study, and beliefs. A season to grow beyond the familiar." },
+  10: { area: "career & direction", theme: "This year foregrounds career and public life — ambition, reputation, and the direction you're headed." },
+  11: { area: "community & hopes", theme: "This year highlights friendships, community, and long-range hopes — your place in the bigger picture." },
+  12: { area: "rest & reflection", theme: "This year turns inward — rest, reflection, and spiritual life. A quieter season for release and renewal before a new cycle." },
+};
+
 // ══════════════════════════════════════════════════════════════════
 // TRANSITS
 // ══════════════════════════════════════════════════════════════════

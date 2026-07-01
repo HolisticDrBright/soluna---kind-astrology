@@ -5,13 +5,18 @@ import React, { useState, useMemo, useCallback } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS } from "@/constants/mockData";
+import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS, SOLAR_RETURN_ASC_THEMES, SOLAR_RETURN_SUN_HOUSE } from "@/constants/mockData";
 import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
 import { Sun, Moon, ChevronRight, Sparkles, ArrowRight, MessageCircle, Bookmark, Compass } from "lucide-react-native";
 import InsightActionBar from "@/components/InsightActionBar";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getYearAhead, type SolarReturnData } from "@/lib/api";
+import { isDemoMode } from "@/lib/runtimeMode";
+
+const USE_MOCK_DATA = isDemoMode;
 
 type SystemLens = "astrology" | "numerology" | "chinese" | "humanDesign" | "vedic";
 
@@ -213,6 +218,9 @@ const tapS = StyleSheet.create({
 function BlueprintContent() {
   const { user } = useAppState();
   const [lens, setLens] = useState<SystemLens>("astrology");
+  // Solar Return ("year ahead") — lazy-loaded only when the Astrology lens is open
+  // (it's a Western-chart reading and needs its own yearly provider call).
+  const yearAhead = useAsyncData(() => getYearAhead(), [], { enabled: lens === "astrology" && !USE_MOCK_DATA });
   if (!user) return null;
 
   const safeGet = <T,>(val: T | undefined | null, fallback: T): T => val != null ? val : fallback;
@@ -317,6 +325,9 @@ function BlueprintContent() {
                 </TouchableOpacity>
               );
             })}
+
+            {/* Year Ahead (Solar Return) — a Western-chart reading of the year. */}
+            <YearAheadCard data={yearAhead.data?.solarReturn ?? null} loading={yearAhead.loading} />
           </View>
         )}
 
@@ -608,6 +619,49 @@ function vedicStrengths(vedic: VedicView): { nakshatra: string; strengths: strin
   const info = nak ? NAKSHATRA_MEANINGS[nak] : undefined;
   if (!nak || !info) return null;
   return { nakshatra: nak, strengths: info.strengths, growthEdge: info.growthEdge };
+}
+
+// Year Ahead (Solar Return) — a Western-chart reading of the current birthday
+// year. Honest states: loading, available (tap to explore), or an unavailable
+// message that names what's missing. Never fabricated.
+function YearAheadCard({ data, loading }: { data: SolarReturnData | null; loading: boolean }) {
+  if (loading && !data) {
+    return (
+      <>
+        <Text style={s.sectionLabel}>Year Ahead · Solar Return</Text>
+        <Card><Text style={s.baziHint}>Reading your year ahead…</Text></Card>
+      </>
+    );
+  }
+  if (!data) return null;
+  if (data.source !== "provider" || !data.ascendantSign) {
+    const why = data.missingInputs?.includes("birth_time")
+      ? "Add your birth time to unlock your year-ahead (Solar Return) reading — it hinges on the exact return moment."
+      : data.missingInputs?.includes("birth_location")
+        ? "Add your birth place to unlock your year-ahead (Solar Return) reading."
+        : (data.confidenceNotes?.[0] ?? "Your year-ahead reading isn't available yet.");
+    return (
+      <>
+        <Text style={s.sectionLabel}>Year Ahead · Solar Return</Text>
+        <Card><Text style={s.baziMeaning}>{why}</Text></Card>
+      </>
+    );
+  }
+  const ascTheme = SOLAR_RETURN_ASC_THEMES[data.ascendantSign];
+  const house = data.sunHouse != null ? SOLAR_RETURN_SUN_HOUSE[data.sunHouse] : undefined;
+  return (
+    <>
+      <Text style={s.sectionLabel}>Year Ahead · Solar Return {data.year}</Text>
+      <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "solar", sign: data.ascendantSign ?? "", house: String(data.sunHouse ?? ""), year: String(data.year), moon: data.moonSign ?? "" } })}>
+        <View style={s.baziRow}>
+          <Text style={s.baziStem}>{data.ascendantSign} rising this year</Text>
+          {house ? <Text style={s.baziBranch}>Focus: {house.area}</Text> : null}
+        </View>
+        {ascTheme ? <Text style={s.baziMeaning}>{data.ascendantSign} on your Solar Return Ascendant sets the tone: {ascTheme}</Text> : null}
+        {house ? <Text style={[s.baziMeaning, { marginTop: 6 }]}>{house.theme}</Text> : null}
+      </TapCard>
+    </>
+  );
 }
 
 // Vedic / sidereal chart — its own lens, clearly distinct from the Western chart.

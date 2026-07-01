@@ -9,6 +9,7 @@ import {
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
   HD_TYPE_GUIDANCE, HD_AUTHORITY_MEANINGS, HD_PROFILE_LINES, HD_CENTER_MEANINGS,
   BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS,
+  SOLAR_RETURN_ASC_THEMES, SOLAR_RETURN_SUN_HOUSE,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
 import ComingSoon from "@/components/ComingSoon";
@@ -124,8 +125,9 @@ function DetailView(props: {
 }
 
 export default function InsightDetailScreen() {
-  const { type, planet, number, value, facet, kind } = useLocalSearchParams<{
+  const { type, planet, number, value, facet, kind, sign, house, year, moon } = useLocalSearchParams<{
     type: string; planet: string; number: string; value: string; facet: string; kind: string;
+    sign: string; house: string; year: string; moon: string;
   }>();
   const { user } = useAppState();
   if (!user || !type) return null;
@@ -351,6 +353,21 @@ export default function InsightDetailScreen() {
       );
     }
     return null;
+  }
+
+  // ── Solar Return ("year ahead") insight ── (data passed via params from the card)
+  if (type === "solar" && sign) {
+    const ascTheme = SOLAR_RETURN_ASC_THEMES[sign];
+    const h = house ? parseInt(house, 10) : NaN;
+    const houseInfo = Number.isFinite(h) ? SOLAR_RETURN_SUN_HOUSE[h] : undefined;
+    return (
+      <DetailView glyph="☉" glyphColor={SolunaColors.warmGold} kicker={`Solar Return${year ? ` · ${year}` : ""}`} title={`${sign} rising this year`}
+        meta={houseInfo ? `Focus: ${houseInfo.area}` : undefined}
+        body={`Your Solar Return is the chart cast for the moment the Sun returned to its birth position this year — a traditional snapshot of the year's themes.\n\nWith ${sign} on your Solar Return Ascendant, ${ascTheme ?? "the year takes on that sign's flavour."}${houseInfo ? `\n\n${houseInfo.theme}` : ""}${moon ? `\n\nYour Solar Return Moon in ${moon} colours the year's emotional weather.` : ""}`}
+        why={"A Solar Return needs an accurate birth time and place — it's cast for an exact moment. Reflective themes for the year ahead, never fixed predictions."}
+        askLabel="Ask Soluna about my year ahead" askPrompt={`My Solar Return this year has ${sign} rising${houseInfo ? ` with the Sun in the house of ${houseInfo.area}` : ""}. What themes might the year hold?`}
+        resonanceId={`solar-return-${year || sign}`} systems={["astrology"]} />
+    );
   }
 
   // ── Rising sign insight ──

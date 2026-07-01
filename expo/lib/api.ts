@@ -120,6 +120,25 @@ export async function getToday(support?: string) {
   return invokeEdgeFunction<DailyReading>(path);
 }
 
+/** Solar Return ("year ahead") reading for the currently-active return year. */
+export interface SolarReturnData {
+  year: number;
+  returnDate: string | null;
+  ascendantSign: string | null;
+  sunHouse: number | null;
+  moonSign: string | null;
+  source: "provider" | "unavailable";
+  missingInputs?: string[];
+  unavailableReason?: string;
+  confidenceNotes?: string[];
+}
+
+/** Fetch the Solar Return "year ahead" reading. Degrades honestly (returns an
+ *  `unavailable` source) when birth time/place are missing or the provider is down. */
+export async function getYearAhead() {
+  return invokeEdgeFunction<{ solarReturn: SolarReturnData | null }>("year-ahead");
+}
+
 /** Ask Soluna a question */
 export async function askSoluna(message: string, conversationId?: string) {
   return invokeEdgeFunction<{
