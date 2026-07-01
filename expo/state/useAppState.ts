@@ -4,6 +4,8 @@ import type { Session, User } from "@supabase/supabase-js";
 import type {
   BaziView,
   VedicView,
+  VedicDashaView,
+  VedicDashaPeriodView,
   ChartData,
   ChineseAstrologyData,
   HumanDesignData,
@@ -271,6 +273,42 @@ function buildBaziData(bazi: Record<string, unknown> | null): BaziView {
   };
 }
 
+// Vimshottari Dasha — read the fixed timeline stored on the chart and recompute
+// which period is active TODAY (pure date math), so a cached blueprint never shows
+// a stale "current period". Only real provider data is surfaced; else undefined.
+function buildDashaView(vedic: Record<string, unknown> | null): VedicDashaView | undefined {
+  const dasha = toRecord(vedic?.dasha);
+  if (!dasha || dasha.source !== "provider") return undefined;
+  const rawTimeline = Array.isArray(dasha.timeline) ? dasha.timeline : [];
+  const period = (p: Record<string, unknown> | null): VedicDashaPeriodView | null => {
+    if (!p) return null;
+    const planet = String(p.planet ?? "");
+    const start = String(p.start ?? "");
+    const end = String(p.end ?? "");
+    return planet && start && end ? { planet, start, end } : null;
+  };
+  const maha = rawTimeline.map(toRecord).filter(Boolean) as Record<string, unknown>[];
+  const timeline = maha.map(period).filter((p): p is VedicDashaPeriodView => p !== null)
+    .sort((a, b) => a.start.localeCompare(b.start));
+  if (!timeline.length) return undefined;
+
+  const today = new Date().toISOString().split("T")[0];
+  const activeMahaRaw = maha.find((m) => String(m.start ?? "") <= today && today < String(m.end ?? "")) ?? null;
+  const currentMaha = period(activeMahaRaw);
+  let currentAntar: VedicDashaPeriodView | null = null;
+  if (activeMahaRaw) {
+    const subs = Array.isArray(activeMahaRaw.subPeriods) ? activeMahaRaw.subPeriods.map(toRecord).filter(Boolean) as Record<string, unknown>[] : [];
+    const activeAntar = subs.find((sp) => String(sp.start ?? "") <= today && today < String(sp.end ?? "")) ?? null;
+    currentAntar = period(activeAntar);
+  }
+  return {
+    system: typeof dasha.system === "string" && dasha.system ? dasha.system : "Vimshottari",
+    maha: currentMaha,
+    antar: currentAntar,
+    timeline,
+  };
+}
+
 // Vedic / sidereal lens — only a real provider chart is shown; otherwise the
 // honest unavailable/partial state. Never fabricated.
 function buildVedicData(vedic: Record<string, unknown> | null): VedicView {
@@ -315,6 +353,7 @@ function buildVedicData(vedic: Record<string, unknown> | null): VedicView {
     moonNakshatra: available && typeof vedic.moonNakshatra === "string" ? vedic.moonNakshatra : undefined,
     sadeSati: available ? sadeSati : null,
     ayanamsha: typeof vedic.ayanamsha === "string" ? vedic.ayanamsha : undefined,
+    dasha: available ? buildDashaView(vedic) : undefined,
     notes: notes.length ? notes : UNAVAILABLE_VEDIC.notes,
   };
 }

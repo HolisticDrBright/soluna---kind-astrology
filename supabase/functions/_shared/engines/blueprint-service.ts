@@ -10,6 +10,7 @@ import { computeBazi, type BaziInput, type BaziOutput } from "./bazi.ts";
 import { computeHumanDesign, type HumanDesignInput, type HumanDesignOutput } from "./human-design.ts";
 import { computeBiorhythm, type BiorhythmInput, type BiorhythmOutput } from "./biorhythm.ts";
 import { computeVedic, type VedicInput, type VedicOutput } from "./vedic.ts";
+import { computeVedicDasha } from "./vedic-dasha.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 
 export interface BirthProfile {
@@ -88,14 +89,21 @@ export async function computeBlueprint(
     lng: profile.lng,
     timezone: profile.timezone,
   };
-  // Astrology, BaZi, and Vedic all call external providers concurrently — each
-  // degrades to its own blocked/"unavailable" result on failure or timeout (none
-  // can reject), so the compute waits at most ONE provider timeout, never the sum.
-  const [astrology, bazi, vedic] = await Promise.all([
+  // Astrology, BaZi, Vedic, and the Vedic Dasha timeline all call external
+  // providers concurrently — each degrades to its own blocked/"unavailable" result
+  // on failure or timeout (none can reject), so the compute waits at most ONE
+  // provider timeout, never the sum. Dasha is nested onto the Vedic chart below;
+  // both reuse the cached result when birth inputs are unchanged (the timeline is
+  // fixed at birth, so this is the common case) so we never pay the provider twice.
+  const [astrology, bazi, vedic, dasha] = await Promise.all([
     computeAstrology(astroInput, { cachedAstrology: opts?.cachedAstrology }),
     computeBazi(baziInput, { cachedBazi: opts?.cachedBazi }),
     computeVedic(vedicInput, { cachedVedic: opts?.cachedVedic }),
+    computeVedicDasha(vedicInput, { cachedDasha: opts?.cachedVedic?.dasha ?? null }),
   ]);
+  // The Dasha timeline rides on the Vedic chart (VedicOutput.dasha) so it persists
+  // with the chart and needs no separate column.
+  vedic.dasha = dasha;
 
   // Numerology
   const numInput: NumerologyInput = {

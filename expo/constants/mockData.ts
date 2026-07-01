@@ -276,7 +276,28 @@ export interface VedicView {
   moonNakshatra?: string;
   sadeSati?: { active: boolean; phase: string | null; note: string } | null;
   ayanamsha?: string;
+  /** Vimshottari Dasha — the current planetary period + the Mahadasha timeline. */
+  dasha?: VedicDashaView;
   notes: string[];
+}
+
+export interface VedicDashaPeriodView {
+  /** Ruling graha, e.g. "Venus". */
+  planet: string;
+  /** ISO date (YYYY-MM-DD). */
+  start: string;
+  /** ISO date (YYYY-MM-DD). */
+  end: string;
+}
+export interface VedicDashaView {
+  /** Dasha system, typically "Vimshottari". */
+  system: string;
+  /** The Mahadasha (major period) active today, recomputed from the timeline. */
+  maha: VedicDashaPeriodView | null;
+  /** The Antardasha (sub-period) active today, when the provider returns sub-periods. */
+  antar: VedicDashaPeriodView | null;
+  /** The Mahadasha timeline (major periods only) for context. */
+  timeline: VedicDashaPeriodView[];
 }
 
 /** Honest default: Vedic is unavailable until a provider chart exists. */
@@ -866,6 +887,20 @@ export const NAKSHATRA_MEANINGS: Record<string, { description: string; strengths
   "Purva Bhadrapada": { description: "An intense, idealistic temperament — passionate, visionary, and able to transform through deep conviction. You tend to feel strongly and reach for something higher.", strengths: ["Visionary intensity", "Idealism and conviction", "Transformative depth"], growthEdge: "Grounding big ideals in small steps, and tending your nervous system through intensity." },
   "Uttara Bhadrapada": { description: "A deep, calm temperament — wise, compassionate, and steady like still water. You tend to hold depth without drama, offering quiet, grounding wisdom.", strengths: ["Calm depth and wisdom", "Compassion and patience", "A steadying presence"], growthEdge: "Letting your depth be seen and known, and acting on insight, not only holding it." },
   "Revati": { description: "A gentle, nourishing temperament — kind, imaginative, and a safe harbor for others. You tend to care for the vulnerable and help people reach the end of the road safely.", strengths: ["Kindness and compassion", "Imagination and gentleness", "A protective, guiding warmth"], growthEdge: "Keeping some care for yourself, and setting limits without guilt." },
+};
+
+// Vimshottari Dasha lords — the nine grahas, each colouring the chapter it rules.
+// A reflective lens for the theme and timing of a life season, never fixed fate.
+export const DASHA_PLANET_MEANINGS: Record<string, { theme: string; description: string; strengths: string[]; growthEdge: string }> = {
+  "Ketu": { theme: "Release & inner focus", description: "A Ketu period turns the volume down on the outer world and up on the inner one. It's a chapter of letting go, simplifying, and returning to something you already know deep down — often quieter and more spiritual than the years around it.", strengths: ["Spiritual depth and detachment", "Cutting away what no longer fits", "Intuition and inner knowing"], growthEdge: "Staying gently connected to people and plans while you turn inward — solitude that nourishes, not isolates." },
+  "Venus": { theme: "Love, beauty & harmony", description: "A Venus period warms the chapter toward relationship, beauty, pleasure, and creativity. Connection and comfort come more easily, and it's a natural season for art, partnership, and enjoying the good things you've built.", strengths: ["Warmth in relationships", "Creative and aesthetic gifts", "A capacity for pleasure and ease"], growthEdge: "Balancing indulgence with intention — letting comfort restore you without dulling your edge." },
+  "Sun": { theme: "Identity & purpose", description: "A Sun period brings identity, purpose, and visibility to the foreground. It's a chapter to step into leadership, clarify who you are, and let your genuine self be seen — recognition often follows sincerity.", strengths: ["Clarity of purpose", "Natural leadership and confidence", "Vitality and self-expression"], growthEdge: "Leading from warmth rather than ego — letting others shine alongside you." },
+  "Moon": { theme: "Emotional depth & care", description: "A Moon period softens the chapter toward feeling, home, and belonging. Emotional life, nurturing, and intuition take centre stage, and caring for and being cared by others becomes a throughline.", strengths: ["Emotional intelligence and empathy", "A nurturing, connecting presence", "Strong intuition"], growthEdge: "Riding emotional tides without being swept away — steady self-care through the ebbs and flows." },
+  "Mars": { theme: "Drive & courage", description: "A Mars period raises the energy, drive, and appetite for action. It's a chapter for courage, initiative, and pushing projects forward — momentum is available when you channel it with aim.", strengths: ["Courage and initiative", "Energy to start and finish", "Healthy assertiveness"], growthEdge: "Directing the heat with patience — choosing your battles rather than forcing every door." },
+  "Rahu": { theme: "Ambition & the new", description: "A Rahu period amplifies worldly hunger, ambition, and fascination with the unfamiliar. It's a chapter of big reaches, unconventional paths, and rapid change — often unexpected and expansive, asking you to grow into something new.", strengths: ["Ambition and boldness", "Innovation and originality", "Appetite for new experience"], growthEdge: "Staying grounded amid the pull for more — checking that the hunger serves your real values." },
+  "Jupiter": { theme: "Wisdom & expansion", description: "A Jupiter period opens the chapter toward growth, learning, faith, and abundance. Opportunities to teach, study, travel, and expand tend to arrive, and generosity — given and received — is a theme.", strengths: ["Wisdom and perspective", "Optimism and generosity", "A season for growth and meaning"], growthEdge: "Turning expansion into depth — following through on what you begin rather than over-reaching." },
+  "Saturn": { theme: "Discipline & maturation", description: "A Saturn period is the long, steady chapter of responsibility, structure, and earned maturity. It can feel demanding, but it builds something real — patience and consistent effort are rewarded over time.", strengths: ["Discipline and endurance", "Responsibility and integrity", "The capacity to build lasting things"], growthEdge: "Being kind to yourself under the weight — trusting slow, honest progress over pressure." },
+  "Mercury": { theme: "Mind & communication", description: "A Mercury period sharpens the mind, communication, and curiosity. It's a chapter for learning, writing, teaching, commerce, and connection — ideas move quickly and adaptability serves you well.", strengths: ["Sharp thinking and learning", "Skillful communication", "Adaptability and wit"], growthEdge: "Grounding the busy mind — choosing depth over scatter, and rest over constant input." },
 };
 
 // ══════════════════════════════════════════════════════════════════

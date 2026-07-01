@@ -8,7 +8,7 @@ import {
   PLANET_SYMBOLS, ZODIAC_SYMBOLS, HOUSE_NAMES,
   NUMBER_MEANINGS, CHINESE_INTERPRETATIONS, HD_INTERPRETATIONS,
   HD_TYPE_GUIDANCE, HD_AUTHORITY_MEANINGS, HD_PROFILE_LINES, HD_CENTER_MEANINGS,
-  BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS,
+  BAZI_PILLAR_MEANINGS, BAZI_ELEMENT_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS,
   getPlacementInterpretation, Fonts, type Planet, type ZodiacSign,
 } from "@/constants/mockData";
 import ComingSoon from "@/components/ComingSoon";
@@ -317,6 +317,22 @@ export default function InsightDetailScreen() {
           why={"Vedic positions come from a real sidereal ephemeris (Lahiri ayanamsha) for your birth moment — a separate tradition from your Western chart."}
           askLabel={`Ask Soluna about your Vedic ${value}`} askPrompt={`What does my Vedic ${value} in ${p.sign} mean?`}
           resonanceId={`vedic-planet-${value}`} systems={["vedic"]} />
+      );
+    }
+    if (kind === "dasha" && v.dasha?.maha) {
+      const maha = v.dasha.maha;
+      const antar = v.dasha.antar;
+      const mInfo = DASHA_PLANET_MEANINGS[maha.planet];
+      const aInfo = antar ? DASHA_PLANET_MEANINGS[antar.planet] : undefined;
+      const endLabel = (iso: string) => { const [y, m] = iso.split("-"); const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Number(m)-1]; return mo ? `${mo} ${y}` : y; };
+      return (
+        <DetailView glyph="◉" glyphColor={SolunaColors.warmGold} kicker={`Vedic · ${v.dasha.system} Dasha`} title={`${maha.planet} Mahādashā`}
+          meta={`Current period · until ${endLabel(maha.end)}`}
+          body={`In Vedic astrology your life unfolds in Dashas — planetary chapters, each ruled by one graha that colours its whole season. You're currently in your ${maha.planet} Mahādashā (until ${endLabel(maha.end)}).${mInfo ? `\n\n${mInfo.theme}: ${mInfo.description}` : ""}${antar ? `\n\nWithin it runs the ${antar.planet} Antardashā (a sub-period, until ${endLabel(antar.end)})${aInfo ? ` — ${aInfo.theme.toLowerCase()}. ${aInfo.description}` : "."}` : ""}`}
+          strengths={mInfo?.strengths} growthEdge={mInfo?.growthEdge}
+          why={"The Vimshottari Dasha timeline is fixed at birth from the Moon's nakshatra; which period is active is simple date math. A reflective lens for the theme and timing of a season — never fixed fate."}
+          askLabel={`Ask Soluna about your ${maha.planet} period`} askPrompt={`What does my ${maha.planet} Mahadasha${antar ? ` with ${antar.planet} Antardasha` : ""} mean for this chapter of my life?`}
+          resonanceId={`vedic-dasha-${maha.planet}`} systems={["vedic"]} />
       );
     }
     return null;

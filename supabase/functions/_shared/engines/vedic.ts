@@ -14,6 +14,7 @@
  */
 
 import { coerceSign, withProviderRetry } from "./astrology-providers.ts";
+import type { DashaOutput } from "./vedic-dasha.ts";
 
 const PROVIDER_TIMEOUT_MS = 12_000;
 
@@ -50,6 +51,9 @@ export interface VedicOutput {
   moonNakshatra?: string;
   /** Saturn's 7.5-year cycle relative to the natal Moon, when the provider returns it. */
   sadeSati?: { active: boolean; phase: string | null; note: string } | null;
+  /** Vimshottari Dasha timeline (planetary periods). Fixed at birth; nested here
+   *  so it persists with the chart and needs no new column. See ./vedic-dasha.ts. */
+  dasha?: DashaOutput;
   /** Ayanamsha used (e.g. "lahiri"). */
   ayanamsha?: string;
   source: VedicSource;

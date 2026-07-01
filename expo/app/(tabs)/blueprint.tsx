@@ -5,7 +5,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
-import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS } from "@/constants/mockData";
+import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS } from "@/constants/mockData";
 import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
@@ -593,6 +593,14 @@ function BaziFourPillars({ bazi }: { bazi: BaziView }) {
   );
 }
 
+// Format an ISO date (YYYY-MM-DD) as "Mon YYYY" for Dasha period boundaries.
+const DASHA_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDashaDate(iso: string): string {
+  const [y, m] = iso.split("-");
+  const mi = Number(m) - 1;
+  return mi >= 0 && mi < 12 ? `${DASHA_MONTHS[mi]} ${y}` : y;
+}
+
 // Strengths + growth edge for the Vedic lens, drawn from the Moon's nakshatra
 // (the heart of a Vedic reading). Real values only; null when unavailable.
 function vedicStrengths(vedic: VedicView): { nakshatra: string; strengths: string[]; growthEdge: string } | null {
@@ -636,6 +644,28 @@ function VedicChart({ vedic }: { vedic: VedicView }) {
           </TapCard>
         </>
       ) : null}
+      {vedic.dasha?.maha ? (() => {
+        const d = vedic.dasha!;
+        const maha = d.maha!;
+        const mInfo = DASHA_PLANET_MEANINGS[maha.planet];
+        return (
+          <>
+            <Text style={s.sectionLabel}>Current Period · {d.system} Dasha</Text>
+            <TapCard onPress={() => router.push({ pathname: "/insight-detail", params: { type: "vedic", kind: "dasha" } })}>
+              <View style={s.baziRow}>
+                <Text style={s.baziStem}>{maha.planet} Mahādashā</Text>
+                <Text style={s.baziBranch}>until {fmtDashaDate(maha.end)}</Text>
+              </View>
+              {mInfo ? <Text style={s.baziMeaning}>{mInfo.theme} — {mInfo.description}</Text> : null}
+              {d.antar ? (
+                <Text style={[s.baziMeaning, { marginTop: 6 }]}>
+                  Within it: {d.antar.planet} Antardashā (sub-period) until {fmtDashaDate(d.antar.end)}{DASHA_PLANET_MEANINGS[d.antar.planet] ? ` — ${DASHA_PLANET_MEANINGS[d.antar.planet].theme.toLowerCase()}` : ""}.
+                </Text>
+              ) : null}
+            </TapCard>
+          </>
+        );
+      })() : null}
       {vedicStrengths(vedic) ? (() => {
         const vs = vedicStrengths(vedic)!;
         return (
