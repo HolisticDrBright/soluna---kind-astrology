@@ -100,7 +100,14 @@ function getHourPillar(dayStemIdx: number, hour: number): Pillar | null {
 export function computeChinese(input: ChineseInput): ChineseOutput {
   const { birthDate, birthTime } = input;
 
-  const yearPillar = getYearPillar(birthDate.getFullYear());
+  // The Chinese year turns at Li Chun (~Feb 4), NOT Jan 1 — someone born in
+  // January belongs to the PREVIOUS cycle year. Without this, every Jan/early-
+  // Feb birthday gets the wrong animal (which feeds compatibility + agreement).
+  const chineseYear =
+    birthDate.getMonth() === 0 || (birthDate.getMonth() === 1 && birthDate.getDate() < 4)
+      ? birthDate.getFullYear() - 1
+      : birthDate.getFullYear();
+  const yearPillar = getYearPillar(chineseYear);
   const monthPillar = getMonthPillar(birthDate.getFullYear(), birthDate.getMonth());
   const dayPillar = getDayPillar(birthDate);
 

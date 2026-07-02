@@ -55,6 +55,15 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     let userId = existingSub?.user_id ?? null;
+    if (!userId) {
+      // The app records app_user_id → user mappings at RC login precisely for
+      // anonymous/aliased ids ($RCAnonymousID:...) that aren't raw UUIDs.
+      const { data: mapping } = await sb.from("revenuecat_user_mappings")
+        .select("user_id")
+        .eq("revenuecat_app_user_id", event.app_user_id)
+        .maybeSingle();
+      userId = mapping?.user_id ?? null;
+    }
     if (!userId && isUuid(event.app_user_id)) {
       const { data: profile } = await sb.from("profiles")
         .select("id")
@@ -93,12 +102,45 @@ Deno.serve(async (req: Request) => {
         break;
       }
 
-      case "CANCELLATION":
+      case "CANCELLATION": {
+        // The user only turned OFF auto-renew — they stay premium until
+        // expires_at (EXPIRATION / the nightly reconcile ends it). Marking them
+        // inactive here would cut off paying customers mid-period.
+        await sb.from("subscriptions").upsert({
+          user_id: userId,
+          revenuecat_app_user_id: event.app_user_id,
+          status: "active",
+          expires_at: event.expiration_at_ms
+            ? new Date(event.expiration_at_ms).toISOString()
+            : undefined,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+
+        await logEvent("subscription_autorenew_off", { type: event.type }, userId);
+        break;
+      }
+
+      case "UNCANCELLATION": {
+        // Auto-renew turned back on before the period ended — restore active.
+        await sb.from("subscriptions").upsert({
+          user_id: userId,
+          revenuecat_app_user_id: event.app_user_id,
+          status: "active",
+          expires_at: event.expiration_at_ms
+            ? new Date(event.expiration_at_ms).toISOString()
+            : undefined,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+
+        await logEvent("subscription_autorenew_on", { type: event.type }, userId);
+        break;
+      }
+
       case "EXPIRATION": {
         await sb.from("subscriptions").upsert({
           user_id: userId,
           revenuecat_app_user_id: event.app_user_id,
-          status: event.type === "EXPIRATION" ? "expired" : "inactive",
+          status: "expired",
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
 
@@ -108,10 +150,12 @@ Deno.serve(async (req: Request) => {
 
       case "TRANSFER":
       case "PRODUCT_CHANGE": {
+        const stillActive = !event.expiration_at_ms || event.expiration_at_ms > Date.now();
         await sb.from("subscriptions").upsert({
           user_id: userId,
           revenuecat_app_user_id: event.app_user_id,
           entitlement: event.entitlement_ids?.[0] ?? "premium",
+          status: stillActive ? "active" : "expired",
           expires_at: event.expiration_at_ms
             ? new Date(event.expiration_at_ms).toISOString()
             : null,

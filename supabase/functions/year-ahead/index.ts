@@ -9,6 +9,7 @@
 import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
+import { todayInTz } from "../_shared/dates.ts";
 import {
   computeSolarReturn,
   currentSolarYear,
@@ -44,7 +45,6 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await requireAuth(req);
     const supabase = createUserClient(req);
-    const today = new Date().toISOString().split("T")[0];
 
     const { data: bp } = await supabase.from("birth_profiles")
       .select("birth_date, birth_time, time_known, birth_place_label, lat, lng, timezone")
@@ -59,6 +59,8 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ solarReturn: null, message: "Add your birth data to unlock your year ahead." }, 200);
     }
 
+    // The birthday rollover happens at the USER's midnight, not UTC's.
+    const today = todayInTz(bp.timezone ? String(bp.timezone) : null);
     const returnYear = currentSolarYear(input.month, input.day, today);
 
     // Reuse the cached chart when the same return year is already on file (select *

@@ -11,6 +11,11 @@ import { generateCompatibility } from "../_shared/synthesis/compatibility.ts";
 import { computeBazi, type BaziOutput } from "../_shared/engines/bazi.ts";
 import { computeVedicMatch, matchReady, type VedicMatchBirth, type VedicMatchOutput } from "../_shared/engines/vedic-match.ts";
 
+// Stamped into every report body; cache hits require an exact match, so bumping
+// this regenerates everyone's reports after a methodology change (e.g. the
+// Vedic Guna-Milan note shipping) instead of freezing them forever.
+const REPORT_VERSION = 2;
+
 /** Build the Guna-Milan birth input from a birth-profile / connection row. */
 function toMatchBirth(row: {
   birth_date?: unknown; birth_time?: unknown; time_known?: unknown;
@@ -110,8 +115,8 @@ Deno.serve(async (req: Request) => {
         .eq("lens", lens)
         .single();
 
-      if (cached) {
-        return jsonResponse(cached.body ?? cached);
+      if (cached?.body && (cached.body as Record<string, unknown>).reportVersion === REPORT_VERSION) {
+        return jsonResponse(cached.body);
       }
 
       // Generate a knowledge-driven compatibility reading: the user's REAL
@@ -173,18 +178,35 @@ Deno.serve(async (req: Request) => {
           vedicMatch,
         });
 
-        const { data: report } = await supabase.from("compatibility_reports")
-          .upsert({
-            user_id: user.userId,
-            connection_id: connectionId,
-            lens,
-            score: result.score,
-            body: result,
-          }, { onConflict: "user_id,connection_id,lens" })
-          .select()
-          .single();
+        const body = { ...result, reportVersion: REPORT_VERSION };
 
-        return jsonResponse(report?.body ?? result);
+        // Persist via update-then-insert: the table's uniqueness is a PARTIAL
+        // unique index (where connection_id is not null), which ON CONFLICT
+        // cannot infer — the previous upsert failed with 42P10 on every call
+        // and the error was silently dropped, so reports were never cached and
+        // every view paid a provider call + an LLM call.
+        const { data: updated, error: updErr } = await supabase.from("compatibility_reports")
+          .update({ score: result.score, body, updated_at: new Date().toISOString() })
+          .eq("user_id", user.userId)
+          .eq("connection_id", connectionId)
+          .eq("lens", lens)
+          .select("id");
+        if (updErr) console.error("Compatibility report update failed:", updErr.message);
+        if (!updated?.length) {
+          const { error: insErr } = await supabase.from("compatibility_reports")
+            .insert({
+              user_id: user.userId,
+              connection_id: connectionId,
+              lens,
+              score: result.score,
+              body,
+            });
+          // A racing insert can hit the partial unique index — the fresh body
+          // below is still returned, and the winner's row serves future reads.
+          if (insErr) console.error("Compatibility report insert failed:", insErr.message);
+        }
+
+        return jsonResponse(body);
       } catch (err) {
         // No silent fake-data fallback — surface an honest, retryable error.
         console.error("Compatibility generation error:", err);

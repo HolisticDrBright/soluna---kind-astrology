@@ -76,6 +76,29 @@ function nameToNumbers(name: string): { all: number; vowels: number; consonants:
 }
 
 /**
+ * Personal Year / Month / Day for a target date — the parts of numerology that
+ * CHANGE every day. Exported separately so daily surfaces (buildContext, cron)
+ * can recompute the live cycle instead of reusing the values frozen into the
+ * blueprint at onboarding time. Pure; needs only the birth date.
+ */
+export function personalCycles(
+  birthDate: Date,
+  targetDate: Date,
+): { personalYear: number; personalMonth: number; personalDay: number } {
+  const universalYear = reduceToSingleOrMaster(targetDate.getFullYear()).value;
+  const personalYear = reduceToSingleOrMaster(
+    birthDate.getDate() + (birthDate.getMonth() + 1) + universalYear,
+  ).value;
+  const personalMonth = reduceToSingleOrMaster(
+    personalYear + (targetDate.getMonth() + 1),
+  ).value;
+  const personalDay = reduceToSingleOrMaster(
+    personalMonth + targetDate.getDate(),
+  ).value;
+  return { personalYear, personalMonth, personalDay };
+}
+
+/**
  * Compute full numerology profile for a person.
  * Verified against known fixtures (see _shared/tests/numerology_test.ts):
  * - "John Doe" / 1990-01-15 → Life Path 8, Expression 8, Soul Urge 8, Personality 9, Birthday 6
@@ -98,17 +121,10 @@ export function computeNumerology(input: NumerologyInput): NumerologyOutput {
   const bday = reduceToSingleOrMaster(birthDate.getDate());
 
   // Personal Year / Month / Day
-  const today = targetDate ?? new Date();
-  const universalYear = reduceToSingleOrMaster(today.getFullYear()).value;
-  const personalYear = reduceToSingleOrMaster(
-    birthDate.getDate() + (birthDate.getMonth() + 1) + universalYear
-  ).value;
-  const personalMonth = reduceToSingleOrMaster(
-    personalYear + (today.getMonth() + 1)
-  ).value;
-  const personalDay = reduceToSingleOrMaster(
-    personalMonth + today.getDate()
-  ).value;
+  const { personalYear, personalMonth, personalDay } = personalCycles(
+    birthDate,
+    targetDate ?? new Date(),
+  );
 
   return {
     lifePath: lp.value,

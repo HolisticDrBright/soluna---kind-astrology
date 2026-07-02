@@ -112,6 +112,7 @@ async function callAnthropic(
   }
 
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    signal: AbortSignal.timeout(45_000),
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -159,6 +160,7 @@ async function callOpenAICompatible(
 
   const baseUrl = config.baseUrl ?? "https://api.openai.com/v1";
   const resp = await fetch(`${baseUrl}/chat/completions`, {
+    signal: AbortSignal.timeout(45_000),
     method: "POST",
     headers: {
       "Content-Type": "application/json",

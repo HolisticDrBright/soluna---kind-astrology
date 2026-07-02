@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
     const user = await requireAuth(req);
     const url = new URL(req.url);
     const theme = url.searchParams.get("theme");
-    const today = new Date().toISOString().split("T")[0];
+    const today = null; // resolved to the USER's local date inside buildContext
 
     const ctx = await buildContext(user.userId, today);
     const agreements = detectAgreement(ctx);

@@ -318,6 +318,51 @@ export interface DailyCosmos {
  * independently; failures degrade to null (Moon always falls back to local).
  * Never throws and never fabricates.
  */
+/** The compact signal shape the synthesis prompt consumes (DailyContext.dailyCosmos).
+ *  Accepts either a fresh DailyCosmos or the jsonb fields off a cached
+ *  daily_readings row, so mood reframes can reuse the day's already-fetched
+ *  cosmos instead of paying three more provider calls. */
+// deno-lint-ignore no-explicit-any
+export function dailyCosmosSignals(moon: any, horoscope: any, baziToday: any): {
+  moonPhase: string;
+  moonSign: string | null;
+  theme: string | null;
+  topTransit: string | null;
+  focusAreas: string[];
+  baziDayElement: string | null;
+  baziAnimal: string | null;
+} {
+  return {
+    moonPhase: str(moon?.phase) || "",
+    moonSign: moon?.sign != null ? str(moon.sign) : null,
+    theme: horoscope?.theme != null ? str(horoscope.theme) : null,
+    topTransit: horoscope?.topTransits?.[0]?.label != null ? str(horoscope.topTransits[0].label) : null,
+    focusAreas: Array.isArray(horoscope?.focusAreas) ? horoscope.focusAreas.map(str) : [],
+    baziDayElement: baziToday?.dayStemElement != null ? str(baziToday.dayStemElement) : null,
+    baziAnimal: baziToday?.animal != null ? str(baziToday.animal) : null,
+  };
+}
+
+/** Map a birth_profiles row into the horoscope provider's birth input. Shared by
+ *  the /today endpoint and the daily-reading cron so both produce identical
+ *  personalization. */
+export function toHoroscopeBirth(bp: Record<string, unknown>): HoroscopeBirth | null {
+  if (!bp.birth_date) return null;
+  const [y, m, d] = String(bp.birth_date).split("-").map(Number);
+  const timeStr = bp.birth_time ? String(bp.birth_time) : null;
+  const [hh, mm] = timeStr ? timeStr.split(":").map(Number) : [null, null];
+  return {
+    year: y,
+    month: m,
+    day: d,
+    hour: hh,
+    minute: mm,
+    city: bp.birth_place_label ? String(bp.birth_place_label) : null,
+    timezone: bp.timezone ? String(bp.timezone) : null,
+    timeKnown: bp.time_known !== false && !!timeStr,
+  };
+}
+
 export async function computeDailyCosmos(
   birth: HoroscopeBirth | null,
   dateISO: string,

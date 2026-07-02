@@ -16,7 +16,7 @@ import { llmCall, llmCallJSON, type LLMMessage } from "../llm-client.ts";
 import { THEMES, THEME_TAKEAWAYS, type Theme } from "../constants.ts";
 import { getSupabaseAdmin, logEvent } from "../supabase.ts";
 import type { AstrologyOutput } from "../engines/astrology.ts";
-import type { NumerologyOutput } from "../engines/numerology.ts";
+import { personalCycles, type NumerologyOutput } from "../engines/numerology.ts";
 import type { ChineseOutput } from "../engines/chinese.ts";
 import type { BaziOutput } from "../engines/bazi.ts";
 import { hasRealBazi } from "../engines/bazi.ts";
@@ -31,6 +31,7 @@ import { tagsFromText } from "../knowledge/synthesis-rules.ts";
 import { gatherDynamicContext } from "./knowledge-context.ts";
 import { fetchPersonalizationProfile, personalizationMemoryBlock } from "../personalization.ts";
 import { buildDailyFallbackParts, formatDateLabel } from "./daily-fallback.ts";
+import { todayInTz } from "../dates.ts";
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export function dailyContextToKnowledge(ctx: DailyContext): KnowledgeContext {
 
 // ─── buildContext ──────────────────────────────────────────────
 
-export async function buildContext(userId: string, dateStr: string): Promise<DailyContext> {
+export async function buildContext(userId: string, dateArg: string | null): Promise<DailyContext> {
   const sb = getSupabaseAdmin();
 
   // Get user profile
@@ -187,11 +188,30 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     .eq("user_id", userId)
     .single();
 
-  // Get birth profile for house system
+  // Birth profile: house system + birth date (live Personal Day) + timezone
+  // (the user's LOCAL "today" — never the server's UTC date).
   const { data: birthProfile } = await sb.from("birth_profiles")
-    .select("house_system")
+    .select("house_system, birth_date, timezone")
     .eq("user_id", userId)
     .single();
+
+  // Callers that don't already know the user's local date pass null.
+  const dateStr = dateArg ?? todayInTz(birthProfile?.timezone as string | null);
+
+  // The blueprint froze Personal Day/Month/Year at compute time, but they cycle
+  // DAILY — overlay the live values for the reading date, or the same stale
+  // Personal Day would bias the same agreement theme every day forever.
+  const numerology = (blueprint?.numerology as NumerologyOutput | null) ?? null;
+  if (numerology && birthProfile?.birth_date) {
+    const birth = new Date(`${String(birthProfile.birth_date)}T12:00:00Z`);
+    const target = new Date(`${dateStr}T12:00:00Z`);
+    if (!isNaN(birth.getTime()) && !isNaN(target.getTime())) {
+      const cycles = personalCycles(birth, target);
+      numerology.personalYear = cycles.personalYear;
+      numerology.personalMonth = cycles.personalMonth;
+      numerology.personalDay = cycles.personalDay;
+    }
+  }
 
   const tarotCard = cardOfTheDay(userId, dateStr);
   // Moon phase is real astronomy derived from the date alone (no provider needed).
@@ -207,7 +227,7 @@ export async function buildContext(userId: string, dateStr: string): Promise<Dai
     date: dateStr,
     userName: profile?.preferred_name ?? profile?.full_name ?? "friend",
     astrology: blueprint?.astrology as AstrologyOutput | null ?? null,
-    numerology: blueprint?.numerology as NumerologyOutput | null ?? null,
+    numerology,
     chinese: blueprint?.chinese as ChineseOutput | null ?? null,
     bazi: (blueprint?.bazi as BaziOutput | null) ?? null,
     vedic: (blueprint?.vedic as VedicOutput | null) ?? null,
@@ -531,7 +551,7 @@ export async function generateChatResponse(
   userMessage: string,
   conversationHistory: ChatMessage[],
 ): Promise<{ content: string; systemsReferenced: string[] }> {
-  const ctx = await buildContext(userId, new Date().toISOString().split("T")[0]);
+  const ctx = await buildContext(userId, null);
 
   // Dynamic, privacy-minimised context: recent journal THEMES (not raw text),
   // the active focus, and (if the user owns it) the referenced connection's lens.

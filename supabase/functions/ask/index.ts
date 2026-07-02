@@ -8,6 +8,14 @@ import { requireAuth, createUserClient, AuthError } from "../_shared/auth.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { validateAskMessage } from "../_shared/schemas.ts";
 import { generateChatResponse } from "../_shared/synthesis/index.ts";
+import { hasPremiumAccess } from "../_shared/supabase.ts";
+import { bumpDailyUsage } from "../_shared/quota.ts";
+
+// Per-user daily message caps. Every message is a real LLM call, so an
+// unmetered endpoint is an open tab; premium gets generous headroom, free gets
+// a warm daily allowance (also the upgrade nudge the spec called for).
+const FREE_MESSAGES_PER_DAY = 15;
+const PREMIUM_MESSAGES_PER_DAY = 200;
 
 Deno.serve(async (req: Request) => {
   const preflight = handleCors(req);
@@ -58,6 +66,21 @@ Deno.serve(async (req: Request) => {
 
     const { conversation_id, message } = validation.data!;
 
+    // Daily cap BEFORE any LLM work. Fail-open when the counter is unavailable.
+    const used = await bumpDailyUsage(user.userId, "ask_message");
+    if (used !== null) {
+      const premium = await hasPremiumAccess(user.userId);
+      const cap = premium ? PREMIUM_MESSAGES_PER_DAY : FREE_MESSAGES_PER_DAY;
+      if (used > cap) {
+        return errorResponse(
+          premium
+            ? "You've reached today's conversation limit. Soluna will be ready to continue tomorrow."
+            : "You've used today's free questions. Upgrade to Premium for unlimited conversations, or come back tomorrow — Soluna will be here.",
+          429,
+        );
+      }
+    }
+
     // Get or create conversation
     let convId = conversation_id;
     if (!convId) {
@@ -83,29 +106,35 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Conversation not found", 404);
     }
 
-    // Save user message
-    const { error: msgErr } = await supabase.from("ask_messages").insert({
+    // Save user message (keep its id so history can exclude it — the message is
+    // passed to the model separately and must not appear twice).
+    const { data: savedMsg, error: msgErr } = await supabase.from("ask_messages").insert({
       conversation_id: convId,
       role: "user",
       content: message,
-    });
+    }).select("id").single();
 
     if (msgErr) {
       console.error("Failed to save user message:", msgErr.message);
     }
 
-    // Load conversation history for context
-    const { data: history } = await supabase.from("ask_messages")
-      .select("role, content, systems_referenced")
+    // Conversation context = the 20 MOST RECENT messages (chronological order),
+    // not the oldest 20 — otherwise Soluna remembers how a long conversation
+    // started but forgets everything the user just said.
+    let historyQuery = supabase.from("ask_messages")
+      .select("id, role, content, systems_referenced")
       .eq("conversation_id", convId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(20);
+    if (savedMsg?.id) historyQuery = historyQuery.neq("id", savedMsg.id);
+    const { data: recent } = await historyQuery;
+    const history = (recent ?? []).slice().reverse();
 
     // Generate response
     const response = await generateChatResponse(
       user.userId,
       message,
-      (history ?? []).map((m) => ({
+      history.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
         systemsReferenced: m.systems_referenced ?? [],

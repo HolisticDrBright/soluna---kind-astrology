@@ -18,6 +18,7 @@
  */
 
 import type { BaziInput, BaziOutput, BaziPillar, BaziLuckPillar } from "./bazi.ts";
+import { withProviderRetry } from "./astrology-providers.ts";
 
 export interface BaziFetchCtx {
   hash: string;
@@ -361,12 +362,16 @@ export async function fetchBazi(input: BaziInput, ctx: BaziFetchCtx): Promise<Ba
   // Bound the call so a hung/unreachable provider can't freeze the whole blueprint
   // computation (and the onboarding "weaving" screen) — computeBazi degrades to an
   // honest "unavailable" chart when this aborts.
-  const resp = await fetch(`${base}${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": key },
-    signal: AbortSignal.timeout(12_000),
-    body: JSON.stringify(body),
-  });
+  // Retry transient 429/5xx like every other provider call — a single rate-limit
+  // blip during an onboarding burst must not flap BaZi to "unavailable".
+  const resp = await withProviderRetry(() =>
+    fetch(`${base}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": key },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify(body),
+    })
+  );
   if (!resp.ok) {
     const errBody = await resp.text().catch(() => "");
     // Diagnostic: log the exact URL tried so a 404 reveals the wrong endpoint.

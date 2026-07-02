@@ -8,6 +8,8 @@ import { getSupabaseAdmin, logEvent } from "../_shared/supabase.ts";
 import { buildContext, detectAgreement, generateDailyReading } from "../_shared/synthesis/index.ts";
 import { deriveReadingAccuracy } from "../_shared/accuracy.ts";
 import { requireInternalSecret } from "../_shared/internal-auth.ts";
+import { computeDailyCosmos, dailyCosmosSignals, toHoroscopeBirth } from "../_shared/engines/daily-cosmos.ts";
+import { todayInTz } from "../_shared/dates.ts";
 
 Deno.serve(async (req: Request) => {
   const unauthorized = requireInternalSecret(req);
@@ -15,7 +17,6 @@ Deno.serve(async (req: Request) => {
 
   try {
     const sb = getSupabaseAdmin();
-    const today = new Date().toISOString().split("T")[0];
 
     // daily_time is the user's LOCAL time, so match it against each user's
     // current local hour (derived from their tz) — never the server's UTC hour,
@@ -48,7 +49,11 @@ Deno.serve(async (req: Request) => {
     }
 
     let generated = 0;
-    for (const { user_id } of users) {
+    for (const { user_id, tz } of users) {
+      // The reading is dated in the USER's calendar (their tz already drove the
+      // hour match above) so /today's cache lookup finds it all day long.
+      const today = todayInTz(tz ?? null);
+
       // Check if reading already exists for today
       const { data: existing } = await sb.from("daily_readings")
         .select("id")
@@ -60,6 +65,17 @@ Deno.serve(async (req: Request) => {
 
       try {
         const ctx = await buildContext(user_id, today);
+
+        // Same real transit signals /today fetches (moon, personal horoscope,
+        // BaZi day pillar) — without this, every push-user's reading would
+        // permanently lack the Today's Sky sections and read less "today".
+        const { data: bp } = await sb.from("birth_profiles")
+          .select("birth_date, birth_time, time_known, birth_place_label, lat, lng, timezone")
+          .eq("user_id", user_id)
+          .single();
+        const cosmos = await computeDailyCosmos(bp ? toHoroscopeBirth(bp) : null, today);
+        ctx.dailyCosmos = dailyCosmosSignals(cosmos.moon, cosmos.horoscope, cosmos.baziToday);
+
         const agreements = detectAgreement(ctx);
         const reading = await generateDailyReading(ctx, agreements);
         const accuracy = deriveReadingAccuracy(ctx.astrology);
@@ -80,6 +96,9 @@ Deno.serve(async (req: Request) => {
             name: ctx.tarotCard.name,
             meaning: ctx.tarotCard.meaning,
           } : null,
+          moon: cosmos.moon,
+          horoscope: cosmos.horoscope,
+          bazi_today: cosmos.baziToday,
           accuracy_level: accuracy.accuracy_level,
           missing_inputs: accuracy.missing_inputs,
           confidence_notes: accuracy.confidence_notes,

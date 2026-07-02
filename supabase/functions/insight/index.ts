@@ -29,18 +29,10 @@ Deno.serve(async (req: Request) => {
       return errorResponse(`Invalid system. Must be one of: ${validSystems.join(", ")}`, 400);
     }
 
-    // Check cache first
-    const { data: cached } = await supabase.from("insights")
-      .select("*")
-      .eq("system", system)
-      .eq("item_key", key)
-      .single();
-
-    if (cached) {
-      return jsonResponse(cached);
-    }
-
-    // Get detail from placements
+    // Get detail from placements FIRST — the cache key must include the
+    // placement's VALUE. A key like "life_path" alone would cache the first
+    // user's "Life Path 8" text and serve it to every Life Path 3 user forever
+    // (cross-user leakage of chart-derived content).
     const { data: placement } = await supabase.from("placements")
       .select("detail, label")
       .eq("system", system)
@@ -48,22 +40,45 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     const detail = (placement?.detail as Record<string, unknown>) ?? {};
+    const valueSig = [
+      detail.sign, detail.number, detail.animal, detail.element,
+      detail.type, detail.authority, detail.profile, detail.strategy,
+    ].find((v) => v !== undefined && v !== null && v !== "");
+    const cacheKey = valueSig !== undefined
+      ? `${key}::${String(valueSig).toLowerCase().replace(/[^a-z0-9]+/g, "_")}`
+      : null;
+
+    // Check cache (only when the key is value-scoped).
+    if (cacheKey) {
+      const { data: cached } = await supabase.from("insights")
+        .select("*")
+        .eq("system", system)
+        .eq("item_key", cacheKey)
+        .single();
+      if (cached) {
+        return jsonResponse(cached);
+      }
+    }
 
     // Generate via LLM
     const insight = await generateInsight(system, key, detail);
 
-    // Cache it
+    // Cache it — but never under a value-less key (see above).
     const sbAdmin = getSupabaseAdmin();
-    const { data: saved } = await sbAdmin.from("insights")
-      .upsert({
-        system,
-        item_key: key,
-        body: insight.body,
-        why: insight.why,
-        cached: true,
-      }, { onConflict: "system, item_key" })
-      .select()
-      .single();
+    let saved: Record<string, unknown> | null = null;
+    if (cacheKey) {
+      const { data } = await sbAdmin.from("insights")
+        .upsert({
+          system,
+          item_key: cacheKey,
+          body: insight.body,
+          why: insight.why,
+          cached: true,
+        }, { onConflict: "system, item_key" })
+        .select()
+        .single();
+      saved = data;
+    }
 
     await logEvent("insight_generated", { system, key }, user.userId);
 
