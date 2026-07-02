@@ -137,7 +137,14 @@ function buildChartData(astrology: Record<string, unknown> | null): ChartData | 
     const planet = asPlanet(p?.planet);
     const sign = asZodiac(p?.sign);
     if (!p || !planet || !sign) return [];
-    return [{ planet, sign, house: toFiniteNumber(p.house, 0), degree: toFiniteNumber(p.degree, 0) }];
+    // house: null means "birth time unknown" — keep it null (coercing to 0
+    // produced "House 0" / "0th house" text across the app).
+    const houseNum = Number(p.house);
+    return [{
+      planet, sign,
+      house: p.house != null && Number.isFinite(houseNum) ? houseNum : null,
+      degree: toFiniteNumber(p.degree, 0),
+    }];
   });
 
   const sun = placements.find((p) => p.planet === "Sun");

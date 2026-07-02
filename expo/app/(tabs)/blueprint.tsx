@@ -6,7 +6,7 @@ import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS, SOLAR_RETURN_ASC_THEMES, SOLAR_RETURN_SUN_HOUSE } from "@/constants/mockData";
-import type { ZodiacSign, BaziView, VedicView, UserData } from "@/constants/mockData";
+import type { ZodiacSign, BaziView, VedicView, UserData, ChartData } from "@/constants/mockData";
 import ConfidencePill from "@/components/ConfidencePill";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import PremiumGateCard from "@/components/PremiumGateCard";
@@ -30,36 +30,55 @@ function ordinal(n: number): string {
 }
 
 // ─── Natal Chart Wheel ─────────────────────────────────────
-function NatalChartWheel({ size }: { size: number }) {
+function NatalChartWheel({ size, chart }: { size: number; chart: ChartData }) {
   const chartRadius = Math.max(size / 2, 50);
   const cx = Math.round(size / 2), cy = Math.round(size / 2);
   const ringOuter = Math.max(chartRadius - 4, 2), ringInner = Math.max(ringOuter - 38, 2);
-  const houseRing = Math.max(ringInner - 2, 2), houseInner = Math.max(houseRing - 30, 2), innerRing = Math.max(houseInner - 6, 2);
+  const innerRing = Math.max(ringInner - 44, 2);
+
+  // The user's REAL Big Three light their signs on the ring.
+  const activeSigns = useMemo(() => new Set<string>(
+    [chart.sun?.sign, chart.moon?.sign, chart.rising ?? undefined].filter(Boolean) as string[],
+  ), [chart]);
 
   const zodiacSegments = useMemo(() => ZODIAC.map((sign, i) => {
     const startAngleDeg = i * 30 - 105;
     const midRad = (startAngleDeg + 15) * (Math.PI / 180);
     const mx = cx + (ringOuter - 18) * Math.cos(midRad), my = cy + (ringOuter - 18) * Math.sin(midRad);
-    const isActive = sign === "Cancer" || sign === "Pisces" || sign === "Libra";
-    const startRad = startAngleDeg * (Math.PI / 180), endRad = (startAngleDeg + 30) * (Math.PI / 180);
-    return { sign, startRad, endRad, mx, my, isActive };
-  }), [cx, cy, ringOuter]);
+    const startRad = startAngleDeg * (Math.PI / 180);
+    return { sign, startRad, mx, my, isActive: activeSigns.has(sign) };
+  }), [cx, cy, ringOuter, activeSigns]);
 
-  const houseCusps = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ house: i + 1, rad: (i * 30 - 105) * (Math.PI / 180) })), []);
-  const planetPositions = [
-    { label: "\u2609", angle: 0, dist: Math.max(innerRing - 6, 2), big: true },
-    { label: "\u263D", angle: 60, dist: Math.max(innerRing - 16, 2), big: true },
-    { label: "\u263F", angle: 85, dist: Math.max(innerRing - 6, 2), big: true },
-    { label: "\u2640", angle: 135, dist: Math.max(innerRing - 10, 2), big: false },
-    { label: "\u2642", angle: 170, dist: Math.max(innerRing - 16, 2), big: false },
-    { label: "\u2643", angle: 220, dist: Math.max(innerRing - 6, 2), big: false },
-    { label: "\u2644", angle: 260, dist: Math.max(innerRing - 12, 2), big: false },
-    { label: "\u2645", angle: 290, dist: Math.max(innerRing - 16, 2), big: false },
-    { label: "\u2646", angle: 320, dist: Math.max(innerRing - 6, 2), big: false },
-    { label: "\u2647", angle: 350, dist: Math.max(innerRing - 14, 2), big: false },
-  ];
+  // Every planet drawn at its REAL ecliptic position: sign index × 30° + degree,
+  // in the same frame as the ring (Aries starts at −105°). Radii alternate so
+  // conjunct planets stay legible.
+  const planetGlyphs = useMemo(() => chart.placements.flatMap((pl, i) => {
+    const signIdx = ZODIAC.indexOf(pl.sign);
+    if (signIdx < 0) return [];
+    const deg = Math.min(Math.max(pl.degree, 0), 29.9);
+    const rad = (signIdx * 30 + deg - 105) * (Math.PI / 180);
+    const big = pl.planet === "Sun" || pl.planet === "Moon";
+    const dist = Math.max(innerRing + (i % 3) * 13 + (big ? 2 : 0), 2);
+    return [{
+      key: pl.planet,
+      label: PLANET_SYMBOLS[pl.planet] ?? "\u2726",
+      x: cx + dist * Math.cos(rad),
+      y: cy + dist * Math.sin(rad),
+      big,
+    }];
+  }), [chart.placements, cx, cy, innerRing]);
 
-  if (size <= 0 || chartRadius <= 0) return null;
+  // Rising: mark the Ascendant's sign (we know the sign, not the exact cusp
+  // degree, so the marker sits honestly at mid-sign).
+  const ascMark = useMemo(() => {
+    if (!chart.rising) return null;
+    const idx = ZODIAC.indexOf(chart.rising);
+    if (idx < 0) return null;
+    const rad = (idx * 30 + 15 - 105) * (Math.PI / 180);
+    return { x: cx + (ringOuter + 12) * Math.cos(rad), y: cy + (ringOuter + 12) * Math.sin(rad) };
+  }, [chart.rising, cx, cy, ringOuter]);
+
+  if (size <= 0 || chartRadius <= 0 || chart.placements.length === 0) return null;
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -72,27 +91,18 @@ function NatalChartWheel({ size }: { size: number }) {
       ))}
       <Circle cx={cx} cy={cy} r={ringOuter} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1.5} />
       <Circle cx={cx} cy={cy} r={ringInner} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-      <Circle cx={cx} cy={cy} r={houseRing} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-      <Circle cx={cx} cy={cy} r={houseInner} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-      {houseCusps.map((h) => (
-        <G key={`h${h.house}`}>
-          <Line x1={cx + houseInner * Math.cos(h.rad)} y1={cy + houseInner * Math.sin(h.rad)} x2={cx + houseRing * Math.cos(h.rad)} y2={cy + houseRing * Math.sin(h.rad)} stroke="rgba(255,255,255,0.08)" strokeWidth={0.5} />
-          <SvgText x={cx + (houseInner + 12) * Math.cos(h.rad)} y={cy + (houseInner + 12) * Math.sin(h.rad)} fill={SolunaColors.creamSubtle} fontSize={7} textAnchor="middle">{h.house}</SvgText>
-        </G>
-      ))}
       <Circle cx={cx} cy={cy} r={innerRing} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={18} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />
       <SvgText x={cx} y={cy} fill={SolunaColors.warmGold} fontSize={10} textAnchor="middle" fontWeight="bold">{"\u2609"}</SvgText>
-      {planetPositions.map((p, i) => {
-        const rad = (p.angle - 90) * (Math.PI / 180);
-        const px = cx + p.dist * Math.cos(rad), py = cy + p.dist * Math.sin(rad);
-        return (
-          <G key={i}>
-            {p.big && <Circle cx={px} cy={py} r={12} fill="rgba(232,184,109,0.06)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />}
-            <SvgText x={px} y={py} fill={p.big ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={p.big ? 14 : 12} textAnchor="middle" fontWeight={p.big ? "bold" : "normal"}>{p.label}</SvgText>
-          </G>
-        );
-      })}
+      {ascMark && (
+        <SvgText x={ascMark.x} y={ascMark.y} fill={SolunaColors.softPeach} fontSize={8} fontWeight="bold" textAnchor="middle">ASC</SvgText>
+      )}
+      {planetGlyphs.map((g) => (
+        <G key={g.key}>
+          {g.big && <Circle cx={g.x} cy={g.y} r={12} fill="rgba(232,184,109,0.06)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />}
+          <SvgText x={g.x} y={g.y} fill={g.big ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={g.big ? 14 : 12} textAnchor="middle" fontWeight={g.big ? "bold" : "normal"}>{g.label}</SvgText>
+        </G>
+      ))}
     </Svg>
   );
 }
@@ -100,22 +110,32 @@ function NatalChartWheel({ size }: { size: number }) {
 // ─── BodyGraph ─────────────────────────────────────────────
 const BG_W = 260; const BG_H = 260;
 
-function BodyGraph() {
-  const centerPositions = [
-    { name: "Head", x: BG_W / 2, y: 28, defined: false }, { name: "Ajna", x: BG_W / 2, y: 68, defined: false },
-    { name: "Throat", x: BG_W / 2, y: 118, defined: true }, { name: "G", x: BG_W / 2, y: 168, defined: true },
-    { name: "Heart", x: BG_W / 2 - 46, y: 138, defined: false }, { name: "Sacral", x: BG_W / 2, y: 198, defined: true },
-    { name: "Solar Plex", x: BG_W / 2 + 46, y: 155, defined: true }, { name: "Spleen", x: BG_W / 2 - 46, y: 185, defined: false },
-    { name: "Root", x: BG_W / 2, y: 238, defined: true },
+function BodyGraph({ centers }: { centers: { name: string; defined: boolean }[] }) {
+  // Canonical center names (state layer) → graph slots. Defined/open comes from
+  // the USER's chart — this graph must agree with the tappable grid below it.
+  const definedByName = new Map(centers.map((c) => [c.name, c.defined]));
+  const slots: { canonical: string; label: string; x: number; y: number }[] = [
+    { canonical: "Head", label: "Head", x: BG_W / 2, y: 28 },
+    { canonical: "Ajna", label: "Ajna", x: BG_W / 2, y: 68 },
+    { canonical: "Throat", label: "Throat", x: BG_W / 2, y: 118 },
+    { canonical: "G Center", label: "G", x: BG_W / 2, y: 168 },
+    { canonical: "Heart/Ego", label: "Heart", x: BG_W / 2 - 46, y: 138 },
+    { canonical: "Sacral", label: "Sacral", x: BG_W / 2, y: 198 },
+    { canonical: "Solar Plexus", label: "Solar Plex", x: BG_W / 2 + 46, y: 155 },
+    { canonical: "Spleen", label: "Spleen", x: BG_W / 2 - 46, y: 185 },
+    { canonical: "Root", label: "Root", x: BG_W / 2, y: 238 },
   ];
   return (
     <Svg width={BG_W} height={BG_H} viewBox={`0 0 ${BG_W} ${BG_H}`}>
-      {centerPositions.map((c) => (
-        <G key={c.name}>
-          <Circle cx={c.x} cy={c.y} r={15} fill={c.defined ? "rgba(232,184,109,0.1)" : "rgba(255,255,255,0.03)"} stroke={c.defined ? "rgba(232,184,109,0.25)" : "rgba(255,255,255,0.06)"} strokeWidth={1} />
-          <SvgText x={c.x} y={c.y} fill={c.defined ? SolunaColors.warmGold : SolunaColors.creamSubtle} fontSize={7} textAnchor="middle">{c.name}</SvgText>
-        </G>
-      ))}
+      {slots.map((c) => {
+        const defined = definedByName.get(c.canonical) ?? false;
+        return (
+          <G key={c.canonical}>
+            <Circle cx={c.x} cy={c.y} r={15} fill={defined ? "rgba(232,184,109,0.1)" : "rgba(255,255,255,0.03)"} stroke={defined ? "rgba(232,184,109,0.25)" : "rgba(255,255,255,0.06)"} strokeWidth={1} />
+            <SvgText x={c.x} y={c.y} fill={defined ? SolunaColors.warmGold : SolunaColors.creamSubtle} fontSize={7} textAnchor="middle">{c.label}</SvgText>
+          </G>
+        );
+      })}
       <Line x1={BG_W / 2} y1={43} x2={BG_W / 2} y2={103} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
       <Line x1={BG_W / 2} y1={133} x2={BG_W / 2} y2={153} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
       <Line x1={BG_W / 2 - 30} y1={148} x2={BG_W / 2 - 15} y2={162} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
@@ -275,8 +295,12 @@ function BlueprintContent() {
         {/* ── Astrology ── */}
         {lens === "astrology" && user.chart && (
           <View>
-            <View style={s.chartWrap}><NatalChartWheel size={300} /></View>
-            <ConfidencePill level="verified" />
+            {user.chart.placements.length > 0 && (
+              <>
+                <View style={s.chartWrap}><NatalChartWheel size={300} chart={user.chart} /></View>
+                <ConfidencePill level={timeConfidence} />
+              </>
+            )}
 
             <Text style={s.sectionLabel}>Big Three</Text>
             {([
@@ -319,7 +343,7 @@ function BlueprintContent() {
                   <Text style={s.glyphText}>{glyph}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={s.placementName}>{p.planet}</Text>
-                    <Text style={s.placementDetail}>{symbol} {p.sign} · {p.degree}° · House {p.house}</Text>
+                    <Text style={s.placementDetail}>{symbol} {p.sign} · {p.degree}°{p.house != null ? ` · House ${p.house}` : ""}</Text>
                   </View>
                   <ChevronRight size={14} color={SolunaColors.creamSubtle} />
                 </TouchableOpacity>
@@ -422,7 +446,7 @@ function BlueprintContent() {
         {/* ── Human Design ── */}
         {lens === "humanDesign" && user.humanDesign && (
           <View>
-            <View style={s.bgWrap}><BodyGraph /></View>
+            <View style={s.bgWrap}><BodyGraph centers={user.humanDesign.centers ?? []} /></View>
             <View style={s.confidenceRow}>
               <ConfidencePill level={timeConfidence} showDetail />
               {!user.birthTimeKnown && <Text style={s.confidenceNote}>Human Design accuracy depends on exact birth time</Text>}

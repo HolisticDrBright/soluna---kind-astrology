@@ -24,7 +24,7 @@ import ComingSoon from "@/components/ComingSoon";
 import { Sparkles, ChevronLeft, MessageCircle, Star } from "lucide-react-native";
 
 // ─── Generic interpretation for placements without custom text ──
-function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number): {
+function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number | null): {
   description: string;
   strengths: string[];
   growthEdge: string;
@@ -56,6 +56,18 @@ function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: numbe
     Aquarius: "innovative, humanitarian, and refreshingly original",
     Pisces: "compassionate, creative, and deeply soulful",
   };
+
+  // Birth time unknown → no house (never guessed): interpret sign + planet only.
+  if (house == null) {
+    return {
+      description: `Your ${planet} in ${sign} means ${planetMeanings[planet]} expresses itself through the lens of ${sign.toLowerCase()} energy — ${signQualities[sign]}. Add your birth time to see which house (life area) this placement colors.\n\nEvery placement in your chart tells part of your story, and this one is a meaningful thread. Take what resonates — your lived experience is the real interpreter here.`,
+      strengths: [
+        `A natural ${signQualities[sign].split(",")[0]} approach to life`,
+        `The ability to bring ${planet.toLowerCase()} energy into your day with grace`,
+      ],
+      growthEdge: `With ${planet} in ${sign}, you might sometimes feel the pull between your natural ${sign.toLowerCase()} expression and what the world expects. Remember that your chart is not a rulebook — it's an invitation to understand yourself more deeply.`,
+    };
+  }
 
   return {
     description: `Your ${planet} in ${sign} lives in your ${house}${["th","st","nd","rd"][house%10>3?0:house%10]||"th"} house, the ${HOUSE_NAMES[house]?.toLowerCase() || `${house}th house`}. This means ${planetMeanings[planet]} expresses itself through the lens of ${sign.toLowerCase()} energy — ${signQualities[sign]}. When filtered through your ${house}${["th","st","nd","rd"][house%10>3?0:house%10]||"th"} house, this placement colors how you experience ${HOUSE_NAMES[house]?.toLowerCase() || `this area of life`}.\n\nEvery placement in your chart tells part of your story, and this one is a meaningful thread. Take what resonates — your lived experience is the real interpreter here.`,
@@ -188,11 +200,9 @@ export default function PlacementDetailScreen() {
             {ZODIAC_SYMBOLS[placement.sign]} {placement.sign}
           </Text>
           <Text style={styles.heroHouse}>
-            {placement.house}
-            {["th", "st", "nd", "rd"][
-              placement.house % 10 > 3 ? 0 : placement.house % 10
-            ] || "th"}{" "}
-            House · {placement.degree}°
+            {placement.house != null
+              ? `${placement.house}${["th", "st", "nd", "rd"][placement.house % 10 > 3 ? 0 : placement.house % 10] || "th"} House · ${placement.degree}°`
+              : `${placement.degree}° · add birth time for house`}
           </Text>
         </View>
 

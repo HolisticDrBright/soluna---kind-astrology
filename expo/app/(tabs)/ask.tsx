@@ -148,14 +148,14 @@ function AskContent() {
   const { user } = useAppState();
   const { prompt: deepLinkPrompt } = useLocalSearchParams<{ prompt?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>(USE_MOCK_DATA ? [...MOCK_CHAT_HISTORY] : []);
-  const [input, setInput] = useState(deepLinkPrompt ?? "");
+  const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<ChatError>(null);
   const [showPrompts, setShowPrompts] = useState(true);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [lastQuestion, setLastQuestion] = useState("");
   const scrollRef = useRef<ScrollView>(null);
-  const deepLinkSent = useRef(false);
+  const lastDeepLinkRef = useRef<string | null>(null);
 
   // Build personalized prompts from user blueprint
   const personalizedPrompts = useMemo(() => {
@@ -241,10 +241,12 @@ function AskContent() {
     void runAsk(p, false);
   }, [isTyping, runAsk]);
 
-  // Deep-link auto-send (once)
+  // Deep-link auto-send. Keyed by the prompt VALUE (not a one-shot flag): the
+  // Ask tab stays mounted, so every "Ask Soluna about this" tap after the first
+  // used to arrive here and silently do nothing.
   useEffect(() => {
-    if (deepLinkPrompt && !deepLinkSent.current) {
-      deepLinkSent.current = true;
+    if (deepLinkPrompt && lastDeepLinkRef.current !== deepLinkPrompt) {
+      lastDeepLinkRef.current = deepLinkPrompt;
       const t = setTimeout(() => { void runAsk(deepLinkPrompt, false); }, 400);
       return () => clearTimeout(t);
     }
@@ -314,8 +316,8 @@ function AskContent() {
           </View>
         )}
 
-        {/* Focus entry */}
-        {showPrompts && (
+        {/* Focus entry — demo-only until the Focus result screen is live. */}
+        {showPrompts && USE_MOCK_DATA && (
           <TouchableOpacity
             style={st.focusEntry}
             onPress={() => router.push("/focus/setup")}

@@ -60,7 +60,10 @@ export const HOUSE_NAMES: Record<number, string> = {
 };
 
 export interface Placement {
-  planet: Planet; sign: ZodiacSign; house: number; degree: number;
+  planet: Planet; sign: ZodiacSign;
+  /** Null when birth time is unknown — houses need an exact time (never guessed). */
+  house: number | null;
+  degree: number;
 }
 export interface ChartData {
   sun: Placement;
@@ -1178,9 +1181,9 @@ export const CITY_COORDS: Record<string, { lat: number; lng: number; timezone: s
 export type OnboardingStep =
   | "welcome" | "fullName" | "preferredName" | "birthdate" | "birthtime" | "birthplace" | "calculating" | "reveal";
 
-export function getPlacementInterpretation(planet: Planet, sign: ZodiacSign, house: number): PlacementInterpretation | null {
-  const key = `${planet}-${sign}-${house}`;
-  if (PLACEMENT_INTERPRETATIONS[key]) return PLACEMENT_INTERPRETATIONS[key];
+export function getPlacementInterpretation(planet: Planet, sign: ZodiacSign, house: number | null): PlacementInterpretation | null {
+  const key = house != null ? `${planet}-${sign}-${house}` : "";
+  if (key && PLACEMENT_INTERPRETATIONS[key]) return PLACEMENT_INTERPRETATIONS[key];
   const partialKey = `${planet}-${sign}`;
   const partial = Object.entries(PLACEMENT_INTERPRETATIONS).find(([k]) => k.startsWith(partialKey));
   return partial ? partial[1] : null;

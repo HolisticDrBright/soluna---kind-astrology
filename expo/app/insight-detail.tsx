@@ -16,7 +16,7 @@ import ComingSoon from "@/components/ComingSoon";
 import { Sparkles, ChevronLeft, MessageCircle } from "lucide-react-native";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 
-function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number) {
+function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: number | null) {
   const planetMeanings: Record<Planet, string> = {
     Sun: "your core self — your identity, vitality, and the essence of who you are",
     Moon: "your emotional world — how you feel, what you need to feel safe, and how you nurture yourself",
@@ -37,6 +37,18 @@ function getGenericInterpretation(planet: Planet, sign: ZodiacSign, house: numbe
     Sagittarius: "adventurous, optimistic, and wisdom-seeking", Capricorn: "determined, wise, and quietly powerful",
     Aquarius: "innovative, humanitarian, and refreshingly original", Pisces: "compassionate, creative, and deeply soulful",
   };
+  // Birth time unknown → no house (never guessed): interpret sign + planet only.
+  if (house == null) {
+    return {
+      description: `Your ${planet} in ${sign} means ${planetMeanings[planet]} expresses itself through the lens of ${sign.toLowerCase()} energy — ${signQualities[sign]}. Add your birth time to see which house (life area) this placement colors.\n\nEvery placement in your chart tells part of your story, and this one is a meaningful thread. Take what resonates — your lived experience is the real interpreter here.`,
+      strengths: [
+        `A natural ${signQualities[sign].split(",")[0]} approach to life`,
+        `The ability to bring ${planet.toLowerCase()} energy into your day with grace`,
+      ],
+      growthEdge: `With ${planet} in ${sign}, you might sometimes feel the pull between your natural ${sign.toLowerCase()} expression and what the world expects. Remember that your chart is not a rulebook — it's an invitation to understand yourself more deeply.`,
+    };
+  }
+
   const suffixes = ["th", "st", "nd", "rd"];
   const suffix = suffixes[house % 10 > 3 ? 0 : house % 10] ?? "th";
   return {
@@ -130,13 +142,13 @@ export default function InsightDetailScreen() {
     sign: string; house: string; year: string; moon: string;
   }>();
   const { user } = useAppState();
-  if (!user || !type) return null;
+  if (!user || !type) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
 
   // ── Number insight ──
   if (type === "number" && number) {
     const num = parseInt(number, 10);
     const info = NUMBER_MEANINGS[num];
-    if (!info) return null;
+    if (!info) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     return (
       <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
         <ScrollView contentContainerStyle={s.scrollContent}>
@@ -170,7 +182,7 @@ export default function InsightDetailScreen() {
     const rawEl = dm?.element ?? "";
     const el = rawEl ? rawEl.charAt(0).toUpperCase() + rawEl.slice(1).toLowerCase() : "";
     const info = BAZI_ELEMENT_MEANINGS[el];
-    if (!dm || !info) return null;
+    if (!dm || !info) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     return (
       <DetailView
         glyph="☯"
@@ -192,7 +204,7 @@ export default function InsightDetailScreen() {
   // ── BaZi: a single pillar ──
   if (type === "bazi-pillar" && value) {
     const info = BAZI_PILLAR_MEANINGS[value];
-    if (!info) return null;
+    if (!info) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     const pillar = user.bazi?.pillars?.find((p) => p.label === value);
     const pillarLine = pillar
       ? `Your ${value} Pillar: ${[pillar.stem, pillar.branch].filter(Boolean).join("")}${pillar.animal ? ` · ${pillar.animal}` : ""}${pillar.element ? ` · ${pillar.element}` : ""}.`
@@ -216,7 +228,7 @@ export default function InsightDetailScreen() {
   // ── Human Design facets ──
   if (type === "hd" && facet) {
     const hd = user.humanDesign;
-    if (!hd) return null;
+    if (!hd) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     if (facet === "type") {
       const info = HD_INTERPRETATIONS[hd.type];
       return (
@@ -240,7 +252,7 @@ export default function InsightDetailScreen() {
       );
     }
     if (facet === "authority") {
-      const label = (hd.authority || "").split(/[—–-]/)[0].trim();
+      const label = (hd.authority || "").split(/[—–]/)[0].trim();
       return (
         <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold} kicker="Human Design · Authority" title={label || "Authority"}
           body={hd.authorityDescription || HD_AUTHORITY_MEANINGS[label] || ""}
@@ -265,7 +277,7 @@ export default function InsightDetailScreen() {
     }
     if (facet === "center" && value) {
       const info = HD_CENTER_MEANINGS[value];
-      if (!info) return null;
+      if (!info) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
       const defined = !!hd.centers?.find((x) => x.name === value)?.defined;
       return (
         <DetailView glyph="⚡" glyphColor={SolunaColors.warmGold}
@@ -276,17 +288,17 @@ export default function InsightDetailScreen() {
           resonanceId={`hd-center-${value}`} systems={["human_design"]} />
       );
     }
-    return null;
+    return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
   }
 
   // ── Vedic facets ──
   if (type === "vedic" && kind) {
     const v = user.vedic;
-    if (!v?.available) return null;
+    if (!v?.available) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     if (kind === "moon" || kind === "nakshatra") {
       const nak = kind === "moon" ? (v.moonNakshatra ?? value) : value;
       const info = nak ? NAKSHATRA_MEANINGS[nak] : undefined;
-      if (!nak || !info) return null;
+      if (!nak || !info) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
       return (
         <DetailView glyph="☾" kicker={kind === "moon" ? "Vedic · Moon Nakshatra" : "Vedic · Nakshatra"} title={nak} meta="Lunar mansion"
           body={info.description} strengths={info.strengths} growthEdge={info.growthEdge}
@@ -309,7 +321,7 @@ export default function InsightDetailScreen() {
     }
     if (kind === "planet" && value) {
       const p = v.planets.find((x) => x.planet === value);
-      if (!p) return null;
+      if (!p) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
       const nakInfo = p.nakshatra ? NAKSHATRA_MEANINGS[p.nakshatra] : undefined;
       return (
         <DetailView glyph={PLANET_SYMBOLS[value as Planet] ?? "✦"} kicker="Vedic · Sidereal Placement" title={`${value} in ${p.sign}`}
@@ -352,7 +364,7 @@ export default function InsightDetailScreen() {
           resonanceId={`vedic-strength-${strong.planet}`} systems={["vedic"]} />
       );
     }
-    return null;
+    return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
   }
 
   // ── Solar Return ("year ahead") insight ── (data passed via params from the card)
@@ -427,7 +439,7 @@ export default function InsightDetailScreen() {
   // ── Astrology placement insight ──
   if (type === "placement" && planet) {
     const placement = user.chart?.placements.find((p) => p.planet === planet);
-    if (!placement) return null;
+    if (!placement) return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
     const interp =
       getPlacementInterpretation(placement.planet, placement.sign, placement.house) ??
       getGenericInterpretation(placement.planet, placement.sign, placement.house);
@@ -492,7 +504,7 @@ export default function InsightDetailScreen() {
     );
   }
 
-  return null;
+  return <ComingSoon title="Nothing to show here" description="This insight isn't available yet — it may need more birth details or a refreshed blueprint." />;
 }
 
 const s = StyleSheet.create({

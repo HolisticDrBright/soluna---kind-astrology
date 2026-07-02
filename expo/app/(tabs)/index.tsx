@@ -27,11 +27,20 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getToday } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
+import { formatISODateWeekday } from "@/lib/dates";
 import { router } from "expo-router";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import { ChevronDown, ChevronUp, ChevronRight, Target } from "lucide-react-native";
 
 const USE_MOCK_DATA = isDemoMode;
+
+/** "Good morning" at 9pm reads like a bug — greet by the actual hour. */
+function greetingForHour(h: number): string {
+  if (h < 5) return "Good night";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 // ─── Section IDs for accordion ──────────────────────────────────
 type SectionKey = "cosmic" | "tarot" | "energy" | "affirm" | "dwell";
@@ -45,6 +54,8 @@ interface CosmicView {
 }
 
 interface TodayView {
+  /** The reading's own date (server, user-local) — the header renders THIS. */
+  readingDate: string | null;
   heroText: string;
   tryToday: string | null;
   affirmation: string;
@@ -182,6 +193,7 @@ export default function TodayScreen() {
     if (USE_MOCK_DATA) {
       const r = DAILY_READINGS.find((x) => x.date === "2026-06-24") ?? DAILY_READINGS[0];
       return {
+        readingDate: r.date,
         heroText: r.reading,
         tryToday: r.do,
         affirmation: r.affirmation,
@@ -248,6 +260,7 @@ export default function TodayScreen() {
       : null;
 
     return {
+      readingDate: typeof d.reading_date === "string" ? d.reading_date : null,
       heroText: String(d.hero_text ?? ""),
       tryToday: dee?.do?.[0] ?? null,
       affirmation: String(d.affirmation ?? ""),
@@ -319,13 +332,15 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Greeting ─── */}
-        <Text style={st.greeting}>Good morning, {user.preferredName}</Text>
+        <Text style={st.greeting}>{greetingForHour(new Date().getHours())}, {user.preferredName}</Text>
         <Text style={st.date}>
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
+          {view?.readingDate
+            ? formatISODateWeekday(view.readingDate)
+            : new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
         </Text>
 
         {/* ─── Mood Check-In ─── */}
@@ -360,11 +375,17 @@ export default function TodayScreen() {
                 }
               </Text>
               <Text style={st.moodFeedbackHint}>
-                I'll tune today's insights to feel more{" "}
-                {moodSupport.toLowerCase()}.
+                {view && (todayQuery.loading || todayQuery.reloading)
+                  ? `Re-tuning today's reading to feel more ${moodSupport.toLowerCase()}…`
+                  : `I'll tune today's insights to feel more ${moodSupport.toLowerCase()}.`}
               </Text>
             </View>
           )}
+          {view && todayQuery.error ? (
+            <Text style={st.moodFeedbackHint}>
+              Couldn't re-tune just now — showing your reading as written. Pull to refresh to try again.
+            </Text>
+          ) : null}
         </View>
 
         {/* ─── Today's reading (real data with loading/empty/error/retry) ─── */}
@@ -478,6 +499,9 @@ export default function TodayScreen() {
             {USE_MOCK_DATA ? <SolunaShiftCard date="2026-06-24" /> : null}
 
             {/* ─── Soluna Focus Entry ─── */}
+            {/* Demo-only: the Focus result screen is not live yet, and inviting a
+                user into a 5-step wizard that ends in "coming soon" is a dead end. */}
+            {USE_MOCK_DATA && (
             <TouchableOpacity
               style={st.focusEntry}
               onPress={() => router.push("/focus/setup")}
@@ -494,6 +518,7 @@ export default function TodayScreen() {
               </View>
               <ChevronRight size={16} color={SolunaColors.creamSubtle} />
             </TouchableOpacity>
+            )}
 
             {/* ─── Your Big Three ─── */}
             {bigThree && (

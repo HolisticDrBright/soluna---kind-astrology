@@ -32,3 +32,17 @@ export function formatISODateLong(iso: string): string {
   const [y, mo, d] = p;
   return `${MONTHS[mo - 1]} ${d}, ${y}`;
 }
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_SHORT = MONTHS;
+
+/** "2026-07-02" → "Thursday, July 2" — by calendar parts (never shifts the day).
+ *  Used for the Today header so the date shown always matches the reading's
+ *  actual reading_date. Falls back to the raw string if malformed. */
+export function formatISODateWeekday(iso: string): string {
+  const p = parts(iso);
+  if (!p) return iso;
+  const [y, mo, d] = p;
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, mo - 1, d)).getUTCDay()];
+  return `${weekday}, ${MONTHS_SHORT[mo - 1]} ${d}`;
+}
