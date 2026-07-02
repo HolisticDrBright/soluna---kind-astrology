@@ -320,7 +320,7 @@ build + live keys to verify on a device.
 
 ### July 2026 wave: quotas, mood-variant caching, user-local dates
 
-- Apply `supabase/migrations/20260702_quotas_and_mood_variants.sql` (also in the
+- Apply `supabase/migrations/20260702000000_quotas_and_mood_variants.sql` (also in the
   ALL_MIGRATIONS.sql bundle). It adds `daily_readings.mood_variants` plus the
   `usage_counters` table + `increment_usage()` function behind the new per-user
   daily LLM caps (Ask: 15 free / 200 premium; mood reframes: 20/day). Both caps
