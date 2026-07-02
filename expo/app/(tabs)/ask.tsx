@@ -7,7 +7,7 @@ import { Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@
 import { MOCK_CHAT_HISTORY } from "@/constants/demoData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
-import { askSoluna } from "@/lib/api";
+import { getAskHistory, askSoluna } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 
@@ -99,11 +99,12 @@ function ChatBubble({ message, onRetry }: { message: ChatMessage; onRetry?: () =
       <View style={{ maxWidth: "78%" }}>
         <View style={[bS.bubble, isUser ? bS.userBubble : bS.solunaBubble]}>
           <Text style={[bS.text, isUser ? bS.userText : bS.solunaText]}>{message.text}</Text>
-          {!isUser && (
+          {!isUser && (message.systems?.length ?? 0) > 0 && (
             <View style={bS.systemChips}>
-              <SystemChip label="Astro" emoji="♋" />
-              <SystemChip label="Nums" emoji="#" />
-              <SystemChip label="HD" emoji="⚡" />
+              {(message.systems ?? []).slice(0, 4).map((sys) => {
+                const meta = SYSTEM_CHIP_META[sys] ?? { label: sys, emoji: "✦" };
+                return <SystemChip key={sys} label={meta.label} emoji={meta.emoji} />;
+              })}
             </View>
           )}
         </View>
@@ -142,6 +143,17 @@ const mockResponses: Record<string, string> = {
   "how's my week looking in love": "Your systems have a lot to say about love this week. Venus in Gemini is lighting up your 10th house (astrology) — connection might arrive through work or creative projects. Your Personal Month 3 (numerology) makes you especially magnetic and expressive. And your Emotional Authority (Human Design) reminds you: don't decide in the moment. Let the wave rise and fall before you know what's real.",
   "why do i feel restless": "I can see why across your systems. Mars in Virgo is activating your 3rd house (astrology) — a hum of 'something needs to change' without being clear about what. Your Personal Year 7 (numerology) is a year of inner reflection. Your Generator design (Human Design) adds: frustration is the signal that you're trying to force rather than respond. The restlessness isn't wrong — it's your systems asking you to pause and listen before acting.",
   fallback: "That's a beautiful question. Looking across your systems — your Cancer Sun (astrology), your Life Path 3 (numerology), your Wood Pig's generosity (Chinese), and your Generator design (Human Design) — I'd say this is something worth sitting with gently. Your intuition is sharper than you give it credit for. What does your first instinct tell you? I'm here to explore it together, across all four lenses.",
+};
+
+const SYSTEM_CHIP_META: Record<string, { label: string; emoji: string }> = {
+  astrology: { label: "Astro", emoji: "✦" },
+  numerology: { label: "Nums", emoji: "#" },
+  human_design: { label: "HD", emoji: "⚡" },
+  chinese: { label: "Chinese", emoji: "☯" },
+  bazi: { label: "BaZi", emoji: "☯" },
+  vedic: { label: "Vedic", emoji: "☽" },
+  tarot: { label: "Tarot", emoji: "🃏" },
+  biorhythm: { label: "Bio", emoji: "∿" },
 };
 
 function AskContent() {
@@ -223,7 +235,13 @@ function AskContent() {
       return;
     }
     if (data.conversation_id) setConversationId(data.conversation_id);
-    setMessages((prev) => [...prev, { id: `s${Date.now()}`, sender: "soluna", text: data.message?.content ?? "", timestamp: nowTime() }]);
+    setMessages((prev) => [...prev, {
+      id: `s${Date.now()}`,
+      sender: "soluna",
+      text: data.message?.content ?? "",
+      timestamp: nowTime(),
+      systems: Array.isArray(data.message?.systems_referenced) ? data.message.systems_referenced : undefined,
+    }]);
   }, [conversationId]);
 
   const handleSend = useCallback(() => {
@@ -240,6 +258,37 @@ function AskContent() {
     setInput("");
     void runAsk(p, false);
   }, [isTyping, runAsk]);
+
+  // Restore the most recent conversation on first mount (live mode) so a cold
+  // start doesn't lose the visible thread or fragment the backend context.
+  const historyLoadedRef = useRef(false);
+  useEffect(() => {
+    if (USE_MOCK_DATA || historyLoadedRef.current) return;
+    historyLoadedRef.current = true;
+    void (async () => {
+      const { data } = await getAskHistory();
+      if (!data) return;
+      const restored = (Array.isArray(data.messages) ? data.messages : [])
+        .map((m) => {
+          const rec = m as { id?: string; role?: string; content?: string; systems_referenced?: string[]; created_at?: string };
+          if (!rec.content) return null;
+          return {
+            id: String(rec.id ?? `h${Math.random()}`),
+            sender: rec.role === "user" ? ("user" as const) : ("soluna" as const),
+            text: String(rec.content),
+            timestamp: rec.created_at ? new Date(rec.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
+            systems: Array.isArray(rec.systems_referenced) ? rec.systems_referenced : undefined,
+          };
+        })
+        .filter((m): m is NonNullable<typeof m> => m !== null);
+      if (restored.length) {
+        setMessages((prev) => (prev.length ? prev : restored));
+        setShowPrompts(false);
+      }
+      const convId = (data as { currentConversationId?: string }).currentConversationId;
+      if (convId) setConversationId((prev) => prev ?? convId);
+    })();
+  }, []);
 
   // Deep-link auto-send. Keyed by the prompt VALUE (not a one-shot flag): the
   // Ask tab stays mounted, so every "Ask Soluna about this" tap after the first
@@ -272,7 +321,7 @@ function AskContent() {
             </View>
           </View>
           <View style={st.sysBadges}>
-            <SystemChip label="Astro" emoji="♋" />
+            <SystemChip label="Astro" emoji="✦" />
             <SystemChip label="Nums" emoji="#" />
             <SystemChip label="HD" emoji="⚡" />
           </View>
@@ -289,7 +338,7 @@ function AskContent() {
             messages[messages.length - 1].sender === "soluna" &&
             !messages[messages.length - 1].isError && (
               <View style={{ paddingHorizontal: SolunaSpacing.md }}>
-                <ResonanceFeedbackCard sourceType="ask" sourceId={conversationId} compact />
+                <ResonanceFeedbackCard key={messages[messages.length - 1].id} sourceType="ask" sourceId={conversationId} compact />
               </View>
             )}
         </ScrollView>

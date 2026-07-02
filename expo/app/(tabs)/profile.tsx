@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Linking, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, Fonts, getBlueprintSummary, type PatternTheme, type WeeklyReport, type WidgetPreview } from "@/constants/mockData";
@@ -425,6 +425,25 @@ function AccountSection() {
   // on the display `user`). Only fetched for real accounts in live mode.
   const meQuery = useAsyncData(() => getMe(), [], { enabled: !USE_MOCK_DATA && !!authUser });
 
+  const [houseBusy, setHouseBusy] = useState(false);
+  const onPickHouseSystem = useCallback(async (system: "placidus" | "whole_sign" | "porphyry") => {
+    setRefreshMsg("");
+    const birthProfile = toBirthProfileUpdate((meQuery.data as { birthProfile?: unknown } | null)?.birthProfile);
+    if (!birthProfile) {
+      setRefreshMsg("Add your birth place first — the house system applies to a computed chart.");
+      return;
+    }
+    setHouseBusy(true);
+    const { error } = await updateMe({ birth_profile: { ...birthProfile, house_system: system } });
+    setHouseBusy(false);
+    setRefreshMsg(error ?? `House system set to ${system.replace("_", " ")} — your chart is recomputing. 💛`);
+    if (!error) void meQuery.refetch();
+  }, [meQuery]);
+
+  const currentHouseSystem = String(
+    ((meQuery.data as { birthProfile?: { house_system?: string } } | null)?.birthProfile?.house_system) ?? "placidus",
+  );
+
   const onRefreshBlueprint = useCallback(async () => {
     setRefreshMsg("");
     const birthProfile = toBirthProfileUpdate((meQuery.data as { birthProfile?: unknown } | null)?.birthProfile);
@@ -582,6 +601,38 @@ function AccountSection() {
 
       {/* Refresh blueprint — re-sends the stored birth profile so the server
           recomputes the chart with the latest engines/provider data. */}
+      {/* House system — plumbing existed end-to-end; this is the missing UI. */}
+
+      <Text style={st.houseLabel}>House system (advanced)</Text>
+
+      <View style={st.housePickerRow}>
+
+        {(["placidus", "whole_sign", "porphyry"] as const).map((sys) => (
+
+          <TouchableOpacity
+
+            key={sys}
+
+            style={[st.timeChip, currentHouseSystem === sys && st.timeChipActive]}
+
+            disabled={houseBusy}
+
+            onPress={() => void onPickHouseSystem(sys)}
+
+          >
+
+            <Text style={[st.timeChipText, currentHouseSystem === sys && st.timeChipTextActive]}>
+
+              {sys === "placidus" ? "Placidus" : sys === "whole_sign" ? "Whole Sign" : "Porphyry"}
+
+            </Text>
+
+          </TouchableOpacity>
+
+        ))}
+
+      </View>
+
       <TouchableOpacity
         style={st.refreshBtn}
         onPress={onRefreshBlueprint}
@@ -615,6 +666,33 @@ function ProfileContent() {
   const [transitAlerts, setTransitAlerts] = useState(false);
   const [personalDayAlert, setPersonalDayAlert] = useState(true);
   const [notifMsg, setNotifMsg] = useState("");
+  const [dailyTime, setDailyTime] = useState("08:00");
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Hydrate from the server so the switches show the user's REAL settings —
+  // they used to render hardcoded defaults on every launch.
+  const prefsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (USE_MOCK_DATA || prefsLoadedRef.current) return;
+    prefsLoadedRef.current = true;
+    void getMe().then(({ data }) => {
+      const prefs = (data?.notificationPrefs ?? null) as Record<string, unknown> | null;
+      if (!prefs) return;
+      if (typeof prefs.daily_reading === "boolean") setDailyReading(prefs.daily_reading);
+      if (typeof prefs.moon_alerts === "boolean") setMoonAlerts(prefs.moon_alerts);
+      if (typeof prefs.transit_alerts === "boolean") setTransitAlerts(prefs.transit_alerts);
+      if (typeof prefs.personal_day === "boolean") setPersonalDayAlert(prefs.personal_day);
+      if (typeof prefs.daily_time === "string" && prefs.daily_time) setDailyTime(String(prefs.daily_time).slice(0, 5));
+    });
+  }, []);
+
+  const fmtTime = (t: string) => {
+    const h = parseInt(t.slice(0, 2), 10);
+    if (Number.isNaN(h)) return t;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${t.slice(3, 5)} ${ampm}`;
+  };
 
   const persistPrefs = useCallback(async (partial: Record<string, unknown>) => {
     if (USE_MOCK_DATA) return;
@@ -734,19 +812,46 @@ function ProfileContent() {
         <Text style={st.sectionTitle}>Notifications</Text>
         <View style={st.card}>
           <SettingToggle icon={<Bell size={18} color={SolunaColors.warmGold} />} label="Daily reading" value={dailyReading} onChange={onDailyReading} />
-          <SettingRow icon={<Clock size={18} color={SolunaColors.creamMuted} />} label="Reading time" value="8:00 AM" />
+          <SettingRow icon={<Clock size={18} color={SolunaColors.creamMuted} />} label="Reading time" value={fmtTime(dailyTime)} onPress={() => setShowTimePicker((v) => !v)} />
           <SettingToggle icon={<Hash size={18} color={SolunaColors.gentleLavender} />} label="Personal Day number" value={personalDayAlert} onChange={(v) => { setPersonalDayAlert(v); void persistPrefs({ personal_day: v }); }} />
           <SettingToggle icon={<Moon size={18} color={SolunaColors.gentleLavender} />} label="Moon phase / ritual alerts" value={moonAlerts} onChange={(v) => { setMoonAlerts(v); void persistPrefs({ moon_alerts: v }); }} />
           <SettingToggle icon={<Sparkles size={18} color={SolunaColors.softPeach} />} label="Big transit heads-up" value={transitAlerts} onChange={(v) => { setTransitAlerts(v); void persistPrefs({ transit_alerts: v }); }} />
         </View>
+        {showTimePicker && (
+          <View style={st.timePickerWrap}>
+            {["06:00", "07:00", "08:00", "09:00", "12:00", "17:00", "20:00", "21:00"].map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[st.timeChip, dailyTime === t && st.timeChipActive]}
+                onPress={() => {
+                  setDailyTime(t);
+                  setShowTimePicker(false);
+                  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  void persistPrefs({ daily_time: t, tz });
+                  setNotifMsg(`Daily reading set for ${fmtTime(t)}. 💛`);
+                }}
+              >
+                <Text style={[st.timeChipText, dailyTime === t && st.timeChipTextActive]}>{fmtTime(t)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         {notifMsg ? <Text style={st.accountMsg}>{notifMsg}</Text> : null}
+
+        {/* ── Explore ── */}
+        <Text style={st.sectionTitle}>Explore</Text>
+        <View style={st.card}>
+          <SettingRow icon={<BookOpen size={18} color={SolunaColors.warmGold} />} label="Cosmic Journal" value="Reflect on today" onPress={() => router.push("/journal")} />
+          <SettingRow icon={<Sparkles size={18} color={SolunaColors.gentleLavender} />} label="Tarot" value="Pull a spread" onPress={() => router.push("/tarot")} />
+          <SettingRow icon={<Moon size={18} color={SolunaColors.softPeach} />} label="Moon Rituals" onPress={() => router.push("/rituals")} isLast />
+        </View>
 
         {/* ── About ── */}
         <Text style={st.sectionTitle}>About</Text>
         <View style={st.card}>
-          <SettingRow icon={<Lock size={18} color={SolunaColors.gentleLavender} />} label="Privacy" value="Your data stays private" onPress={() => {}} />
-          <SettingRow icon={<Shield size={18} color={SolunaColors.softPeach} />} label="Data policy" value="We never sell or train on your data" onPress={() => {}} />
-          <SettingRow icon={<CircleHelp size={18} color={SolunaColors.creamMuted} />} label="About Soluna" onPress={() => {}} isLast />
+          <SettingRow icon={<Lock size={18} color={SolunaColors.gentleLavender} />} label="Privacy" value="Your data stays private" onPress={() => router.push("/about-soluna")} />
+          <SettingRow icon={<Shield size={18} color={SolunaColors.softPeach} />} label="Data policy" value="We never sell or train on your data" onPress={() => router.push("/about-soluna")} />
+          <SettingRow icon={<CircleHelp size={18} color={SolunaColors.creamMuted} />} label="About Soluna" onPress={() => router.push("/about-soluna")} isLast />
         </View>
 
         <View style={st.privacyCard}>
@@ -775,6 +880,15 @@ export default function ProfileScreen() {
 }
 
 const st = StyleSheet.create({
+  houseLabel: { color: "#B8B3C7", fontSize: 12, fontWeight: "600", marginTop: 12, marginBottom: 6 },
+  housePickerRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+
+  timePickerWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8, marginBottom: 4 },
+  timeChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  timeChipActive: { backgroundColor: "rgba(232,184,109,0.12)", borderColor: "rgba(232,184,109,0.35)" },
+  timeChipText: { color: "#B8B3C7", fontSize: 12, fontWeight: "600" },
+  timeChipTextActive: { color: "#E8B86D" },
+
   gradient: { flex: 1 }, scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
   profileHeader: { alignItems: "center", marginBottom: 24 },

@@ -7,20 +7,62 @@ import { Fonts } from "@/constants/mockData";
 import { RITUALS } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
 import ComingSoon from "@/components/ComingSoon";
+import { useAsyncData } from "@/hooks/useAsyncData";
+import { getRituals, saveItem } from "@/lib/api";
+import { LoadingState } from "@/components/DataStates";
+
+function LoadingWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={{ flex: 1, justifyContent: "center" }}>
+      {children}
+    </LinearGradient>
+  );
+}
 import { ChevronLeft, Moon, Sparkles, Check } from "lucide-react-native";
+
+interface LiveRitual { id: string; title: string; moonPhase: string; description: string; steps: string[]; intention: string }
+
+/** Map a backend rituals row (moon_phase, title, steps jsonb) into the card shape. */
+function toLiveRitual(raw: unknown, i: number): LiveRitual | null {
+  const r = raw as { id?: unknown; title?: unknown; moon_phase?: unknown; description?: unknown; steps?: unknown; intention?: unknown } | null;
+  if (!r || !r.title) return null;
+  const steps = Array.isArray(r.steps) ? r.steps.map(String) : [];
+  const phaseRaw = String(r.moon_phase ?? "").replace(/_/g, " ");
+  const phase = phaseRaw ? phaseRaw.replace(/\b\w/g, (c) => c.toUpperCase()) : "Moon Ritual";
+  return {
+    id: String(r.id ?? i),
+    title: String(r.title),
+    moonPhase: phase.includes("Full") ? `${phase} 🌕` : phase.includes("New") ? `${phase} 🌑` : phase,
+    description: String(r.description ?? ""),
+    steps,
+    intention: String(r.intention ?? "Set one gentle intention — small is perfect."),
+  };
+}
 
 export default function RitualsScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Not wired to live data yet — show an honest state instead of demo rituals.
+  // Live mode: the backend's seeded rituals (getRituals). Honest states.
+  const liveQuery = useAsyncData(() => getRituals(), [], { enabled: !isDemoMode });
+  const liveRituals: LiveRitual[] = (Array.isArray(liveQuery.data?.rituals) ? liveQuery.data.rituals : [])
+    .map(toLiveRitual)
+    .filter((r): r is LiveRitual => r !== null);
+
   if (!isDemoMode) {
-    return (
-      <ComingSoon
-        title="Moon rituals"
-        description="Personalized new- and full-moon rituals will appear here once they're connected to your live data."
-      />
-    );
+    if (liveQuery.loading) {
+      return <LoadingWrap><LoadingState message="Gathering tonight's rituals…" /></LoadingWrap>;
+    }
+    if (liveQuery.error || liveRituals.length === 0) {
+      return (
+        <ComingSoon
+          title="Moon rituals"
+          description={liveQuery.error ?? "Rituals aren't available just now — check back around the next new or full moon."}
+        />
+      );
+    }
   }
+
+  const rituals: LiveRitual[] = isDemoMode ? (RITUALS as unknown as LiveRitual[]) : liveRituals;
 
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
@@ -30,6 +72,7 @@ export default function RitualsScreen() {
         <Text style={s.title}>Moon Rituals</Text>
         <Text style={s.sub}>Gentle, optional practices to honor the lunar rhythm. Never preachy — always an invitation.</Text>
 
+        {isDemoMode && (
         <View style={s.lunarCalendar}>
           <Text style={s.calendarTitle}>🌙 Lunar Calendar</Text>
           <View style={s.calendarRow}>
@@ -42,8 +85,9 @@ export default function RitualsScreen() {
           </View>
           <Text style={s.calendarNote}>Next Full Moon: June 26, 2026 · Next New Moon: July 11, 2026</Text>
         </View>
+        )}
 
-        {RITUALS.map((ritual) => (
+        {rituals.map((ritual) => (
           <TouchableOpacity
             key={ritual.id}
             style={s.ritualCard}
@@ -75,7 +119,11 @@ export default function RitualsScreen() {
                   <Sparkles size={16} color={SolunaColors.warmGold} />
                   <Text style={s.intentionText}>{ritual.intention}</Text>
                 </View>
-                <TouchableOpacity style={s.saveBtn} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={s.saveBtn}
+                  activeOpacity={0.7}
+                  onPress={() => { if (!isDemoMode) void saveItem("ritual", ritual.id); }}
+                >
                   <Check size={16} color={SolunaColors.deepIndigo} />
                   <Text style={s.saveBtnText}>Save this ritual</Text>
                 </TouchableOpacity>

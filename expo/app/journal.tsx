@@ -6,6 +6,7 @@ import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { Fonts } from "@/constants/mockData";
 import { JOURNAL_ENTRIES } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
+import { formatISODateLong } from "@/lib/dates";
 import EmptyState from "@/components/EmptyState";
 import { LoadingState, ErrorState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -13,6 +14,12 @@ import { getJournal, createJournalEntry } from "@/lib/api";
 import { ChevronLeft, BookOpen, Sparkles, Calendar, Plus, Smile } from "lucide-react-native";
 
 const USE_MOCK_DATA = isDemoMode;
+
+/** Device-local YYYY-MM-DD (the user's own calendar day, not UTC's). */
+function localEntryDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const MOOD_OPTIONS = [
   { emoji: "☀️", label: "Radiant", value: 5 },
@@ -104,7 +111,7 @@ export default function JournalScreen() {
     const body = [title, content].filter(Boolean).join("\n\n");
     setSaving(true);
     setSaveError("");
-    const { error } = await createJournalEntry(body, moodValue);
+    const { error } = await createJournalEntry(body, moodValue, localEntryDate());
     setSaving(false);
     if (error) {
       setSaveError(error);
@@ -225,7 +232,7 @@ export default function JournalScreen() {
               <View style={s.entryHeader}>
                 <Calendar size={14} color={SolunaColors.creamMuted} />
                 <Text style={s.entryDate}>
-                  {new Date(entry.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  {formatISODateLong(entry.date)}
                 </Text>
                 <View style={s.moodBadge}>
                   <Smile size={10} color={SolunaColors.warmGold} />

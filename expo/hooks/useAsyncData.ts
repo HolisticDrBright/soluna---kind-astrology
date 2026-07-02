@@ -58,8 +58,11 @@ export function useAsyncData<T>(
       setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
     } finally {
       if (!isStale()) {
-        if (isRefetch) setReloading(false);
-        else setLoading(false);
+        // The WINNING run clears both flags: if a refetch superseded the initial
+        // load, the initial run's finally is stale and would never clear
+        // `loading` — stranding the screen on its spinner forever.
+        setLoading(false);
+        setReloading(false);
       }
     }
   }, []);

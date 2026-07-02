@@ -31,7 +31,17 @@ export default function TarotScreen() {
     setLive(null);
     const { data, error } = await drawTarot(SPREAD_KEY[spreadId] ?? "daily", question.trim() || undefined);
     setDrawing(false);
-    if (error || !data) { setDrawError(error ?? "We couldn't draw your cards just now. Please try again."); return; }
+    if (error || !data) {
+      // Premium spreads 402 for free users — route to the paywall instead of
+      // dumping the raw error (which read like the feature was broken).
+      if ((error ?? "").toLowerCase().includes("premium") || (error ?? "").includes("402")) {
+        setDrawError("Full spreads are part of Soluna Premium.");
+        router.push("/paywall");
+        return;
+      }
+      setDrawError(error ?? "We couldn't draw your cards just now. Please try again.");
+      return;
+    }
     const positions = data.positions ?? [];
     const cards: LiveTarotCard[] = (data.cards ?? []).map((raw, i) => {
       const c = raw as { name?: string; arcana?: string; reversed?: boolean };

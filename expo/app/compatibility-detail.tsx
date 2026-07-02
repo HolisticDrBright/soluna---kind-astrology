@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
@@ -190,7 +190,15 @@ export default function CompatibilityDetailScreen() {
         </TouchableOpacity>
 
         {/* Share */}
-        <TouchableOpacity style={st.shareBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={st.shareBtn}
+          activeOpacity={0.8}
+          onPress={() => {
+            void Share.share({
+              message: `Soluna read our connection: ${person.compatibilityScore}% — "${person.compatibilityLabel}". ☾ Soluna, astrology that is actually kind.`,
+            });
+          }}
+        >
           <Share2 size={16} color={SolunaColors.warmGold} />
           <Text style={st.shareBtnText}>Share this result</Text>
         </TouchableOpacity>

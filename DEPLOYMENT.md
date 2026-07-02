@@ -317,3 +317,17 @@ build + live keys to verify on a device.
 5. Spot-check the search guard — every hit must be an import from
    `@/constants/demoData` **or** sit behind an `isDemoMode` / `USE_MOCK_DATA` gate:
    `rg -n "MOCK_|CONNECTIONS|JOURNAL_ENTRIES|CURRENT_TRANSITS|SYNTHESIS_THEMES" expo/app expo/state expo/components`
+
+### July 2026 wave: quotas, mood-variant caching, user-local dates
+
+- Apply `supabase/migrations/20260702_quotas_and_mood_variants.sql` (also in the
+  ALL_MIGRATIONS.sql bundle). It adds `daily_readings.mood_variants` plus the
+  `usage_counters` table + `increment_usage()` function behind the new per-user
+  daily LLM caps (Ask: 15 free / 200 premium; mood reframes: 20/day). Both caps
+  FAIL OPEN if the migration isn't applied — the app keeps working, unmetered.
+- "Today" is now derived from each user's timezone (birth profile /
+  notification prefs), so readings roll over at the user's midnight, not UTC's.
+- Compatibility reports now really cache (the old upsert silently failed), and
+  carry a `reportVersion` — bump `REPORT_VERSION` in
+  `supabase/functions/connections/index.ts` to force regeneration after a
+  methodology change.

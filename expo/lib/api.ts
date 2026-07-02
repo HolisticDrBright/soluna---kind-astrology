@@ -256,9 +256,11 @@ export async function getJournal(limit = 20) {
   return invokeEdgeFunction<{ entries: unknown[] }>(`journal?limit=${limit}`);
 }
 
-/** Create journal entry */
-export async function createJournalEntry(body: string, mood?: number) {
-  return invokeEdgeFunction("journal", { body, mood });
+/** Create journal entry. entry_date is the user's LOCAL calendar date — without
+ *  it the backend defaults to the UTC date, which lands evening entries in the
+ *  Americas on tomorrow. */
+export async function createJournalEntry(body: string, mood?: number, entryDate?: string) {
+  return invokeEdgeFunction("journal", { body, mood, entry_date: entryDate });
 }
 
 /** Get insight for a blueprint item */

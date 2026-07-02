@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
@@ -240,7 +240,13 @@ function BlueprintContent() {
   const [lens, setLens] = useState<SystemLens>("astrology");
   // Solar Return ("year ahead") — lazy-loaded only when the Astrology lens is open
   // (it's a Western-chart reading and needs its own yearly provider call).
-  const yearAhead = useAsyncData(() => getYearAhead(), [], { enabled: lens === "astrology" && !USE_MOCK_DATA });
+  // Fetch once the Astro lens is first opened, then keep the result — flipping
+  // lenses must not refire the provider call.
+  const [yearAheadWanted, setYearAheadWanted] = useState(false);
+  useEffect(() => {
+    if (lens === "astrology" && !yearAheadWanted) setYearAheadWanted(true);
+  }, [lens, yearAheadWanted]);
+  const yearAhead = useAsyncData(() => getYearAhead(), [], { enabled: yearAheadWanted && !USE_MOCK_DATA });
   if (!user) return null;
 
   const safeGet = <T,>(val: T | undefined | null, fallback: T): T => val != null ? val : fallback;
@@ -356,6 +362,12 @@ function BlueprintContent() {
         )}
 
         {/* ── Numerology ── */}
+        {lens === "numerology" && !user.numerology && (
+          <Card>
+            <Text style={s.baziUnavailTitle}>Numerology not available yet</Text>
+            <Text style={s.baziMeaning}>Your numbers are computed from your full birth name and date — refresh your blueprint from Profile if this stays empty.</Text>
+          </Card>
+        )}
         {lens === "numerology" && user.numerology && (
           <View>
             <ConfidencePill level="exact" showDetail />
@@ -396,6 +408,12 @@ function BlueprintContent() {
         )}
 
         {/* ── Chinese ── */}
+        {lens === "chinese" && !user.chinese && (
+          <Card>
+            <Text style={s.baziUnavailTitle}>Chinese Zodiac not available yet</Text>
+            <Text style={s.baziMeaning}>Your Chinese zodiac comes from your birth date — refresh your blueprint from Profile if this stays empty.</Text>
+          </Card>
+        )}
         {lens === "chinese" && user.chinese && (
           <View>
             <View style={s.confidenceRow}><ConfidencePill level="exact" showDetail /></View>
@@ -422,8 +440,12 @@ function BlueprintContent() {
                 <Card><Text style={s.growthText}>{user.chinese.growthEdge}</Text></Card>
               </>
             ) : null}
-            <Text style={s.sectionLabel}>Year & Month Pillars · Chinese Zodiac</Text>
-            <Text style={s.baziHint}>A light birth-year zodiac lens — not a full BaZi chart.</Text>
+            {(user.chinese.bazi ?? []).length > 0 && (
+              <>
+                <Text style={s.sectionLabel}>Year & Month Pillars · Chinese Zodiac</Text>
+                <Text style={s.baziHint}>A light birth-year zodiac lens — not a full BaZi chart.</Text>
+              </>
+            )}
             {(user.chinese.bazi ?? []).map((pillar, i) => (
               <Card key={i}>
                 <View style={s.baziRow}>
@@ -444,6 +466,12 @@ function BlueprintContent() {
         )}
 
         {/* ── Human Design ── */}
+        {lens === "humanDesign" && !user.humanDesign && (
+          <Card>
+            <Text style={s.baziUnavailTitle}>Human Design not available yet</Text>
+            <Text style={s.baziMeaning}>Your Design needs your birth time and place — add them in Profile to unlock this lens.</Text>
+          </Card>
+        )}
         {lens === "humanDesign" && user.humanDesign && (
           <View>
             <View style={s.bgWrap}><BodyGraph centers={user.humanDesign.centers ?? []} /></View>

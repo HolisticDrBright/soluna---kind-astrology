@@ -453,6 +453,17 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
   const refreshUser = useCallback(async () => {
     if (useMockData) return;
 
+    // The cache is scoped to the signed-in uid — never another account's data.
+    const uid = supabase ? (await supabase.auth.getSession()).data.session?.user?.id ?? null : null;
+
+    // Instant paint: show the last-known user immediately, then let the network
+    // refresh replace it. Without this, a slow backend held a cold start on the
+    // spinner for the full retry window before the cache was even consulted.
+    const cachedFirst = await loadCachedUser(uid);
+    if (cachedFirst) {
+      setState((s) => s.user ? s : { ...s, user: cachedFirst, hasOnboarded: true, onboardingStep: "reveal", authLoading: false });
+    }
+
     // Retry transient failures so a single cold-start network blip can't drop a
     // returning, already-onboarded user back into onboarding.
     let res = await getMe();
@@ -467,7 +478,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
       // last-known cached user (if any) so a cold-start backend blip still opens
       // straight to the dashboard; otherwise just stop the spinner and keep what
       // we know, and screens show a retry path.
-      const cached = await loadCachedUser();
+      const cached = await loadCachedUser(uid);
       setState((s) => {
         if (s.user) return { ...s, authLoading: false };
         if (cached) {
@@ -486,7 +497,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
 
     // Cache the freshly loaded user so the next launch can open straight to the
     // dashboard even if that launch's /me call is slow or fails.
-    if (displayUser) void saveCachedUser(displayUser);
+    if (displayUser) void saveCachedUser(displayUser, uid);
 
     setState((s) => ({
       ...s,
@@ -564,6 +575,7 @@ const [AppProvider, useAppStateRaw] = createContextHook(() => {
         void refreshUser();
       } else {
         setSentryUser(null);
+        void clearCachedUser();
       }
     });
 

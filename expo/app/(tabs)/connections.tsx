@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC_SYMBOLS, Fonts, type RelationshipLens, type BondRitualData } from "@/constants/mockData";
@@ -21,6 +21,14 @@ const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 
 const parseBirthDate = (text: string): string | null => {
   const t = text.trim();
   if (!t) return null;
+  // ISO-style input parses by CALENDAR PARTS — `new Date("1993-07-05")` is UTC
+  // midnight, which becomes July 4 on devices west of UTC (wrong chart).
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (isoMatch) {
+    const y = Number(isoMatch[1]), mo = Number(isoMatch[2]), dd = Number(isoMatch[3]);
+    if (y < 1900 || y > new Date().getFullYear() || mo < 1 || mo > 12 || dd < 1 || dd > 31) return null;
+    return `${y}-${String(mo).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  }
   const d = new Date(t);
   if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > new Date().getFullYear()) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -80,6 +88,7 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
   const [placeSearch, setPlaceSearch] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const pickedPlaceRef = useRef<{ id: string; forDate: string } | null>(null);
   const [resolvingPlace, setResolvingPlace] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -109,6 +118,7 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
     const { data, error } = await geoResolve(s.id, dateForTz);
     setResolvingPlace(false);
     if (error || !data?.place) { setErr(error ?? "We couldn't resolve that place. Please try another."); return; }
+    pickedPlaceRef.current = { id: s.id, forDate: dateForTz };
     setResolvedPlace(data.place);
   };
 
@@ -122,13 +132,27 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
     if (USE_MOCK_DATA) { onClose(); return; }
     setSaving(true);
     setErr("");
+
+    // If the birth date changed after the city was picked, the stored timezone
+    // was resolved for the WRONG date (DST / zone history) — re-resolve it.
+    let place = resolvedPlace;
+    const picked = pickedPlaceRef.current;
+    if (place && picked && picked.forDate !== iso) {
+      const { data: reData } = await geoResolve(picked.id, iso);
+      if (reData?.place) {
+        place = reData.place;
+        setResolvedPlace(reData.place);
+        pickedPlaceRef.current = { id: picked.id, forDate: iso };
+      }
+    }
+
     const { error } = await addConnection({
       name: n,
       birth_date: iso,
       birth_time: bt,
       lens: defaultLens,
-      ...(resolvedPlace
-        ? { birth_place_label: resolvedPlace.label, lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+      ...(place
+        ? { birth_place_label: place.label, lat: place.lat, lng: place.lng, timezone: place.timezone }
         : {}),
     });
     setSaving(false);
@@ -427,7 +451,9 @@ function ConnectionsContent() {
         <Text style={st.title}>Connections</Text>
         <Text style={st.sub}>See how you connect through astrology, numerology, and Chinese signs — framed with warmth, not judgment.</Text>
 
-        {/* ── Hero: Linked Bonds ── */}
+        {/* ── Hero: Linked Bonds (demo-only until the invite flow is wired —
+              a "Send an invite" button that does nothing erodes trust) ── */}
+        {USE_MOCK_DATA && (
         <TouchableOpacity style={st.inviteHero} activeOpacity={0.8}>
           <LinearGradient colors={["rgba(232,184,109,0.1)", "rgba(242,168,141,0.04)"]} style={st.inviteHeroInner}>
             <View style={st.inviteHeroIcon}><Share2 size={24} color={SolunaColors.warmGold} /></View>
@@ -436,10 +462,15 @@ function ConnectionsContent() {
             <View style={st.inviteHeroCta}><Sparkles size={14} color={SolunaColors.warmGold} /><Text style={st.inviteHeroCtaText}>Send an invite</Text></View>
           </LinearGradient>
         </TouchableOpacity>
+        )}
 
-        {/* ── Your Bonds ── */}
-        <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} fill={SolunaColors.softPeach} /><Text style={st.sectionTitle}>Linked Bonds</Text></View>
-        <EmptyState icon={Heart} title="No Bonds yet" description="Bonds are linked partners who get daily shared readings and Bond Rituals with you. Invite someone special — it's free for both of you." actionLabel="Invite someone" onAction={() => {}} />
+        {/* ── Your Bonds (demo-only, see above) ── */}
+        {USE_MOCK_DATA && (
+          <>
+            <View style={st.sectionHeader}><Heart size={16} color={SolunaColors.softPeach} fill={SolunaColors.softPeach} /><Text style={st.sectionTitle}>Linked Bonds</Text></View>
+            <EmptyState icon={Heart} title="No Bonds yet" description="Bonds are linked partners who get daily shared readings and Bond Rituals with you. Invite someone special — it's free for both of you." actionLabel="Invite someone" onAction={() => {}} />
+          </>
+        )}
 
         {/* ── Lens Switcher ── */}
         <View style={st.sectionHeader}>

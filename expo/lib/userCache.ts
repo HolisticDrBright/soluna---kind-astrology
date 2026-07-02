@@ -12,22 +12,33 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { UserData } from "@/constants/mockData";
 
-const CACHE_KEY = "soluna.cache.user.v1";
+const CACHE_KEY = "soluna.cache.user.v2";
 
-/** Last-known user, or null if nothing cached / cache unreadable. */
-export async function loadCachedUser(): Promise<UserData | null> {
+/** Last-known user, or null if nothing cached / cache unreadable. The cache is
+ *  keyed to the auth uid that wrote it: on a shared device, account B must
+ *  NEVER see account A's name, birth data, or chart restored from cache. */
+export async function loadCachedUser(expectedUid?: string | null): Promise<UserData | null> {
   try {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
-    return raw ? (JSON.parse(raw) as UserData) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { uid?: string | null; user?: UserData } | UserData;
+    if (parsed && typeof parsed === "object" && "user" in parsed) {
+      const wrapped = parsed as { uid?: string | null; user?: UserData };
+      if (!wrapped.user) return null;
+      if (expectedUid && wrapped.uid !== expectedUid) return null;
+      return wrapped.user;
+    }
+    // Legacy v1 payload (no uid) — untrusted across accounts; ignore it.
+    return null;
   } catch {
     return null;
   }
 }
 
-/** Persist the user (or clear the cache when passed null). Never throws. */
-export async function saveCachedUser(user: UserData | null): Promise<void> {
+/** Persist the user for this uid (or clear when passed null). Never throws. */
+export async function saveCachedUser(user: UserData | null, uid?: string | null): Promise<void> {
   try {
-    if (user) await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(user));
+    if (user) await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ uid: uid ?? null, user }));
     else await AsyncStorage.removeItem(CACHE_KEY);
   } catch {
     // Best-effort cache — ignore storage failures.

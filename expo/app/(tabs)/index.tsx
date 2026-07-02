@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState, useCallback, useMemo } from "react";
@@ -25,7 +26,7 @@ import SolunaShiftCard from "@/components/SolunaShiftCard";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/DataStates";
 import { useAsyncData } from "@/hooks/useAsyncData";
-import { getToday } from "@/lib/api";
+import { getToday, saveItem } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
 import { formatISODateWeekday } from "@/lib/dates";
 import { router } from "expo-router";
@@ -162,6 +163,52 @@ const MOCK_SYSTEM_EXPLANATIONS: Record<string, string> = {
   "Personal Day 4": "Personal Day 4 centers on home, foundations, and what's real. Ground yourself in what truly matters.",
 };
 
+// ─── Biorhythm: three sine cycles from the birth date (pure math, always real).
+const BIO_CYCLES = [
+  { key: "Physical", period: 23, color: "#F2A88D" },
+  { key: "Emotional", period: 28, color: "#B9A3E3" },
+  { key: "Intellectual", period: 33, color: "#E8B86D" },
+] as const;
+
+function BiorhythmCard({ birthDate }: { birthDate: string }) {
+  const values = useMemo(() => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(birthDate);
+    if (!m) return null;
+    const birthUTC = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const now = new Date();
+    const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.floor((todayUTC - birthUTC) / 86_400_000);
+    if (!Number.isFinite(days) || days <= 0) return null;
+    return BIO_CYCLES.map((c) => ({ ...c, value: Math.sin((2 * Math.PI * days) / c.period) }));
+  }, [birthDate]);
+  if (!values) return null;
+  return (
+    <View style={st.bioCard}>
+      <Text style={st.bioTitle}>Biorhythm today</Text>
+      {values.map((c) => (
+        <View key={c.key} style={st.bioRow}>
+          <Text style={st.bioLabel}>{c.key}</Text>
+          <View style={st.bioTrack}>
+            <View style={[st.bioCenter]} />
+            <View
+              style={[
+                st.bioFill,
+                {
+                  backgroundColor: c.color,
+                  width: `${Math.abs(c.value) * 50}%`,
+                  left: c.value >= 0 ? "50%" : `${50 - Math.abs(c.value) * 50}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={[st.bioPct, { color: c.color }]}>{c.value >= 0 ? "+" : "−"}{Math.round(Math.abs(c.value) * 100)}%</Text>
+        </View>
+      ))}
+      <Text style={st.bioHint}>Simple sine cycles from your birth date — a light, playful lens.</Text>
+    </View>
+  );
+}
+
 export default function TodayScreen() {
   const { user } = useAppState();
 
@@ -177,7 +224,14 @@ export default function TodayScreen() {
     new Set<SectionKey>(),
   );
 
-  const handleSave = useCallback(() => setSaved(true), []);
+  const handleSave = useCallback(() => {
+    setSaved(true);
+    // Persist for real (backend saved-items API); local state keeps the UI instant.
+    if (!USE_MOCK_DATA) {
+      const refId = todayQuery.data?.reading_date ?? new Date().toISOString().split("T")[0];
+      void saveItem("daily_reading", String(refId));
+    }
+  }, [todayQuery.data?.reading_date]);
 
   const toggleExpanded = useCallback((key: SectionKey) => {
     setExpanded((prev) => {
@@ -492,8 +546,37 @@ export default function TodayScreen() {
             {/* ─── Today's Sky (real daily transits, live mode) ─── */}
             {view.sky ? <TodaySkyCard sky={view.sky} personalDay={view.personalDay} /> : null}
 
+            {/* ─── Moon Ritual (only on New/Full moons — the spec's ritual moment) ─── */}
+            {view.sky && /new moon|full moon/i.test(view.sky.moonPhase) ? (
+              <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => router.push("/rituals")}>
+                <View style={st.focusEntryIcon}>
+                  <Text style={{ fontSize: 16 }}>{/full/i.test(view.sky.moonPhase) ? "🌕" : "🌑"}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.focusEntryTitle}>{/full/i.test(view.sky.moonPhase) ? "Full Moon tonight" : "New Moon tonight"}</Text>
+                  <Text style={st.focusEntrySub}>A gentle ritual is ready if you'd like one — release or intention, your choice.</Text>
+                </View>
+                <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+              </TouchableOpacity>
+            ) : null}
+
+            {/* ─── Biorhythm (pure math from your birth date) ─── */}
+            {!USE_MOCK_DATA && user.birthDate ? <BiorhythmCard birthDate={user.birthDate} /> : null}
+
             {/* ─── Resonance feedback on the primary daily insight ─── */}
-            <ResonanceFeedbackCard sourceType="today" />
+            <ResonanceFeedbackCard key={`${view.readingDate ?? "today"}-${moodSupport ?? "neutral"}`} sourceType="today" />
+
+            {/* ─── Cosmic Journal entry point ─── */}
+            <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => router.push("/journal")}>
+              <View style={st.focusEntryIcon}>
+                <Text style={{ fontSize: 16 }}>📓</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.focusEntryTitle}>Cosmic Journal</Text>
+                <Text style={st.focusEntrySub}>A gentle reflection for today — a minute is plenty.</Text>
+              </View>
+              <ChevronRight size={16} color={SolunaColors.creamSubtle} />
+            </TouchableOpacity>
 
             {/* ─── Soluna Shift (demo only — no live endpoint yet) ─── */}
             {USE_MOCK_DATA ? <SolunaShiftCard date="2026-06-24" /> : null}
@@ -665,6 +748,13 @@ export default function TodayScreen() {
                 </View>
                 {expanded.has("tarot") && (
                   <View style={st.accordionBody}>
+                    <TouchableOpacity
+                      style={st.fullSpreadBtn}
+                      activeOpacity={0.7}
+                      onPress={() => router.push("/tarot")}
+                    >
+                      <Text style={st.fullSpreadText}>Pull a full spread →</Text>
+                    </TouchableOpacity>
                     <Text style={st.tarotMeaning}>
                       {view.tarot.meaning}
                     </Text>
@@ -733,7 +823,7 @@ export default function TodayScreen() {
                     <View>
                       <Text style={st.accordionTitle}>Today's Affirmation</Text>
                       <Text style={st.accordionSub} numberOfLines={1}>
-                        {view.affirmation.slice(0, 50)}…
+                        {view.affirmation.length > 50 ? `${view.affirmation.slice(0, 50)}…` : view.affirmation}
                       </Text>
                     </View>
                   </View>
@@ -748,6 +838,15 @@ export default function TodayScreen() {
                     <Text style={st.affirmText}>
                       {view.affirmation}
                     </Text>
+                    <TouchableOpacity
+                      style={st.shareAffirmBtn}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        void Share.share({ message: `${view.affirmation}\n\n— my affirmation today, from Soluna ☾` });
+                      }}
+                    >
+                      <Text style={st.shareAffirmText}>Share this affirmation</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </TouchableOpacity>
@@ -816,6 +915,22 @@ export default function TodayScreen() {
 }
 
 const st = StyleSheet.create({
+  bioCard: { backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 20, padding: 16, marginTop: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  bioTitle: { color: "#F5F0E8", fontSize: 14, fontWeight: "700", marginBottom: 10 },
+  bioRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  bioLabel: { color: "#B8B3C7", fontSize: 12, width: 82 },
+  bioTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.06)", overflow: "hidden" },
+  bioCenter: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.18)" },
+  bioFill: { position: "absolute", top: 0, bottom: 0, borderRadius: 3 },
+  bioPct: { fontSize: 11, fontWeight: "700", width: 46, textAlign: "right" },
+  bioHint: { color: "#8E89A0", fontSize: 10.5, marginTop: 4 },
+
+  shareAffirmBtn: { marginTop: 10, alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: "rgba(232,184,109,0.10)", borderWidth: 1, borderColor: "rgba(232,184,109,0.25)" },
+  shareAffirmText: { color: "#E8B86D", fontSize: 12, fontWeight: "600" },
+  fullSpreadBtn: { marginBottom: 8, alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: "rgba(185,163,227,0.10)", borderWidth: 1, borderColor: "rgba(185,163,227,0.25)" },
+  fullSpreadText: { color: "#B9A3E3", fontSize: 12, fontWeight: "600" },
+  journalEntry: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 20, padding: 16, marginTop: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+
   gradient: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { padding: 24, paddingBottom: 32 },

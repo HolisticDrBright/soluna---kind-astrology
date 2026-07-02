@@ -1004,6 +1004,8 @@ export interface ConnectionPerson {
 export interface ChatMessage {
   id: string; sender: "user" | "soluna"; text: string; timestamp: string;
   isError?: boolean;
+  /** Systems the answer actually drew on (from the API). */
+  systems?: string[];
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1011,6 +1013,7 @@ export interface ChatMessage {
 // ══════════════════════════════════════════════════════════════════
 
 export const TAROT_SPREADS: TarotSpread[] = [
+  { id: "daily-reset", name: "Daily Reset (free)", positions: ["One card for today"], description: "A single card drawn for this moment — a gentle check-in, free for everyone." },
   { id: "three-card", name: "Past · Present · Future", positions: ["Past influence", "Present situation", "Future potential"], description: "A simple, elegant spread that illuminates the arc of a situation — where it came from, where it is now, and where it's heading." },
   { id: "celtic-cross", name: "Celtic Cross", positions: ["Present", "Challenge", "Past", "Future", "Above", "Below", "Advice", "External", "Hopes", "Outcome"], description: "The classic 10-card spread for a deep, nuanced reading on any life question. Best for when you want the full picture." },
 ];

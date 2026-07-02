@@ -56,6 +56,7 @@ export default function OnboardingScreen() {
   // Live geo (Google) autocomplete + resolved coordinates/timezone.
   const [geoSuggestions, setGeoSuggestions] = useState<PlaceSuggestion[]>([]);
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const pickedPlaceRef = useRef<{ id: string; forDate: string } | null>(null);
   const [resolvingPlace, setResolvingPlace] = useState(false);
   const [revealReady, setRevealReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,6 +142,7 @@ export default function OnboardingScreen() {
     setResolvedPlace(null);
     setSubmitError("");
     const dateForTz = toLocalDateString(birthDate ?? new Date());
+    pickedPlaceRef.current = { id: s.id, forDate: dateForTz };
     setResolvingPlace(true);
     const { data, error } = await geoResolve(s.id, dateForTz);
     setResolvingPlace(false);
@@ -193,10 +195,22 @@ export default function OnboardingScreen() {
 
     // Real coordinates/timezone come from a resolved Google place (live), or the
     // static table (mock/demo only). No silent 0,0/UTC fallback.
+    // If the birth date changed AFTER the city was picked, re-resolve: the
+    // timezone is date-aware (historical DST / zone changes).
+    let effectiveResolved = resolvedPlace;
+    const picked = pickedPlaceRef.current;
+    if (!USE_MOCK_DATA && effectiveResolved && picked && picked.forDate !== toLocalDateString(birthDate)) {
+      const { data: reData } = await geoResolve(picked.id, toLocalDateString(birthDate));
+      if (reData?.place) {
+        effectiveResolved = reData.place;
+        setResolvedPlace(reData.place);
+        pickedPlaceRef.current = { id: picked.id, forDate: toLocalDateString(birthDate) };
+      }
+    }
     const place = USE_MOCK_DATA
       ? CITY_COORDS[birthPlace]
-      : (resolvedPlace
-        ? { lat: resolvedPlace.lat, lng: resolvedPlace.lng, timezone: resolvedPlace.timezone }
+      : (effectiveResolved
+        ? { lat: effectiveResolved.lat, lng: effectiveResolved.lng, timezone: effectiveResolved.timezone }
         : undefined);
     if (!place) {
       setSubmitError(
@@ -218,7 +232,7 @@ export default function OnboardingScreen() {
       birth_date: toLocalDateString(birthDate),
       birth_time: birthTimeKnown ? birthTime : null,
       time_known: birthTimeKnown,
-      birth_place_label: resolvedPlace?.label ?? birthPlace,
+      birth_place_label: effectiveResolved?.label ?? birthPlace,
       lat: place.lat,
       lng: place.lng,
       timezone: place.timezone,

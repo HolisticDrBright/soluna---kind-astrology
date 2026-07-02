@@ -1092,3 +1092,95 @@ drop policy if exists "Personalization profile deletable by owner" on public.per
 create policy "Personalization profile deletable by owner" on public.personalization_profiles
 for delete to authenticated using ((select auth.uid()) = user_id);
 
+
+-- ════════════════════════════════════════════════════════════════════
+-- 20260629_vedic_chart.sql
+-- ════════════════════════════════════════════════════════════════════
+-- Vedic (sidereal / Jyotish) chart storage.
+--
+-- A distinct lens from the Western (tropical) chart, stored on the same one-row
+-- `blueprints` table as its own JSONB column — the established per-system pattern
+-- (astrology/numerology/chinese/human_design/bazi). `blueprints` is already
+-- owner-scoped via RLS, so the new column inherits that protection automatically.
+--
+-- The column stores the normalized VedicOutput. When no provider is configured or
+-- the birth place is missing, source is "unavailable"/partial — NEVER fabricated.
+-- It reuses the same FreeAstroAPI key as BaZi/astrology (backend-only env).
+
+begin;
+
+alter table public.blueprints
+  add column if not exists vedic jsonb not null default '{}'::jsonb;
+
+comment on column public.blueprints.vedic is
+  'Provider-backed Vedic / sidereal chart (VedicOutput JSON). source="provider" only with a real chart; "unavailable" otherwise. Distinct from the Western chart; never fabricated.';
+
+commit;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 20260630_daily_cosmos.sql
+-- ════════════════════════════════════════════════════════════════════
+-- Daily cosmos signals cached per (user, date) on the daily reading.
+-- These are TRANSIT/daily data (moon phase + sign, personal daily horoscope,
+-- today's BaZi day pillar) — they change every day, so they live alongside the
+-- daily reading rather than on the natal blueprint. RLS on daily_readings already
+-- restricts rows to their owner; adding columns does not change that.
+alter table public.daily_readings
+  add column if not exists moon jsonb,
+  add column if not exists horoscope jsonb,
+  add column if not exists bazi_today jsonb;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 20260701_solar_return.sql
+-- ════════════════════════════════════════════════════════════════════
+-- Solar Return ("year ahead") cache. Unlike the natal blueprint (fixed for life),
+-- the solar-return chart is NEW each birthday, so we cache the currently-active
+-- year's chart on the blueprint and refresh it when the year rolls over. Stored
+-- best-effort by the year-ahead function (it works without this column too — it
+-- just re-computes each view until the column exists). RLS on blueprints already
+-- restricts rows to their owner; adding a column does not change that.
+alter table public.blueprints
+  add column if not exists solar_return jsonb;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 20260702_quotas_and_mood_variants.sql
+-- ════════════════════════════════════════════════════════════════════
+-- Mood-reframe caching + per-user daily LLM quotas.
+--
+-- mood_variants: the daily reading reframed per support mood (Gentle/Clear/
+-- Motivating/Reflective/Practical), cached on the day's reading row so each
+-- (user, date, mood) costs at most ONE LLM call instead of one per tap.
+alter table public.daily_readings
+  add column if not exists mood_variants jsonb;
+
+-- usage_counters: atomic per-day counters behind the Ask / mood-reframe caps.
+-- Service-role only (RLS enabled with no policies) — clients never read or
+-- write these directly.
+create table if not exists public.usage_counters (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  day date not null,
+  kind text not null,
+  count integer not null default 0,
+  primary key (user_id, day, kind)
+);
+
+alter table public.usage_counters enable row level security;
+
+-- Atomic bump-and-read. SECURITY DEFINER so the Edge Function service role can
+-- call it; not exposed to anon/authenticated.
+create or replace function public.increment_usage(p_user uuid, p_day date, p_kind text)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.usage_counters (user_id, day, kind, count)
+  values (p_user, p_day, p_kind, 1)
+  on conflict (user_id, day, kind)
+  do update set count = usage_counters.count + 1
+  returning count;
+$$;
+
+revoke execute on function public.increment_usage(uuid, date, text) from public;
+revoke execute on function public.increment_usage(uuid, date, text) from anon;
+revoke execute on function public.increment_usage(uuid, date, text) from authenticated;
