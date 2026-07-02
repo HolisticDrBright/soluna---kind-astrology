@@ -8,6 +8,8 @@ import { MOCK_THREE_CARD_READING } from "@/constants/demoData";
 import { isDemoMode } from "@/lib/runtimeMode";
 import { LoadingState } from "@/components/DataStates";
 import { drawTarot } from "@/lib/api";
+import PressableScale from "@/components/PressableScale";
+import { tapMedium } from "@/lib/haptics";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
 import { ChevronLeft, Shuffle } from "lucide-react-native";
 
@@ -25,6 +27,7 @@ export default function TarotScreen() {
   const [live, setLive] = useState<LiveTarot | null>(null);
 
   const handleDraw = async (spreadId: string) => {
+    tapMedium();
     if (USE_MOCK_DATA) { setShowReading(true); return; }
     setDrawing(true);
     setDrawError("");
@@ -91,7 +94,7 @@ export default function TarotScreen() {
             {drawing ? <LoadingState message="Shuffling the deck…" /> : null}
             {drawError ? <Text style={ts.questionLabel}>{drawError}</Text> : null}
             {TAROT_SPREADS.map((spread) => (
-              <TouchableOpacity key={spread.id} style={ts.spreadCard} onPress={() => handleDraw(spread.id)} disabled={drawing} activeOpacity={0.8}>
+              <PressableScale key={spread.id} style={ts.spreadCard} onPress={() => handleDraw(spread.id)} disabled={drawing} haptic={false}>
                 <View style={ts.spreadHeader}>
                   <Shuffle size={18} color={SolunaColors.warmGold} />
                   <View style={{ flex: 1 }}>
@@ -104,7 +107,7 @@ export default function TarotScreen() {
                     <View key={i} style={ts.spreadChip}><Text style={ts.spreadChipText}>{p}</Text></View>
                   ))}
                 </View>
-              </TouchableOpacity>
+              </PressableScale>
             ))}
           </View>
         ) : (

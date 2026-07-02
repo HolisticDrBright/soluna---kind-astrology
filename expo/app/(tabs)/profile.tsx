@@ -11,6 +11,7 @@ import { Sun, Moon, Star, Bell, Clock, Lock, ChevronRight, Sparkles, Crown, LogO
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getEntitlements, updateMe, deleteAccount, getMe, type BirthProfileUpdate } from "@/lib/api";
 import { formatISODateLong } from "@/lib/dates";
+import { tapSelect } from "@/lib/haptics";
 import { registerForPushNotifications } from "@/lib/push";
 import { restorePurchases, presentCustomerCenter } from "@/lib/revenuecat";
 
@@ -617,7 +618,7 @@ function AccountSection() {
 
             disabled={houseBusy}
 
-            onPress={() => void onPickHouseSystem(sys)}
+            onPress={() => { tapSelect(); void onPickHouseSystem(sys); }}
 
           >
 
@@ -824,6 +825,7 @@ function ProfileContent() {
                 key={t}
                 style={[st.timeChip, dailyTime === t && st.timeChipActive]}
                 onPress={() => {
+                  tapSelect();
                   setDailyTime(t);
                   setShowTimePicker(false);
                   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -890,7 +892,7 @@ const st = StyleSheet.create({
   timeChipTextActive: { color: "#E8B86D" },
 
   gradient: { flex: 1 }, scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
+  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60, paddingBottom: 130 },
   profileHeader: { alignItems: "center", marginBottom: 24 },
   avatarLarge: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(232,184,109,0.12)", alignItems: "center", justifyContent: "center", marginBottom: 14, borderWidth: 2, borderColor: "rgba(232,184,109,0.2)" },
   avatarLargeText: { fontSize: 30, fontWeight: "700", color: SolunaColors.warmGold, fontFamily: Fonts.heading },

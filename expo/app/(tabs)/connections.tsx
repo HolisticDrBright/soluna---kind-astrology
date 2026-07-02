@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import ConfidencePill from "@/components/ConfidencePill";
 import { Heart, Plus, ChevronRight, Sparkles, Share2, Shield, Star, Briefcase, HeartHandshake, Baby, BookOpen, Calendar, AlertTriangle, Target } from "lucide-react-native";
 import { LoadingState, ErrorState } from "@/components/DataStates";
+import { RowsSkeleton } from "@/components/Skeleton";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getConnections, addConnection, getCompatibility, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
@@ -601,7 +602,7 @@ function ConnectionsContent() {
         {/* ── Your Circle (real data) ── */}
         {!USE_MOCK_DATA && (
           connQuery.loading ? (
-            <LoadingState message="Loading your circle…" />
+            <RowsSkeleton rows={3} />
           ) : connQuery.error ? (
             <ErrorState message={connQuery.error} onRetry={connQuery.refetch} retrying={connQuery.reloading} />
           ) : liveConnections.length === 0 ? (
@@ -630,7 +631,7 @@ export default function ConnectionsScreen() { return <ConnectionsContent />; }
 
 const st = StyleSheet.create({
   gradient: { flex: 1 }, scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
+  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60, paddingBottom: 130 },
   title: { fontSize: 28, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 4 },
   sub: { fontSize: 14, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 20, lineHeight: 20 },
   // Invite Hero

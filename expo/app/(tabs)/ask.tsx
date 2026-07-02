@@ -7,6 +7,7 @@ import { Fonts, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, type ChatMessage } from "@
 import { MOCK_CHAT_HISTORY } from "@/constants/demoData";
 import { router, useLocalSearchParams } from "expo-router";
 import { Sparkles, Send, ArrowUp, Star, Heart, Compass, Clock, RefreshCw, AlertTriangle, Target } from "lucide-react-native";
+import { tapLight } from "@/lib/haptics";
 import { getAskHistory, askSoluna } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
 import ResonanceFeedbackCard from "@/components/ResonanceFeedbackCard";
@@ -256,6 +257,7 @@ function AskContent() {
   const handlePromptPress = useCallback((p: string) => {
     if (isTyping) return;
     setInput("");
+    tapLight();
     void runAsk(p, false);
   }, [isTyping, runAsk]);
 
@@ -431,7 +433,7 @@ const st = StyleSheet.create({
   promptText: { fontSize: 12, color: SolunaColors.creamMuted, fontFamily: Fonts.body },
   freeNote: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: SolunaSpacing.md, paddingVertical: 8, marginBottom: 4 },
   freeNoteText: { flex: 1, fontSize: 10, color: SolunaColors.creamSubtle, fontFamily: Fonts.body, lineHeight: 14 },
-  inputWrap: { paddingHorizontal: SolunaSpacing.md, paddingBottom: Platform.OS === "ios" ? 100 : 20, paddingTop: 8 },
+  inputWrap: { paddingHorizontal: SolunaSpacing.md, paddingBottom: Platform.OS === "ios" ? 104 : 100, paddingTop: 8 },
   inputRow: { flexDirection: "row", alignItems: "flex-end", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SolunaRadius.lg, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", paddingLeft: 16, paddingRight: 8, paddingVertical: 4 },
   input: { flex: 1, fontSize: 15, color: SolunaColors.cream, fontFamily: Fonts.body, maxHeight: 100, paddingVertical: 10 },
   sendBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: SolunaColors.warmGold, alignItems: "center", justifyContent: "center", marginBottom: 4 },

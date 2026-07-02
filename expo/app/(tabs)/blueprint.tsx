@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated as RNAnimated, Easing } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import Svg, { Circle, Line, Text as SvgText, G } from "react-native-svg";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import Svg, { Circle, Line, Text as SvgText, G, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import SolunaColors, { SolunaRadius, SolunaSpacing } from "@/constants/colors";
 import { useAppState } from "@/state/useAppState";
 import { ZODIAC, ZODIAC_SYMBOLS, PLANET_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_ELEMENT_EMOJI, Fonts, NUMBER_MEANINGS, NAKSHATRA_MEANINGS, DASHA_PLANET_MEANINGS, PLANET_STRENGTH_MEANINGS, SOLAR_RETURN_ASC_THEMES, SOLAR_RETURN_SUN_HOUSE } from "@/constants/mockData";
@@ -15,6 +15,10 @@ import InsightActionBar from "@/components/InsightActionBar";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getYearAhead, type SolarReturnData } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
+import Reveal from "@/components/Reveal";
+import PressableScale from "@/components/PressableScale";
+import { Skeleton } from "@/components/Skeleton";
+import { tapSelect } from "@/lib/haptics";
 
 const USE_MOCK_DATA = isDemoMode;
 
@@ -78,10 +82,30 @@ function NatalChartWheel({ size, chart }: { size: number; chart: ChartData }) {
     return { x: cx + (ringOuter + 12) * Math.cos(rad), y: cy + (ringOuter + 12) * Math.sin(rad) };
   }, [chart.rising, cx, cy, ringOuter]);
 
+  // Settle-in: the wheel fades up and un-rotates slightly on first mount —
+  // hero art should arrive, not pop.
+  const settle = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    RNAnimated.timing(settle, { toValue: 1, duration: 800, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [settle]);
+
   if (size <= 0 || chartRadius <= 0 || chart.placements.length === 0) return null;
 
   return (
+    <RNAnimated.View
+      style={{
+        opacity: settle,
+        transform: [{ rotate: settle.interpolate({ inputRange: [0, 1], outputRange: ["-8deg", "0deg"] }) }],
+      }}
+    >
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Defs>
+        <SvgLinearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor="#E8B86D" stopOpacity="0.55" />
+          <Stop offset="0.5" stopColor="#F2A88D" stopOpacity="0.35" />
+          <Stop offset="1" stopColor="#B9A3E3" stopOpacity="0.55" />
+        </SvgLinearGradient>
+      </Defs>
       <Circle cx={cx} cy={cy} r={ringOuter + 6} fill="none" stroke="rgba(232,184,109,0.06)" strokeWidth={6} />
       {zodiacSegments.map((seg) => (
         <G key={seg.sign}>
@@ -89,7 +113,7 @@ function NatalChartWheel({ size, chart }: { size: number; chart: ChartData }) {
           <SvgText x={seg.mx} y={seg.my} fill={seg.isActive ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={10} fontWeight={seg.isActive ? "bold" : "normal"} textAnchor="middle">{ZODIAC_SYMBOLS[seg.sign as ZodiacSign]}</SvgText>
         </G>
       ))}
-      <Circle cx={cx} cy={cy} r={ringOuter} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={1.5} />
+      <Circle cx={cx} cy={cy} r={ringOuter} fill="none" stroke="url(#ringGrad)" strokeWidth={1.5} />
       <Circle cx={cx} cy={cy} r={ringInner} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={innerRing} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
       <Circle cx={cx} cy={cy} r={18} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />
@@ -99,11 +123,14 @@ function NatalChartWheel({ size, chart }: { size: number; chart: ChartData }) {
       )}
       {planetGlyphs.map((g) => (
         <G key={g.key}>
-          {g.big && <Circle cx={g.x} cy={g.y} r={12} fill="rgba(232,184,109,0.06)" stroke="rgba(232,184,109,0.2)" strokeWidth={1} />}
+          {g.big && <Circle cx={g.x} cy={g.y} r={20} fill="rgba(232,184,109,0.05)" />}
+          {g.big && <Circle cx={g.x} cy={g.y} r={15} fill="rgba(232,184,109,0.07)" />}
+          {g.big && <Circle cx={g.x} cy={g.y} r={12} fill="rgba(232,184,109,0.08)" stroke="rgba(232,184,109,0.28)" strokeWidth={1} />}
           <SvgText x={g.x} y={g.y} fill={g.big ? SolunaColors.warmGold : SolunaColors.creamMuted} fontSize={g.big ? 14 : 12} textAnchor="middle" fontWeight={g.big ? "bold" : "normal"}>{g.label}</SvgText>
         </G>
       ))}
     </Svg>
+    </RNAnimated.View>
   );
 }
 
@@ -219,7 +246,7 @@ const cardS = StyleSheet.create({ card: { backgroundColor: SolunaColors.cardBg, 
 // affordance so every system reads like the tappable astrology cards.
 function TapCard({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
   return (
-    <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+    <PressableScale onPress={onPress}>
       <View style={cardS.card}>
         {children}
         <View style={tapS.row}>
@@ -227,7 +254,7 @@ function TapCard({ onPress, children }: { onPress: () => void; children: React.R
           <ChevronRight size={14} color={SolunaColors.creamSubtle} />
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 const tapS = StyleSheet.create({
@@ -255,7 +282,7 @@ function BlueprintContent() {
   return (
     <LinearGradient colors={[SolunaColors.deepIndigo, SolunaColors.plumAubergine]} style={s.gradient}>
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>Your Blueprint</Text>
+        <Reveal delay={0}><Text style={s.title}>Your Blueprint</Text></Reveal>
         <Text style={s.sub}>{safeGet(user.preferredName, "You")}'s cosmic design across four lenses</Text>
 
         {/* Synthesis */}
@@ -288,7 +315,7 @@ function BlueprintContent() {
             const labels: Record<SystemLens, string> = { astrology: "Astro", numerology: "Nums", chinese: "Chinese", humanDesign: "HD", vedic: "Vedic" };
             const isActive = lens === key;
             return (
-              <TouchableOpacity key={key} style={[s.lensTab, isActive && s.lensTabActive]} onPress={() => setLens(key)}>
+              <TouchableOpacity key={key} style={[s.lensTab, isActive && s.lensTabActive]} onPress={() => { tapSelect(); setLens(key); }}>
                 <Text style={[s.lensText, isActive && s.lensTextActive]}>{labels[key]}</Text>
               </TouchableOpacity>
             );
@@ -681,7 +708,11 @@ function YearAheadCard({ data, loading }: { data: SolarReturnData | null; loadin
     return (
       <>
         <Text style={s.sectionLabel}>Year Ahead · Solar Return</Text>
-        <Card><Text style={s.baziHint}>Reading your year ahead…</Text></Card>
+        <Card>
+          <Skeleton width="40%" height={12} />
+          <Skeleton width="88%" height={13} style={{ marginTop: 10 }} />
+          <Skeleton width="72%" height={13} style={{ marginTop: 7 }} />
+        </Card>
       </>
     );
   }
@@ -884,7 +915,7 @@ export default function BlueprintScreen() {
 
 const s = StyleSheet.create({
   gradient: { flex: 1 }, scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60 },
+  scrollContent: { paddingHorizontal: SolunaSpacing.md, paddingTop: 60, paddingBottom: 130 },
   title: { fontSize: 28, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 4 },
   sub: { fontSize: 14, color: SolunaColors.creamMuted, fontFamily: Fonts.body, marginBottom: 16 },
   synthesisBtn: { marginBottom: 10 },

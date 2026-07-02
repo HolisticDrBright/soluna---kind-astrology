@@ -29,6 +29,9 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { getToday, saveItem } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
 import { formatISODateWeekday } from "@/lib/dates";
+import Reveal from "@/components/Reveal";
+import { TodaySkeleton } from "@/components/Skeleton";
+import { tapSelect, tapSuccess, tapLight, tapMedium } from "@/lib/haptics";
 import { router } from "expo-router";
 import type { ConfidenceLevel } from "@/components/ConfidencePill";
 import { ChevronDown, ChevronUp, ChevronRight, Target } from "lucide-react-native";
@@ -226,6 +229,7 @@ export default function TodayScreen() {
 
   const handleSave = useCallback(() => {
     setSaved(true);
+    tapSuccess();
     // Persist for real (backend saved-items API); local state keeps the UI instant.
     if (!USE_MOCK_DATA) {
       const refId = todayQuery.data?.reading_date ?? new Date().toISOString().split("T")[0];
@@ -386,6 +390,7 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Greeting ─── */}
+        <Reveal delay={0}>
         <Text style={st.greeting}>{greetingForHour(new Date().getHours())}, {user.preferredName}</Text>
         <Text style={st.date}>
           {view?.readingDate
@@ -396,8 +401,10 @@ export default function TodayScreen() {
                 day: "numeric",
               })}
         </Text>
+        </Reveal>
 
         {/* ─── Mood Check-In ─── */}
+        <Reveal delay={70}>
         <View style={st.moodWrap}>
           <Text style={st.moodQuestion}>What kind of support do you need today?</Text>
           <View style={st.moodRow}>
@@ -410,7 +417,7 @@ export default function TodayScreen() {
                     st.moodChip,
                     isSelected && { backgroundColor: `${opt.color}18`, borderColor: `${opt.color}30` },
                   ]}
-                  onPress={() => setMoodSupport(isSelected ? null : opt.id)}
+                  onPress={() => { tapSelect(); setMoodSupport(isSelected ? null : opt.id); }}
                   activeOpacity={0.7}
                 >
                   <Text style={st.moodEmoji}>{opt.emoji}</Text>
@@ -441,10 +448,11 @@ export default function TodayScreen() {
             </Text>
           ) : null}
         </View>
+        </Reveal>
 
         {/* ─── Today's reading (real data with loading/empty/error/retry) ─── */}
         {!view && todayQuery.loading ? (
-          <LoadingState message="Reading today's sky…" />
+          <TodaySkeleton />
         ) : !view && todayQuery.error ? (
           <ErrorState message={todayQuery.error} onRetry={todayQuery.refetch} retrying={todayQuery.reloading} />
         ) : !view ? (
@@ -455,6 +463,7 @@ export default function TodayScreen() {
             onAction={todayQuery.refetch}
           />
         ) : (
+          <Reveal delay={130}>
           <>
             {/* ─── Confidence Badge ─── */}
             <View style={st.confRow}>
@@ -548,7 +557,7 @@ export default function TodayScreen() {
 
             {/* ─── Moon Ritual (only on New/Full moons — the spec's ritual moment) ─── */}
             {view.sky && /new moon|full moon/i.test(view.sky.moonPhase) ? (
-              <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => router.push("/rituals")}>
+              <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => { tapLight(); router.push("/rituals"); }}>
                 <View style={st.focusEntryIcon}>
                   <Text style={{ fontSize: 16 }}>{/full/i.test(view.sky.moonPhase) ? "🌕" : "🌑"}</Text>
                 </View>
@@ -567,7 +576,7 @@ export default function TodayScreen() {
             <ResonanceFeedbackCard key={`${view.readingDate ?? "today"}-${moodSupport ?? "neutral"}`} sourceType="today" />
 
             {/* ─── Cosmic Journal entry point ─── */}
-            <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => router.push("/journal")}>
+            <TouchableOpacity style={st.journalEntry} activeOpacity={0.7} onPress={() => { tapLight(); router.push("/journal"); }}>
               <View style={st.focusEntryIcon}>
                 <Text style={{ fontSize: 16 }}>📓</Text>
               </View>
@@ -751,7 +760,7 @@ export default function TodayScreen() {
                     <TouchableOpacity
                       style={st.fullSpreadBtn}
                       activeOpacity={0.7}
-                      onPress={() => router.push("/tarot")}
+                      onPress={() => { tapMedium(); router.push("/tarot"); }}
                     >
                       <Text style={st.fullSpreadText}>Pull a full spread →</Text>
                     </TouchableOpacity>
@@ -842,6 +851,7 @@ export default function TodayScreen() {
                       style={st.shareAffirmBtn}
                       activeOpacity={0.7}
                       onPress={() => {
+                        tapLight();
                         void Share.share({ message: `${view.affirmation}\n\n— my affirmation today, from Soluna ☾` });
                       }}
                     >
@@ -906,6 +916,7 @@ export default function TodayScreen() {
               </TouchableOpacity>
             ) : null}
           </>
+          </Reveal>
         )}
 
         <View style={st.bottomPad} />
@@ -937,7 +948,8 @@ const st = StyleSheet.create({
 
   // Greeting
   greeting: {
-    fontSize: 26,
+    fontSize: 30,
+    letterSpacing: 0.2,
     fontFamily: Fonts.heading,
     color: SolunaColors.cream,
     marginBottom: 2,
