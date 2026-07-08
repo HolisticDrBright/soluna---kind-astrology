@@ -8,6 +8,7 @@ import { CITIES, CITY_COORDS, ZODIAC_SYMBOLS, CHINESE_ANIMAL_EMOJI, CHINESE_INTE
 import { ChevronLeft, Sparkles, Sun, Moon, Star, Hash, Bird, Cpu, MapPin, Clock } from "lucide-react-native";
 import { submitOnboarding, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
+import { parseFlexibleBirthDate, formatBirthDateTyping } from "@/lib/dates";
 
 const TOTAL_STEPS = 8;
 
@@ -260,31 +261,22 @@ export default function OnboardingScreen() {
   const formatDateLong = (d: Date) => d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const parseAndSetDate = (text: string) => {
-    setBirthDateText(text);
+    // Auto-insert slashes while typing digits; never rewrite what they typed
+    // (the old version snapped to "June 22, 1995" mid-keystroke). All parsing is
+    // by parts — Hermes can't reliably parse date STRINGS via new Date().
+    const shaped = formatBirthDateTyping(text);
+    setBirthDateText(shaped);
     setDateError("");
-    const trimmed = text.trim();
-    if (trimmed.length === 0) { setBirthDate(null); return; }
-
-    let parsed: Date | null = null;
-    const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (slashMatch) {
-      const [, m, d, y] = slashMatch;
-      parsed = new Date(+y, +m - 1, +d);
+    const iso = parseFlexibleBirthDate(shaped);
+    if (!iso) {
+      setBirthDate(null);
+      if (shaped.trim().length >= 10) {
+        setDateError("Try MM/DD/YYYY, like 06/22/1995.");
+      }
+      return;
     }
-    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (!parsed && isoMatch) {
-      const [, y, m, d] = isoMatch;
-      parsed = new Date(+y, +m - 1, +d);
-    }
-    if (!parsed) parsed = new Date(trimmed);
-
-    if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < new Date().getFullYear()) {
-      setBirthDate(parsed);
-      setBirthDateText(parsed.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
-      setDateError("");
-    } else if (trimmed.length >= 3) {
-      setDateError("Try a format like 'June 22, 1995' or '06/22/1995'");
-    }
+    const [y, m, d] = iso.split("-").map(Number);
+    setBirthDate(new Date(y, m - 1, d));
   };
 
   const isFullNameValid = fullName.trim().length > 0;
@@ -522,7 +514,7 @@ export default function OnboardingScreen() {
                   style={[os.input, dateError ? { borderColor: SolunaColors.softPeach } : undefined]}
                   value={birthDateText}
                   onChangeText={parseAndSetDate}
-                  placeholder="e.g. June 22, 1995"
+                  placeholder="MM/DD/YYYY — e.g. 06/22/1995"
                   placeholderTextColor={SolunaColors.creamSubtle}
                   autoFocus autoCorrect={false}
                 />

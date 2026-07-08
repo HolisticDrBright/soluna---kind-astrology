@@ -14,26 +14,15 @@ import { RowsSkeleton } from "@/components/Skeleton";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { getConnections, addConnection, getCompatibility, geoAutocomplete, geoResolve, type PlaceSuggestion, type ResolvedPlace } from "@/lib/api";
 import { isDemoMode } from "@/lib/runtimeMode";
-import { formatISODateLong } from "@/lib/dates";
+import { formatISODateLong, parseFlexibleBirthDate, formatBirthDateTyping } from "@/lib/dates";
 
 const USE_MOCK_DATA = isDemoMode;
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-const parseBirthDate = (text: string): string | null => {
-  const t = text.trim();
-  if (!t) return null;
-  // ISO-style input parses by CALENDAR PARTS — `new Date("1993-07-05")` is UTC
-  // midnight, which becomes July 4 on devices west of UTC (wrong chart).
-  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
-  if (isoMatch) {
-    const y = Number(isoMatch[1]), mo = Number(isoMatch[2]), dd = Number(isoMatch[3]);
-    if (y < 1900 || y > new Date().getFullYear() || mo < 1 || mo > 12 || dd < 1 || dd > 31) return null;
-    return `${y}-${String(mo).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-  }
-  const d = new Date(t);
-  if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > new Date().getFullYear()) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+// All by-parts parsing (Hermes can't reliably parse "01/23/1996" or
+// "July 5, 1993" via new Date(string) — which is why the field got stuck even
+// on perfectly-typed input).
+const parseBirthDate = (text: string): string | null => parseFlexibleBirthDate(text);
 // Display a stored birth date by its literal calendar parts (no UTC day-shift).
 const formatBirth = (iso: string) => formatISODateLong(iso);
 // Parse a typed birth time into "HH:MM" (24h). Accepts "14:30" or "2:30 PM".
@@ -127,7 +116,7 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
     const n = name.trim();
     if (!n) { setErr("Add their name."); return; }
     const iso = parseBirthDate(date);
-    if (!iso) { setErr("Add a valid birth date, like July 5, 1993."); return; }
+    if (!iso) { setErr("Add a valid birth date like 01/23/1996 (MM/DD/YYYY)."); return; }
     const bt = parseBirthTime(birthTime);
     if (bt === undefined) { setErr("That birth time looks off — use 24h like 14:30, or leave it blank."); return; }
     if (USE_MOCK_DATA) { onClose(); return; }
@@ -165,7 +154,18 @@ function AddPersonForm({ onClose, onAdded, defaultLens }: { onClose: () => void;
     <View style={fS.wrap}>
       <Text style={fS.title}>Add Someone to Your Circle</Text>
       <TextInput style={fS.input} value={name} onChangeText={setName} placeholder="Their full name" placeholderTextColor={SolunaColors.creamSubtle} />
-      <TextInput style={fS.input} value={date} onChangeText={setDate} placeholder="Birth date (e.g. July 5, 1993)" placeholderTextColor={SolunaColors.creamSubtle} />
+      <TextInput
+        style={fS.input}
+        value={date}
+        onChangeText={(t) => setDate(formatBirthDateTyping(t))}
+        placeholder="Birth date — MM/DD/YYYY (e.g. 01/23/1996)"
+        placeholderTextColor={SolunaColors.creamSubtle}
+        keyboardType="numbers-and-punctuation"
+        autoCorrect={false}
+      />
+      {date.length > 0 && parseBirthDate(date) ? (
+        <Text style={fS.dateOk}>✓ {formatISODateLong(parseBirthDate(date)!)}</Text>
+      ) : null}
       <TextInput style={fS.input} value={birthTime} onChangeText={setBirthTime} placeholder="Birth time (optional, e.g. 14:30)" placeholderTextColor={SolunaColors.creamSubtle} autoCapitalize="none" />
       {!USE_MOCK_DATA && (
         <View>
@@ -280,6 +280,7 @@ function LiveConnectionCard({ conn, lens }: { conn: { id: string; name: string; 
   );
 }
 const fS = StyleSheet.create({
+  dateOk: { color: "#7BC89C", fontSize: 12, marginTop: -6, marginBottom: 10, marginLeft: 4 },
   wrap: { backgroundColor: SolunaColors.cardBg, borderRadius: SolunaRadius.lg, padding: 20, borderWidth: 1, borderColor: SolunaColors.cardBorder, marginBottom: 16 },
   title: { fontSize: 18, fontFamily: Fonts.heading, color: SolunaColors.cream, marginBottom: 16 },
   input: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SolunaRadius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: SolunaColors.cream, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", fontFamily: Fonts.body, marginBottom: 12 },
