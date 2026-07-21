@@ -16,7 +16,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
       "ios": {
         "simulator": false
       },
@@ -27,7 +26,6 @@
     "production": {
       "environment": "production",
       "autoIncrement": true,
-      "channel": "production",
       "env": {
         "EXPO_PUBLIC_ENABLE_DEMO_MODE": "false",
         "EXPO_PUBLIC_ENABLE_MOCK_READINGS": "false",
@@ -36,6 +34,10 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6785301774"
+      }
+    }
   }
 }
