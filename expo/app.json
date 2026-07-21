@@ -2,6 +2,7 @@
   "expo": {
     "name": "Soluna",
     "slug": "soluna-kind-astrology",
+    "owner": "holisticdrbright",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -46,6 +47,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7f8c61fd-28f3-4ac2-85dc-d8bb9933aad5"
+      }
     }
   }
 }
